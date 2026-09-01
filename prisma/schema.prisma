@@ -1,0 +1,42 @@
+// Go Choww Operations & Debt Recovery SaaS Prisma Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model DeliveryOrder {
+  id              String   @id @default(uuid())
+  orderId         String   @unique
+  createdAt       DateTime @default(now())
+  time            String   // e.g. "01:45 PM"
+  customerName    String
+  cafeteriaName   String
+  deliveryAddress String
+  deliveryFee     Decimal  @db.Decimal(10, 2)
+  foodTotal       Decimal  @db.Decimal(10, 2)
+  totalAmountPaid Decimal  @db.Decimal(10, 2)
+  deliveryType    String   // Values: "Same side", "Different side", "Pick up", "Other"
+  orderStatus     String   // Values: "Completed", "Cancelled", "Pending"
+  paymentStatus   String   // Values: "success", "failed", "pending"
+
+  @@index([orderStatus, paymentStatus])
+  @@index([createdAt])
+  @@index([deliveryType])
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  date        DateTime
+  category    String   // e.g. "Software", "Fuel", "Marketing", "Salaries", "Miscellaneous"
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+
+  @@index([date])
+  @@index([category])
+}
