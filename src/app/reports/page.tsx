@@ -5,15 +5,9 @@ import { AppLayout } from '@/components/AppLayout';
 import { Header } from '@/components/Header';
 import { formatNaira } from '@/lib/financials';
 import {
-  BarChart3,
-  Calendar,
-  Layers,
   Store,
   TrendingUp,
-  TrendingDown,
   Activity,
-  ArrowUpRight,
-  ShieldCheck,
   FileSpreadsheet,
 } from 'lucide-react';
 import {
@@ -62,26 +56,26 @@ const CustomDailyNetTooltip = ({ active, payload, label }: any) => {
     const d = payload[0]?.payload;
     const isProfit = d.netProfit >= 0;
     return (
-      <div className="rounded-xl bg-[#0e1726] border border-[#22354e] p-3.5 shadow-2xl text-xs space-y-1.5 z-50">
-        <div className="font-extrabold text-white text-sm border-b border-[#22354e] pb-1 flex items-center justify-between gap-3">
+      <div className="rounded-xl bg-white border border-slate-200 p-3.5 shadow-xl shadow-slate-200/50 text-xs space-y-1.5 z-50">
+        <div className="font-extrabold text-slate-900 text-sm border-b border-slate-100 pb-1 flex items-center justify-between gap-3">
           <span>{d.displayDate || label}</span>
-          <span className="text-slate-400 font-medium">{d.totalOrders} total orders</span>
+          <span className="text-slate-500 font-medium">{d.totalOrders} total orders</span>
         </div>
-        <div className="flex justify-between gap-4 text-slate-300">
+        <div className="flex justify-between gap-4 text-slate-600">
           <span>Gross Delivery Revenue:</span>
-          <span className="font-bold text-white">{formatNaira(d.grossRevenue)}</span>
+          <span className="font-bold text-slate-900">{formatNaira(d.grossRevenue)}</span>
         </div>
-        <div className="flex justify-between gap-4 text-slate-300">
+        <div className="flex justify-between gap-4 text-slate-600">
           <span>Rider Payout:</span>
-          <span className="font-bold text-indigo-300">{formatNaira(d.riderFees)}</span>
+          <span className="font-bold text-blue-700">{formatNaira(d.riderFees)}</span>
         </div>
-        <div className="flex justify-between gap-4 text-slate-300">
+        <div className="flex justify-between gap-4 text-slate-600">
           <span>Daily Expenses:</span>
-          <span className="font-bold text-rose-400">{formatNaira(d.expenses)}</span>
+          <span className="font-bold text-rose-600">{formatNaira(d.expenses)}</span>
         </div>
-        <div className="flex justify-between gap-4 pt-1 border-t border-[#1e2f47] font-bold">
-          <span className={isProfit ? 'text-emerald-400' : 'text-red-400'}>Daily Net Profit:</span>
-          <span className={`font-black ${isProfit ? 'text-emerald-300' : 'text-red-300'}`}>
+        <div className="flex justify-between gap-4 pt-1 border-t border-slate-100 font-bold">
+          <span className={isProfit ? 'text-emerald-700' : 'text-rose-700'}>Daily Net Profit:</span>
+          <span className={`font-black ${isProfit ? 'text-emerald-700' : 'text-rose-700'}`}>
             {formatNaira(d.netProfit)}
           </span>
         </div>
@@ -129,23 +123,23 @@ export default function ReportsPage() {
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-white flex items-center gap-2.5">
-              <FileSpreadsheet className="w-7 h-7 text-brand-500" />
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-2.5">
+              <FileSpreadsheet className="w-7 h-7 text-brand-600" />
               Summaries &amp; Financial Reports
             </h1>
-            <p className="text-xs text-slate-400 font-medium mt-1">
+            <p className="text-xs text-slate-500 font-medium mt-1">
               Excel-equivalent Daily Summary and Monthly Ledger analytics with cafeteria breakdowns
             </p>
           </div>
 
           {/* Tab Switcher */}
-          <div className="inline-flex rounded-xl bg-[#142033] border border-[#213049] p-1 self-start sm:self-auto">
+          <div className="inline-flex rounded-xl bg-slate-100 border border-slate-200 p-1 self-start sm:self-auto shadow-inner">
             <button
               onClick={() => setActiveTab('daily')}
               className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-extrabold transition-all ${
                 activeTab === 'daily'
-                  ? 'bg-brand-500 text-white shadow-md shadow-brand-500/25'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               Daily Summary Tab
@@ -154,8 +148,8 @@ export default function ReportsPage() {
               onClick={() => setActiveTab('monthly')}
               className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-extrabold transition-all ${
                 activeTab === 'monthly'
-                  ? 'bg-brand-500 text-white shadow-md shadow-brand-500/25'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               Monthly Summary Tab
@@ -169,47 +163,47 @@ export default function ReportsPage() {
         {activeTab === 'daily' && (
           <div className="space-y-6">
             {/* Daily Net Profit Bar Chart */}
-            <div className="rounded-2xl bg-[#0f1929] border border-[#1b2a3f] p-5 sm:p-6 shadow-xl space-y-4">
+            <div className="rounded-2xl bg-white border border-slate-200/90 p-5 sm:p-6 shadow-sm space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-emerald-400" />
+                  <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-emerald-600" />
                     Daily Net Profit Trajectory
                   </h3>
-                  <p className="text-xs text-slate-400 font-medium">
+                  <p className="text-xs text-slate-500 font-medium">
                     Gross Delivery Revenue minus Rider Pay and Daily Expenses
                   </p>
                 </div>
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-[#162235] text-slate-300 border border-[#23354e]">
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-50 text-slate-600 border border-slate-200">
                   Active Days Tracked: {dailyChartData.length}
                 </span>
               </div>
 
               <div className="w-full h-64 sm:h-72">
                 {isLoading ? (
-                  <div className="h-full flex items-center justify-center text-slate-500">
+                  <div className="h-full flex items-center justify-center text-slate-400">
                     <Activity className="w-8 h-8 animate-spin text-brand-500" />
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={dailyChartData} margin={{ top: 15, right: 10, left: -15, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1c2c42" vertical={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                       <XAxis
                         dataKey="displayDate"
-                        stroke="#64748b"
+                        stroke="#94a3b8"
                         fontSize={11}
                         tickLine={false}
-                        axisLine={{ stroke: '#203046' }}
+                        axisLine={{ stroke: '#e2e8f0' }}
                       />
                       <YAxis
-                        stroke="#64748b"
+                        stroke="#94a3b8"
                         fontSize={11}
                         tickLine={false}
-                        axisLine={{ stroke: '#203046' }}
+                        axisLine={{ stroke: '#e2e8f0' }}
                         tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`}
                       />
                       <Tooltip content={<CustomDailyNetTooltip />} />
-                      <ReferenceLine y={0} stroke="#475569" />
+                      <ReferenceLine y={0} stroke="#cbd5e1" />
                       <Bar dataKey="netProfit" name="Daily Net Profit" radius={[6, 6, 0, 0]}>
                         {dailyChartData.map((entry, index) => (
                           <Cell
@@ -225,17 +219,17 @@ export default function ReportsPage() {
             </div>
 
             {/* Daily Aggregation Table */}
-            <div className="rounded-2xl bg-[#0f1929] border border-[#1b2a3f] shadow-xl overflow-hidden">
-              <div className="p-5 border-b border-[#1a293d]">
-                <h3 className="text-base font-extrabold text-white">Daily Operational Ledger</h3>
-                <p className="text-xs text-slate-400 font-medium">
+            <div className="rounded-2xl bg-white border border-slate-200/90 shadow-sm overflow-hidden">
+              <div className="p-5 border-b border-slate-100">
+                <h3 className="text-base font-extrabold text-slate-900">Daily Operational Ledger</h3>
+                <p className="text-xs text-slate-500 font-medium">
                   Aggregated financial figures per operational calendar date
                 </p>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-[#142033] text-slate-400 uppercase tracking-wider font-extrabold text-[10px] border-b border-[#1b2a3f]">
+                <table className="w-full text-left text-xs text-slate-600">
+                  <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-extrabold text-[10px] border-b border-slate-200">
                     <tr>
                       <th className="px-4 py-3.5">Date</th>
                       <th className="px-4 py-3.5 text-center">Total Orders</th>
@@ -246,12 +240,12 @@ export default function ReportsPage() {
                       <th className="px-4 py-3.5 text-right font-black">Daily Net Profit</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#18263a]">
+                  <tbody className="divide-y divide-slate-100">
                     {isLoading ? (
                       [...Array(6)].map((_, i) => (
                         <tr key={i} className="animate-pulse">
-                          <td colSpan={7} className="px-4 py-4 bg-[#101a2b]">
-                            <div className="h-4 bg-[#18263a] rounded w-full" />
+                          <td colSpan={7} className="px-4 py-4 bg-slate-50/50">
+                            <div className="h-4 bg-slate-200 rounded w-full" />
                           </td>
                         </tr>
                       ))
@@ -259,31 +253,31 @@ export default function ReportsPage() {
                       dailySummary.map((row) => {
                         const isProfit = row.netProfit >= 0;
                         return (
-                          <tr key={row.date} className="hover:bg-[#142236] transition-colors">
-                            <td className="px-4 py-3.5 font-bold text-white whitespace-nowrap">
+                          <tr key={row.date} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="px-4 py-3.5 font-bold text-slate-900 whitespace-nowrap">
                               {row.displayDate}
                             </td>
-                            <td className="px-4 py-3.5 text-center font-medium text-slate-300">
+                            <td className="px-4 py-3.5 text-center font-medium text-slate-600">
                               {row.totalOrders}
                             </td>
-                            <td className="px-4 py-3.5 text-center font-extrabold text-cyan-400">
+                            <td className="px-4 py-3.5 text-center font-extrabold text-blue-600">
                               {row.completedOrders}
                             </td>
-                            <td className="px-4 py-3.5 text-right font-bold text-brand-400">
+                            <td className="px-4 py-3.5 text-right font-bold text-brand-600">
                               {formatNaira(row.grossRevenue)}
                             </td>
-                            <td className="px-4 py-3.5 text-right font-medium text-indigo-300">
+                            <td className="px-4 py-3.5 text-right font-medium text-blue-700">
                               {formatNaira(row.riderFees)}
                             </td>
-                            <td className="px-4 py-3.5 text-right font-medium text-rose-400">
+                            <td className="px-4 py-3.5 text-right font-medium text-rose-600">
                               {formatNaira(row.expenses)}
                             </td>
                             <td className="px-4 py-3.5 text-right font-black">
                               <span
-                                className={`px-2 py-0.5 rounded ${
+                                className={`px-2.5 py-0.5 rounded-md font-bold text-xs ${
                                   isProfit
-                                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                                    : 'bg-red-500/15 text-red-300 border border-red-500/30'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : 'bg-rose-50 text-rose-700 border border-rose-200'
                                 }`}
                               >
                                 {formatNaira(row.netProfit)}
@@ -306,17 +300,17 @@ export default function ReportsPage() {
         {activeTab === 'monthly' && (
           <div className="space-y-6">
             {/* Monthly Aggregation Table */}
-            <div className="rounded-2xl bg-[#0f1929] border border-[#1b2a3f] shadow-xl overflow-hidden">
-              <div className="p-5 border-b border-[#1a293d]">
-                <h3 className="text-base font-extrabold text-white">Monthly Summary Ledger</h3>
-                <p className="text-xs text-slate-400 font-medium">
+            <div className="rounded-2xl bg-white border border-slate-200/90 shadow-sm overflow-hidden">
+              <div className="p-5 border-b border-slate-100">
+                <h3 className="text-base font-extrabold text-slate-900">Monthly Summary Ledger</h3>
+                <p className="text-xs text-slate-500 font-medium">
                   Month-by-month financial statement showing revenues, rider costs, expenses, and retained net profit
                 </p>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-[#142033] text-slate-400 uppercase tracking-wider font-extrabold text-[10px] border-b border-[#1b2a3f]">
+                <table className="w-full text-left text-xs text-slate-600">
+                  <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-extrabold text-[10px] border-b border-slate-200">
                     <tr>
                       <th className="px-4 py-3.5">Month</th>
                       <th className="px-4 py-3.5 text-center">Total Orders</th>
@@ -327,38 +321,38 @@ export default function ReportsPage() {
                       <th className="px-4 py-3.5 text-right font-black">Net Profit (₦)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#18263a]">
+                  <tbody className="divide-y divide-slate-100">
                     {isLoading ? (
                       [...Array(2)].map((_, i) => (
                         <tr key={i} className="animate-pulse">
-                          <td colSpan={7} className="px-4 py-4 bg-[#101a2b]">
-                            <div className="h-4 bg-[#18263a] rounded w-full" />
+                          <td colSpan={7} className="px-4 py-4 bg-slate-50/50">
+                            <div className="h-4 bg-slate-200 rounded w-full" />
                           </td>
                         </tr>
                       ))
                     ) : (
                       monthlySummary.map((m) => (
-                        <tr key={m.monthKey} className="hover:bg-[#142236] transition-colors">
-                          <td className="px-4 py-3.5 font-extrabold text-white text-sm whitespace-nowrap">
+                        <tr key={m.monthKey} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-4 py-3.5 font-extrabold text-slate-900 text-sm whitespace-nowrap">
                             {m.monthName}
                           </td>
-                          <td className="px-4 py-3.5 text-center font-bold text-slate-300">
+                          <td className="px-4 py-3.5 text-center font-bold text-slate-700">
                             {m.totalOrders}
                           </td>
-                          <td className="px-4 py-3.5 text-center font-extrabold text-cyan-400">
+                          <td className="px-4 py-3.5 text-center font-extrabold text-blue-600">
                             {m.completedOrders}
                           </td>
-                          <td className="px-4 py-3.5 text-right font-black text-brand-400 text-sm">
+                          <td className="px-4 py-3.5 text-right font-black text-brand-600 text-sm">
                             {formatNaira(m.grossRevenue)}
                           </td>
-                          <td className="px-4 py-3.5 text-right font-bold text-indigo-300">
+                          <td className="px-4 py-3.5 text-right font-bold text-blue-700">
                             {formatNaira(m.riderPayout)}
                           </td>
-                          <td className="px-4 py-3.5 text-right font-bold text-rose-400">
+                          <td className="px-4 py-3.5 text-right font-bold text-rose-600">
                             {formatNaira(m.totalExpenses)}
                           </td>
                           <td className="px-4 py-3.5 text-right">
-                            <span className="px-2.5 py-1 rounded-md text-sm font-black bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                            <span className="px-2.5 py-1 rounded-md text-sm font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
                               {formatNaira(m.netProfit)}
                             </span>
                           </td>
@@ -371,20 +365,20 @@ export default function ReportsPage() {
             </div>
 
             {/* Top Cafeterias Breakdown */}
-            <div className="rounded-2xl bg-[#0f1929] border border-[#1b2a3f] shadow-xl overflow-hidden">
-              <div className="p-5 border-b border-[#1a293d]">
-                <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-                  <Store className="w-5 h-5 text-amber-400" />
+            <div className="rounded-2xl bg-white border border-slate-200/90 shadow-sm overflow-hidden">
+              <div className="p-5 border-b border-slate-100">
+                <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                  <Store className="w-5 h-5 text-amber-600" />
                   Top Cafeterias &amp; Food Vendors Breakdown
                 </h3>
-                <p className="text-xs text-slate-400 font-medium">
+                <p className="text-xs text-slate-500 font-medium">
                   Aggregated food order volumes and generated delivery fees per cafeteria partner
                 </p>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-[#142033] text-slate-400 uppercase tracking-wider font-extrabold text-[10px] border-b border-[#1b2a3f]">
+                <table className="w-full text-left text-xs text-slate-600">
+                  <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-extrabold text-[10px] border-b border-slate-200">
                     <tr>
                       <th className="px-4 py-3.5">Rank &amp; Cafeteria</th>
                       <th className="px-4 py-3.5 text-center">Total Orders</th>
@@ -392,31 +386,31 @@ export default function ReportsPage() {
                       <th className="px-4 py-3.5 text-right">Delivery Fees Generated</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#18263a]">
+                  <tbody className="divide-y divide-slate-100">
                     {isLoading ? (
                       [...Array(5)].map((_, i) => (
                         <tr key={i} className="animate-pulse">
-                          <td colSpan={4} className="px-4 py-4 bg-[#101a2b]">
-                            <div className="h-4 bg-[#18263a] rounded w-full" />
+                          <td colSpan={4} className="px-4 py-4 bg-slate-50/50">
+                            <div className="h-4 bg-slate-200 rounded w-full" />
                           </td>
                         </tr>
                       ))
                     ) : (
                       topCafeterias.map((cat, idx) => (
-                        <tr key={cat.cafeteriaName} className="hover:bg-[#142236] transition-colors">
-                          <td className="px-4 py-3.5 font-bold text-white flex items-center gap-3">
-                            <span className="w-6 h-6 rounded-full bg-[#18263a] text-slate-300 flex items-center justify-center text-[11px] font-extrabold">
+                        <tr key={cat.cafeteriaName} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-4 py-3.5 font-bold text-slate-900 flex items-center gap-3">
+                            <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[11px] font-extrabold">
                               #{idx + 1}
                             </span>
                             <span>{cat.cafeteriaName}</span>
                           </td>
-                          <td className="px-4 py-3.5 text-center font-extrabold text-cyan-400">
+                          <td className="px-4 py-3.5 text-center font-extrabold text-blue-600">
                             {cat.orderCount} orders
                           </td>
-                          <td className="px-4 py-3.5 text-right font-medium text-slate-200">
+                          <td className="px-4 py-3.5 text-right font-medium text-slate-700">
                             {formatNaira(cat.totalFoodValue)}
                           </td>
-                          <td className="px-4 py-3.5 text-right font-black text-brand-400">
+                          <td className="px-4 py-3.5 text-right font-black text-brand-600">
                             {formatNaira(cat.totalDeliveryFees)}
                           </td>
                         </tr>

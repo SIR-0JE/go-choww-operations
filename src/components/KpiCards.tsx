@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Banknote, Users, Receipt, TrendingUp, PackageCheck } from 'lucide-react';
+import { Banknote, Users, Receipt, TrendingUp } from 'lucide-react';
 import { MetricsSummary, formatNaira } from '@/lib/financials';
 
 interface KpiCardsProps {
@@ -16,7 +16,7 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ metrics, isLoading }) => {
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className="h-32 rounded-2xl bg-[#111c2e] border border-[#1d2b40] animate-pulse p-5"
+            className="h-36 rounded-2xl bg-white border border-slate-200 animate-pulse p-5 shadow-sm"
           />
         ))}
       </div>
@@ -29,19 +29,19 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ metrics, isLoading }) => {
       value: formatNaira(metrics.grossDeliveryRevenue),
       subtext: `${metrics.settledOrdersCount} settled delivery runs`,
       icon: Banknote,
-      color: 'from-brand-500/20 to-amber-500/10 text-brand-400 border-brand-500/20',
+      iconColor: 'bg-brand-50 text-brand-600 border-brand-200/60',
       badge: 'Delivery Fees',
-      badgeColor: 'bg-brand-500/10 text-brand-300 border-brand-500/30',
-      tooltip: 'Sum of delivery fees across verified settled orders',
+      badgeColor: 'bg-brand-50 text-brand-700 border-brand-200/80',
+      tooltip: 'Sum of delivery fees across verified completed orders',
     },
     {
       title: 'Total Rider Pay',
       value: formatNaira(metrics.totalRiderPayout),
       subtext: '₦50 Same side • ₦90 Diff side',
       icon: Users,
-      color: 'from-blue-500/20 to-cyan-500/10 text-cyan-400 border-cyan-500/20',
+      iconColor: 'bg-blue-50 text-blue-600 border-blue-200/60',
       badge: 'Payouts',
-      badgeColor: 'bg-blue-500/10 text-blue-300 border-blue-500/30',
+      badgeColor: 'bg-blue-50 text-blue-700 border-blue-200/80',
       tooltip: 'Direct rider delivery payouts (Same side ₦50, Different side ₦90)',
     },
     {
@@ -49,9 +49,9 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ metrics, isLoading }) => {
       value: formatNaira(metrics.totalExpenses),
       subtext: 'Fuel, Software, Salaries, Misc',
       icon: Receipt,
-      color: 'from-rose-500/20 to-pink-500/10 text-rose-400 border-rose-500/20',
+      iconColor: 'bg-rose-50 text-rose-600 border-rose-200/60',
       badge: 'Operational Costs',
-      badgeColor: 'bg-rose-500/10 text-rose-300 border-rose-500/30',
+      badgeColor: 'bg-rose-50 text-rose-700 border-rose-200/80',
       tooltip: 'All operational and administrative expenses logged in the ledger',
     },
     {
@@ -59,9 +59,9 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ metrics, isLoading }) => {
       value: formatNaira(metrics.netProfit),
       subtext: 'Gross Revenue - Rider Pay - Expenses',
       icon: TrendingUp,
-      color: 'from-emerald-500/20 to-teal-500/10 text-emerald-400 border-emerald-500/20',
+      iconColor: 'bg-emerald-50 text-emerald-600 border-emerald-200/60',
       badge: 'Net Earnings',
-      badgeColor: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
+      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
       tooltip: 'Retained operational earnings toward the ₦3,500,000 debt sprint',
     },
   ];
@@ -73,27 +73,27 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ metrics, isLoading }) => {
         return (
           <div
             key={idx}
-            className="group relative rounded-2xl bg-[#0f1929] border border-[#1b2a3f] p-5 shadow-lg shadow-black/20 hover:border-[#2b3e5a] transition-all hover:-translate-y-0.5"
+            className="group relative rounded-2xl bg-white border border-slate-200/90 p-5 sm:p-6 shadow-sm hover:shadow-md hover:border-slate-300 transition-all hover:-translate-y-0.5"
             title={card.tooltip}
           >
             {/* Top Row: Title + Icon */}
             <div className="flex items-center justify-between gap-2 mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 {card.title}
               </span>
-              <div className={`p-2 rounded-xl border bg-gradient-to-br ${card.color}`}>
+              <div className={`p-2.5 rounded-xl border ${card.iconColor}`}>
                 <Icon className="w-5 h-5" />
               </div>
             </div>
 
             {/* Middle Row: Large Value */}
-            <div className="text-2xl sm:text-3xl font-black tracking-tight text-white mb-2">
+            <div className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 mb-2">
               {card.value}
             </div>
 
             {/* Bottom Row: Badge & Subtext */}
-            <div className="flex items-center justify-between text-xs pt-1 border-t border-[#182436]">
-              <span className="text-slate-400 font-medium truncate">
+            <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
+              <span className="text-slate-500 font-medium truncate">
                 {card.subtext}
               </span>
               <span className={`px-2 py-0.5 rounded-md font-bold text-[11px] border ${card.badgeColor} shrink-0 ml-1`}>
