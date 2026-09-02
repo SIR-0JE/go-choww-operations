@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { Header } from '@/components/Header';
+import { CsvUploadDropzone } from '@/components/orders/CsvUploadDropzone';
 import { formatNaira } from '@/lib/financials';
 import {
   Database,
@@ -13,11 +14,7 @@ import {
   Clock,
   XCircle,
   Eye,
-  SlidersHorizontal,
-  Store,
-  MapPin,
   AlertCircle,
-  ShieldCheck,
 } from 'lucide-react';
 
 interface RawOrder {
@@ -156,16 +153,26 @@ export default function RawDataOrdersPage() {
             </p>
           </div>
           <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 self-start sm:self-auto">
-            Total Records: <strong className="text-slate-900">{totalCount}</strong>
+            Total Ingested Orders: <strong className="text-slate-900">{totalCount}</strong>
           </span>
         </div>
 
-        {/* Table Container with Search & Filters */}
-        <div className="rounded-2xl bg-white border border-slate-200/90 shadow-sm overflow-hidden">
-          {/* Controls Bar */}
+        {/* ─────────────────────────────────────────────────────────────
+            TOP: THE CSV DATA PIPELINE UPLOAD DROPZONE
+        ───────────────────────────────────────────────────────────── */}
+        <section aria-label="CSV Data Pipeline Dropzone">
+          <CsvUploadDropzone onUploadSuccess={fetchOrders} />
+        </section>
+
+        {/* ─────────────────────────────────────────────────────────────
+            BODY: FULL-WIDTH RAW DATA TABLE
+            Exact Columns: Date | Order Number | Customer Name | Cafeteria | Delivery Address | Food Total | Delivery Fee | Total Amount Paid | Delivery Type | Order Status
+        ───────────────────────────────────────────────────────────── */}
+        <div className="rounded-2xl bg-white border border-slate-200/90 shadow-sm overflow-hidden space-y-0">
+          {/* Filter Bar */}
           <div className="p-5 border-b border-slate-100 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-              {/* Search Bar */}
+              {/* Search Box */}
               <div className="sm:col-span-6 relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
@@ -175,12 +182,12 @@ export default function RawDataOrdersPage() {
                     setSearch(e.target.value);
                     setPage(1);
                   }}
-                  placeholder="Search order number, customer, address, or cafeteria..."
+                  placeholder="Search order number, customer, cafeteria, or address..."
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white transition-all font-medium"
                 />
               </div>
 
-              {/* Delivery Type Dropdown */}
+              {/* Delivery Type Filter */}
               <div className="sm:col-span-3">
                 <select
                   value={deliveryType}
@@ -198,7 +205,7 @@ export default function RawDataOrdersPage() {
                 </select>
               </div>
 
-              {/* Status Dropdown */}
+              {/* Order Status Filter */}
               <div className="sm:col-span-3">
                 <select
                   value={orderStatus}
@@ -217,8 +224,7 @@ export default function RawDataOrdersPage() {
             </div>
           </div>
 
-          {/* Full-Width Table matching exact column spec:
-              Date | Order Number | Customer Name | Cafeteria | Delivery Address | Food Total | Delivery Fee | Total Amount Paid | Delivery Type | Order Status */}
+          {/* Table Container */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-600 whitespace-nowrap">
               <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-extrabold text-[10px] border-b border-slate-200">
@@ -230,7 +236,7 @@ export default function RawDataOrdersPage() {
                   <th className="px-4 py-3.5">Delivery Address</th>
                   <th className="px-4 py-3.5 text-right">Food Total</th>
                   <th className="px-4 py-3.5 text-right">Delivery Fee</th>
-                  <th className="px-4 py-3.5 text-right font-bold">Total Paid</th>
+                  <th className="px-4 py-3.5 text-right font-bold">Total Amount Paid</th>
                   <th className="px-4 py-3.5">Delivery Type</th>
                   <th className="px-4 py-3.5">Order Status</th>
                   <th className="px-4 py-3.5 text-center">Action</th>
@@ -249,7 +255,8 @@ export default function RawDataOrdersPage() {
                   <tr>
                     <td colSpan={11} className="px-4 py-12 text-center text-slate-400">
                       <AlertCircle className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                      <p className="text-sm font-semibold text-slate-600">No orders found in raw dataset</p>
+                      <p className="text-sm font-semibold text-slate-600">No matching orders found</p>
+                      <p className="text-xs text-slate-400 mt-1">Upload a CSV sheet above to import records</p>
                     </td>
                   </tr>
                 ) : (
