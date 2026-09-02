@@ -23,12 +23,8 @@ export async function GET() {
       expenses = getInMemoryExpenses();
     }
 
-    if (!orders || orders.length === 0) {
-      orders = getInMemoryOrders();
-    }
-    if (!expenses || expenses.length === 0) {
-      expenses = getInMemoryExpenses();
-    }
+    if (!orders) orders = [];
+    if (!expenses) expenses = [];
 
     const normalizedOrders = orders.map((o) => ({
       ...o,

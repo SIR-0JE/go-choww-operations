@@ -21,8 +21,8 @@ export async function GET() {
       expenses = getInMemoryExpenses();
     }
 
-    if (!orders || orders.length === 0) orders = getInMemoryOrders();
-    if (!expenses || expenses.length === 0) expenses = getInMemoryExpenses();
+    if (!orders) orders = [];
+    if (!expenses) expenses = [];
 
     const normalizedOrders = orders.map((o) => ({
       ...o,
@@ -55,7 +55,6 @@ export async function GET() {
       }
     >();
 
-    // Process all orders for count and settled orders for revenue
     for (const order of normalizedOrders) {
       const dateKey = order.createdAt.toISOString().split('T')[0];
       const displayDate = new Date(order.createdAt).toLocaleDateString('en-US', {
@@ -87,7 +86,6 @@ export async function GET() {
       }
     }
 
-    // Process daily expenses
     for (const exp of normalizedExpenses) {
       const dateKey = exp.date.toISOString().split('T')[0];
       const displayDate = new Date(exp.date).toLocaleDateString('en-US', {
@@ -113,7 +111,6 @@ export async function GET() {
       day.expenses += exp.amount;
     }
 
-    // Compute Daily Net Profit and sort chronologically descending (newest first for table, ascending for chart)
     const dailySummaryList = Array.from(dailyMap.values()).map((day) => {
       day.netProfit = day.grossRevenue - day.riderFees - day.expenses;
       return day;

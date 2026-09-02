@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const deliveryType = searchParams.get('deliveryType') || 'All';
     const orderStatus = searchParams.get('orderStatus') || 'All';
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-    const limit = Math.min(50, Math.max(5, parseInt(searchParams.get('limit') || '15', 10)));
+    const limit = Math.min(1000, Math.max(5, parseInt(searchParams.get('limit') || '20', 10)));
 
     let rawOrders: any[] = [];
 
@@ -23,9 +23,7 @@ export async function GET(request: NextRequest) {
       rawOrders = getInMemoryOrders();
     }
 
-    if (!rawOrders || rawOrders.length === 0) {
-      rawOrders = getInMemoryOrders();
-    }
+    if (!rawOrders) rawOrders = [];
 
     // Convert decimal values to numbers and format calculations
     let processed = rawOrders.map((o) => {
@@ -48,7 +46,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // 1. Filter by Search Query (Order ID, Customer Name, Cafeteria, Address)
+    // 1. Filter by Search Query
     if (search) {
       processed = processed.filter(
         (o) =>
@@ -73,6 +71,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Pagination
     const totalCount = processed.length;
     const totalPages = Math.ceil(totalCount / limit) || 1;
     const startIndex = (page - 1) * limit;
@@ -86,12 +85,10 @@ export async function GET(request: NextRequest) {
         limit,
         totalCount,
         totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
       },
     });
   } catch (error: any) {
-    console.error('Orders API error:', error);
+    console.error('Orders GET API error:', error);
     return NextResponse.json(
       { success: false, error: error?.message || 'Failed to fetch orders' },
       { status: 500 }

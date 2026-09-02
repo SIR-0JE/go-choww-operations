@@ -19,9 +19,7 @@ export async function GET(request: NextRequest) {
       expenses = getInMemoryExpenses();
     }
 
-    if (!expenses || expenses.length === 0) {
-      expenses = getInMemoryExpenses();
-    }
+    if (!expenses) expenses = [];
 
     let processed = expenses.map((e) => ({
       ...e,
@@ -46,9 +44,8 @@ export async function GET(request: NextRequest) {
     // Calculate Summary Stats
     const totalExpenses = processed.reduce((acc, curr) => acc + curr.amount, 0);
 
-    // Current month (August/September 2026)
     const currentMonthExpenses = processed
-      .filter((e) => new Date(e.date).getMonth() === 8) // Sep 2026 or Aug 2026
+      .filter((e) => new Date(e.date).getMonth() === new Date().getMonth())
       .reduce((acc, curr) => acc + curr.amount, 0);
 
     return NextResponse.json({
@@ -56,7 +53,7 @@ export async function GET(request: NextRequest) {
       expenses: processed,
       totalCount: processed.length,
       totalExpenses,
-      currentMonthExpenses: currentMonthExpenses || totalExpenses * 0.45,
+      currentMonthExpenses: currentMonthExpenses || totalExpenses,
     });
   } catch (error: any) {
     console.error('Expenses GET API error:', error);
