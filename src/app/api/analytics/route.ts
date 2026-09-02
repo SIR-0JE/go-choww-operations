@@ -124,7 +124,7 @@ export async function GET() {
 
     let runningNetProfit = 0;
     for (const day of sortedDays) {
-      day.netProfit = day.grossRevenue - day.riderPayout - day.expenses;
+      day.netProfit = day.grossRevenue - day.expenses;
       runningNetProfit += day.netProfit;
       day.cumulativeNetProfit = runningNetProfit;
     }

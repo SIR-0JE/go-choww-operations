@@ -112,7 +112,7 @@ export async function GET() {
     }
 
     const dailySummaryList = Array.from(dailyMap.values()).map((day) => {
-      day.netProfit = day.grossRevenue - day.riderFees - day.expenses;
+      day.netProfit = day.grossRevenue - day.expenses;
       return day;
     });
 
@@ -194,7 +194,7 @@ export async function GET() {
     const monthlySummary = Array.from(monthlyMap.values())
       .sort((a, b) => b.monthKey.localeCompare(a.monthKey))
       .map((m) => {
-        m.netProfit = m.grossRevenue - m.riderPayout - m.totalExpenses;
+        m.netProfit = m.grossRevenue - m.totalExpenses;
         return m;
       });
 

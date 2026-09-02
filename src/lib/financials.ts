@@ -81,7 +81,7 @@ export interface MetricsSummary {
   totalRiderPayout: number;
   grossMargin: number;
   totalExpenses: number;
-  netProfit: number; // True Net Profit: Gross Margin - Total Expenses
+  netProfit: number; // Net Profit: Gross Delivery Revenue - Total Expenses (Logged Only)
   debtTarget: number;
   debtProgressPercent: number;
   remainingDebt: number;
@@ -163,10 +163,10 @@ export function calculateMetrics(
   }
 
   // Financial Formulas:
-  // 1. Gross Margin = Gross Delivery Revenue - Total Rider Pay
+  // 1. Gross Margin = Gross Delivery Revenue - Total Rider Pay (for reference)
   const grossMargin = grossDeliveryRevenue - totalRiderPayout;
-  // 2. True Net Profit = Gross Margin - Total Expenses
-  const netProfit = grossMargin - totalExpenses;
+  // 2. Net Profit = Gross Delivery Revenue - Total Expenses (Logged Only)
+  const netProfit = grossDeliveryRevenue - totalExpenses;
 
   const debtProgressPercent = Math.min(100, Math.max(0, (netProfit / DEBT_RECOVERY_TARGET) * 100));
   const remainingDebt = Math.max(0, DEBT_RECOVERY_TARGET - netProfit);

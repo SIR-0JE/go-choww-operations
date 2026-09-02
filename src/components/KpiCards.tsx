@@ -55,14 +55,14 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ metrics, isLoading }) => {
       tooltip: 'All operational and administrative expenses logged in the ledger',
     },
     {
-      title: 'True Net Profit',
+      title: 'Net Profit',
       value: formatNaira(metrics.netProfit),
-      subtext: 'Gross Revenue - Rider Pay - Expenses',
+      subtext: 'Gross Revenue - Logged Expenses',
       icon: TrendingUp,
       iconColor: 'bg-emerald-50 text-emerald-600 border-emerald-200/60',
       badge: 'Net Earnings',
       badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
-      tooltip: 'Retained operational earnings toward the ₦3,500,000 debt sprint',
+      tooltip: 'Operational earnings (Gross Revenue minus Logged Expenses)',
     },
   ];
 

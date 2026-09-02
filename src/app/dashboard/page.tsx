@@ -217,9 +217,9 @@ export default function ExecutiveDashboardPage() {
     const results = Array.from(monthMap.values())
       .sort((a, b) => b.monthKey.localeCompare(a.monthKey))
       .map((m) => {
-        m.netProfit = m.grossRevenue - m.riderPayout - m.expenses;
+        m.netProfit = m.grossRevenue - m.expenses;
         m.weeks = m.weeks.map((w) => {
-          w.netProfit = w.grossRevenue - w.riderPayout - w.expenses;
+          w.netProfit = w.grossRevenue - w.expenses;
           return w;
         });
         return m;
@@ -316,7 +316,7 @@ export default function ExecutiveDashboardPage() {
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white via-white to-emerald-50/40 border border-emerald-200 p-6 shadow-sm hover:shadow-md transition-all">
               <div className="flex items-center justify-between gap-2 mb-3">
                 <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
-                  TRUE NET PROFIT
+                  NET PROFIT (LOGGED)
                 </span>
                 <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
                   <TrendingUp className="w-5 h-5" />
@@ -327,7 +327,7 @@ export default function ExecutiveDashboardPage() {
               </div>
               <div className="flex items-center justify-between text-xs pt-3 mt-3 border-t border-emerald-100">
                 <span className="text-slate-600 font-medium">
-                  Gross Revenue - Rider Pay - Expenses
+                  Gross Revenue - Logged Expenses
                 </span>
                 <span className="px-2.5 py-0.5 rounded-md font-bold text-[11px] bg-emerald-100 text-emerald-800 border border-emerald-300">
                   Retained Margin
