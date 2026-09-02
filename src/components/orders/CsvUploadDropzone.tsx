@@ -2,7 +2,8 @@
 
 import React, { useState, useRef } from 'react';
 import Papa from 'papaparse';
-import { UploadCloud, FileSpreadsheet, CheckCircle2, AlertCircle, RefreshCw, X } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { UploadCloud, FileSpreadsheet, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface CsvUploadDropzoneProps {
   onUploadSuccess: () => void;
@@ -12,64 +13,88 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [parsedRows, setParsedRows] = useState<any[]>([]);
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = (file: File) => {
-    if (!file.name.endsWith('.csv') && !file.type.includes('csv') && !file.type.includes('excel')) {
-      setStatusMessage({ text: 'Please select a valid CSV file (.csv).', type: 'error' });
+  const processRows = async (rows: any[], sourceFileName: string) => {
+    if (!rows || rows.length === 0) {
+      setStatusMessage({ text: 'The uploaded file appears to have no data rows.', type: 'error' });
+      setIsUploading(false);
       return;
     }
 
-    setFileName(file.name);
-    setStatusMessage({ text: 'Parsing CSV spreadsheet...', type: 'info' });
+    setFileName(sourceFileName);
+    setStatusMessage({
+      text: `Read ${rows.length} rows from ${sourceFileName}. Ingesting into database...`,
+      type: 'info',
+    });
+    setIsUploading(true);
 
+    try {
+      const res = await fetch('/api/orders/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orders: rows }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setStatusMessage({
+          text: data.message || `Successfully ingested ${data.totalProcessed} orders!`,
+          type: 'success',
+        });
+        onUploadSuccess();
+      } else {
+        setStatusMessage({
+          text: data.error || 'Failed to ingest records into database.',
+          type: 'error',
+        });
+      }
+    } catch (err: any) {
+      setStatusMessage({
+        text: err?.message || 'Network error while uploading orders',
+        type: 'error',
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleFile = async (file: File) => {
+    const lowerName = file.name.toLowerCase();
+    setStatusMessage(null);
+
+    // 1. If it's an Excel Workbook (.xlsx / .xls)
+    if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) {
+      try {
+        setIsUploading(true);
+        setStatusMessage({ text: `Reading Excel workbook (${file.name})...`, type: 'info' });
+
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+        await processRows(jsonData, file.name);
+      } catch (err: any) {
+        setStatusMessage({ text: `Excel Parse Error: ${err?.message || 'Could not read Excel file'}`, type: 'error' });
+        setIsUploading(false);
+      }
+      return;
+    }
+
+    // 2. If it's CSV or text-based sheet (.csv, .tsv, .txt, etc.)
     Papa.parse(file, {
       header: true,
-      skipEmptyLines: true,
+      skipEmptyLines: 'greedy',
       complete: async (results) => {
-        if (!results.data || results.data.length === 0) {
-          setStatusMessage({ text: 'The CSV file appears to be empty.', type: 'error' });
+        if (results.errors && results.errors.length > 0 && (!results.data || results.data.length === 0)) {
+          setStatusMessage({ text: `CSV Parse Warning: ${results.errors[0]?.message}`, type: 'error' });
+          setIsUploading(false);
           return;
         }
-
-        setParsedRows(results.data);
-        setStatusMessage({
-          text: `Parsed ${results.data.length} rows. Uploading to database...`,
-          type: 'info',
-        });
-
-        // Ingest into /api/orders/upload
-        setIsUploading(true);
-        try {
-          const res = await fetch('/api/orders/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orders: results.data }),
-          });
-          const data = await res.json();
-
-          if (data.success) {
-            setStatusMessage({
-              text: data.message || `Successfully ingested ${data.totalProcessed} orders!`,
-              type: 'success',
-            });
-            onUploadSuccess();
-          } else {
-            setStatusMessage({
-              text: data.error || 'Failed to ingest CSV records',
-              type: 'error',
-            });
-          }
-        } catch (err: any) {
-          setStatusMessage({
-            text: err?.message || 'Network error while uploading CSV',
-            type: 'error',
-          });
-        } finally {
-          setIsUploading(false);
-        }
+        await processRows(results.data, file.name);
       },
       error: (error) => {
         setStatusMessage({ text: `CSV Parse Error: ${error.message}`, type: 'error' });
@@ -111,13 +136,13 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
           </div>
           <div>
             <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-              <span>CSV Data Pipeline (Excel Ingestion)</span>
+              <span>Spreadsheet Ingestion Pipeline (CSV &amp; Excel)</span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Deduplication Guard
+                .csv • .xlsx • .xls
               </span>
             </h3>
             <p className="text-xs text-slate-500 font-medium">
-              Upload running Excel sheets with columns: <code className="text-slate-700 font-bold bg-slate-100 px-1 py-0.5 rounded">Date, Order Number, Customer Name, Cafeteria, Delivery Address, Food Total, Delivery Fee, Total Amount Paid, Delivery Type, Order Status</code>
+              Upload running sheets with columns: <code className="text-slate-700 font-bold bg-slate-100 px-1 py-0.5 rounded">Date, Order Number, Customer Name, Cafeteria, Delivery Address, Food Total, Delivery Fee, Total Amount Paid, Delivery Type, Order Status</code>
             </p>
           </div>
         </div>
@@ -138,7 +163,7 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
         <input
           ref={fileInputRef}
           type="file"
-          accept=".csv,text/csv,application/vnd.ms-excel"
+          accept=".csv,.xlsx,.xls,.tsv,.txt,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           onChange={handleInputChange}
           className="hidden"
         />
@@ -155,12 +180,12 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
               </span>
             ) : (
               <span>
-                <strong className="text-brand-600 underline">Click to upload</strong> or drag &amp; drop your CSV here
+                <strong className="text-brand-600 underline">Click to upload</strong> or drag &amp; drop your <span className="font-extrabold text-slate-900">.CSV</span> or <span className="font-extrabold text-slate-900">.XLSX</span> file here
               </span>
             )}
           </p>
           <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-            Auto-converts DD/MM/YYYY dates and skips duplicates based on Order Number
+            Accepts CSV and Excel spreadsheets • Auto-converts DD/MM/YYYY dates • Deduplicates by Order Number
           </p>
         </div>
       </div>
