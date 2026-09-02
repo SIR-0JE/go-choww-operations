@@ -5,14 +5,15 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
-  Package,
-  CreditCard,
-  BarChart3,
+  Database,
+  Receipt,
+  CalendarDays,
+  CalendarRange,
   Flame,
   X,
   ChevronRight,
   TrendingUp,
-  Sparkles,
+  Target,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -23,32 +24,38 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile }) => {
   const pathname = usePathname();
 
+  // Exactly mapped to the legacy Excel model tabs
   const navItems = [
     {
-      label: 'Dashboard',
+      label: 'Executive Dashboard',
       href: '/dashboard',
       icon: LayoutDashboard,
       active: pathname === '/dashboard' || pathname === '/',
-      badge: 'Live',
+      badge: 'Main',
     },
     {
-      label: 'All Orders',
+      label: 'Raw Data',
       href: '/orders',
-      icon: Package,
+      icon: Database,
       active: pathname === '/orders',
     },
     {
       label: 'Expenses',
       href: '/expenses',
-      icon: CreditCard,
+      icon: Receipt,
       active: pathname === '/expenses',
     },
     {
-      label: 'Summaries & Reports',
-      href: '/reports',
-      icon: BarChart3,
-      active: pathname === '/reports',
-      badge: 'Excel',
+      label: 'Daily Summary',
+      href: '/daily-summary',
+      icon: CalendarDays,
+      active: pathname === '/daily-summary',
+    },
+    {
+      label: 'Monthly Summary',
+      href: '/monthly-summary',
+      icon: CalendarRange,
+      active: pathname === '/monthly-summary',
     },
   ];
 
@@ -64,7 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed top-0 left-0 bottom-0 z-50 w-64 bg-white border-r border-slate-200/80 flex flex-col justify-between transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 left-0 bottom-0 z-50 w-64 bg-white border-r border-slate-200/90 flex flex-col justify-between transition-transform duration-200 ease-in-out lg:translate-x-0 ${
           isMobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
         }`}
       >
@@ -83,11 +90,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
                 <div className="flex items-center gap-1.5 font-black text-lg text-slate-900 tracking-tight">
                   <span>Go Choww</span>
                   <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-brand-50 text-brand-600 border border-brand-200">
-                    OPS
+                    SaaS
                   </span>
                 </div>
                 <div className="text-[11px] font-semibold text-slate-400">
-                  Logistics &amp; Debt Sprint
+                  Operations &amp; Debt Recovery
                 </div>
               </div>
             </Link>
@@ -102,10 +109,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
           </div>
         </div>
 
-        {/* Navigation Items */}
-        <div className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
+        {/* Navigation Items (Excel Tab Structure) */}
+        <div className="flex-1 py-5 px-3 space-y-1 overflow-y-auto">
           <div className="px-3 pb-2 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-            Platform Modules
+            Excel-Mapped Modules
           </div>
 
           {navItems.map((item) => {
@@ -160,13 +167,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
           <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2">
             <div className="flex items-center justify-between text-xs font-bold text-slate-800">
               <span className="flex items-center gap-1.5 text-brand-600">
-                <TrendingUp className="w-3.5 h-3.5" />
-                ₦3.5M Sprint
+                <Target className="w-3.5 h-3.5" />
+                ₦3,500,000 Sprint
               </span>
               <span className="text-[10px] font-semibold text-slate-500">Dec 10, 2026</span>
             </div>
             <div className="text-[11px] text-slate-500 font-medium">
-              Run Rate: <strong className="text-slate-900 font-extrabold">126 orders/day</strong>
+              Daily Target: <strong className="text-slate-900 font-extrabold">126 orders/day</strong>
             </div>
           </div>
         </div>
