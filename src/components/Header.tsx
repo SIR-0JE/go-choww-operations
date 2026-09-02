@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { RefreshCw, CheckCircle2, Flame, Calendar, Target, ShieldCheck } from 'lucide-react';
-import { formatNaira, MetricsSummary } from '@/lib/financials';
+import React, { useState } from 'react';
+import { RefreshCw, CheckCircle2, Flame, Calendar, ShieldCheck } from 'lucide-react';
 
 interface HeaderProps {
   onSyncComplete?: () => void;
@@ -13,23 +12,6 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncToast, setSyncToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [metrics, setMetrics] = useState<MetricsSummary | null>(null);
-
-  const fetchSprintMetrics = async () => {
-    try {
-      const res = await fetch('/api/analytics');
-      const data = await res.json();
-      if (data.success && data.metrics) {
-        setMetrics(data.metrics);
-      }
-    } catch {
-      // ignore
-    }
-  };
-
-  useEffect(() => {
-    fetchSprintMetrics();
-  }, []);
 
   const handleSyncOrders = async () => {
     setIsSyncing(true);
@@ -44,7 +26,6 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
           message: data.message || `Imported ${data.syncedCount} new operational orders!`,
           type: 'success',
         });
-        fetchSprintMetrics();
         if (onSyncComplete) onSyncComplete();
       } else {
         setSyncToast({
@@ -62,10 +43,6 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
       setTimeout(() => setSyncToast(null), 5000);
     }
   };
-
-  const progress = metrics ? Math.min(100, Math.max(0, metrics.debtProgressPercent)) : 0;
-  const netProfit = metrics ? metrics.netProfit : 0;
-  const daysRemaining = metrics ? metrics.daysRemainingInSprint : 99;
 
   return (
     <header className="border-b border-slate-200/90 bg-white sticky top-0 z-40 shadow-sm">
@@ -111,39 +88,6 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
             <span>{isSyncing ? 'Syncing...' : 'Sync Orders'}</span>
           </button>
-        </div>
-      </div>
-
-      {/* Global ₦3,500,000 Debt Recovery Sprint Banner (Visible at Top of Application) */}
-      <div className="bg-gradient-to-r from-orange-50/60 via-amber-50/40 to-slate-50 border-t border-slate-100 px-4 sm:px-8 py-2.5">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-          {/* Label + Progress Numbers */}
-          <div className="flex items-center gap-2 text-xs">
-            <div className="p-1.5 rounded-lg bg-brand-500 text-white shadow-sm">
-              <Target className="w-3.5 h-3.5" />
-            </div>
-            <div>
-              <span className="font-extrabold text-slate-900 mr-2">₦3,500,000 Debt Recovery Sprint:</span>
-              <span className="font-black text-brand-600">{formatNaira(netProfit)}</span>
-              <span className="text-slate-400 font-medium"> / ₦3,500,000.00</span>
-              <span className="ml-2 font-bold text-[11px] text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-full">
-                {daysRemaining} days left (Ends Dec 10, 2026)
-              </span>
-            </div>
-          </div>
-
-          {/* Mini Progress Bar */}
-          <div className="flex items-center gap-3 min-w-[200px] sm:min-w-[280px]">
-            <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-brand-500 via-amber-500 to-emerald-500 transition-all duration-700 rounded-full"
-                style={{ width: `${Math.max(1, progress)}%` }}
-              />
-            </div>
-            <span className="text-xs font-black text-slate-800 whitespace-nowrap">
-              {progress.toFixed(1)}%
-            </span>
-          </div>
         </div>
       </div>
 

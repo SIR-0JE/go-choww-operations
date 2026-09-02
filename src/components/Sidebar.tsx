@@ -57,6 +57,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
       icon: CalendarRange,
       active: pathname === '/monthly-summary',
     },
+    {
+      label: 'Target',
+      href: '/target',
+      icon: Target,
+      active: pathname === '/target',
+      badge: 'Sprint',
+    },
   ];
 
   return (
@@ -164,18 +171,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
 
         {/* Sprint Summary Footer Widget */}
         <div className="p-4 border-t border-slate-100 bg-slate-50/70">
-          <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2">
+          <Link
+            href="/target"
+            onClick={onCloseMobile}
+            className="block p-3.5 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2 hover:border-brand-300 hover:shadow-md transition-all group"
+          >
             <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-              <span className="flex items-center gap-1.5 text-brand-600">
+              <span className="flex items-center gap-1.5 text-brand-600 group-hover:text-brand-700">
                 <Target className="w-3.5 h-3.5" />
-                ₦3,500,000 Sprint
+                Sprint Target
               </span>
               <span className="text-[10px] font-semibold text-slate-500">Dec 10, 2026</span>
             </div>
-            <div className="text-[11px] text-slate-500 font-medium">
-              Daily Target: <strong className="text-slate-900 font-extrabold">126 orders/day</strong>
+            <div className="text-[11px] text-slate-500 font-medium flex items-center justify-between">
+              <span>Target: <strong className="text-slate-900 font-extrabold">₦3.5M</strong></span>
+              <span className="text-[10px] font-bold text-brand-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+                Manage &rarr;
+              </span>
             </div>
-          </div>
+          </Link>
         </div>
       </aside>
     </>

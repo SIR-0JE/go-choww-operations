@@ -33,3 +33,8 @@ next-env.d.ts
 
 # Old / template directories
 heetch-template/
+
+# Raw spreadsheets
+*.xlsx
+*.xls
+*.csv
