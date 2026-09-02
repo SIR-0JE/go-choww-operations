@@ -11,7 +11,10 @@ export async function GET(request: NextRequest) {
     const deliveryType = searchParams.get('deliveryType') || 'All';
     const orderStatus = searchParams.get('orderStatus') || 'All';
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-    const limit = Math.min(1000, Math.max(5, parseInt(searchParams.get('limit') || '20', 10)));
+    const limitParam = searchParams.get('limit') || '20';
+    // Support limit=all to return every record without pagination (used by analytics pages)
+    const fetchAll = limitParam === 'all';
+    const limit = fetchAll ? 999999 : Math.min(5000, Math.max(5, parseInt(limitParam, 10)));
 
     let rawOrders: any[] = [];
 

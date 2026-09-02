@@ -120,9 +120,9 @@ export async function GET() {
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
 
+    // Return all days sorted ascending — no truncation
     const dailyChartData = [...dailySummaryList]
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .slice(-18);
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     // ─────────────────────────────────────────────────────────────
     // 2. MONTHLY SUMMARY AGGREGATION

@@ -56,7 +56,7 @@ export default function ExpensesManagerPage() {
     try {
       const [expRes, ordRes] = await Promise.all([
         fetch(`/api/expenses?search=${encodeURIComponent(search)}&category=${encodeURIComponent(categoryFilter)}`),
-        fetch('/api/orders?limit=500'),
+        fetch('/api/orders?limit=all'),
       ]);
 
       const expData = await expRes.json();
@@ -347,7 +347,7 @@ export default function ExpensesManagerPage() {
           ───────────────────────────────────────────────────────────── */}
           <div className="lg:col-span-5 space-y-4">
             <div className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
-              Excel Dynamic Rider Pay Calculator
+              Dynamic Rider Pay Calculator (Reference Only)
             </div>
 
             <div className="rounded-2xl bg-white border border-slate-200/90 p-5 sm:p-6 shadow-sm space-y-5">
@@ -358,10 +358,10 @@ export default function ExpensesManagerPage() {
                 </div>
                 <div>
                   <h3 className="text-base font-black text-slate-900">
-                    Dynamic Rider Pay Calculator
+                    DYNAMIC RIDER PAY CALCULATOR (REFERENCE ONLY)
                   </h3>
                   <p className="text-[11px] text-slate-500 font-medium">
-                    Adjust date range and payout rates for automatic settlement
+                    Fields: Start Date • End Date • Payment Model • Rate / Amount • TOTAL RIDER PAY
                   </p>
                 </div>
               </div>

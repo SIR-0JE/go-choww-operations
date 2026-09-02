@@ -81,7 +81,7 @@ export default function MonthlySummaryPage() {
     setIsLoading(true);
     try {
       const [ordRes, repRes] = await Promise.all([
-        fetch('/api/orders?limit=500'),
+        fetch('/api/orders?limit=all'),
         fetch('/api/reports'),
       ]);
 

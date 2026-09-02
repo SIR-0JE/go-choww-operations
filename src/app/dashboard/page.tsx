@@ -72,7 +72,7 @@ export default function ExecutiveDashboardPage() {
     try {
       const [analyticsRes, ordersRes, expensesRes] = await Promise.all([
         fetch('/api/analytics'),
-        fetch('/api/orders?limit=500'),
+        fetch('/api/orders?limit=all'),
         fetch('/api/expenses'),
       ]);
 
@@ -356,9 +356,9 @@ export default function ExecutiveDashboardPage() {
               <div className="text-[10px] text-emerald-700 font-semibold mt-1">Settled &amp; Paid</div>
             </div>
 
-            {/* Stat 2: Refunded / Failed */}
+            {/* Stat 2: Refunded Orders */}
             <div className="p-4 rounded-xl bg-white border border-slate-200/90 shadow-sm flex flex-col justify-between">
-              <div className="text-[11px] font-bold text-slate-500 uppercase">Refunded / Failed</div>
+              <div className="text-[11px] font-bold text-slate-500 uppercase">Refunded Orders</div>
               <div className="text-2xl font-black text-slate-900 mt-2 flex items-center gap-1.5">
                 <RotateCcw className="w-4 h-4 text-amber-600" />
                 <span>{volumeStats.refundedFailed}</span>
@@ -436,27 +436,23 @@ export default function ExecutiveDashboardPage() {
               <table className="w-full text-left text-xs text-slate-600">
                 <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-extrabold text-[10px] border-b border-slate-200">
                   <tr>
-                    <th className="px-5 py-3.5">Period / Month</th>
-                    <th className="px-4 py-3.5 text-center">Total Orders</th>
+                    <th className="px-5 py-3.5">Period</th>
                     <th className="px-4 py-3.5 text-center">Completed Orders</th>
-                    <th className="px-4 py-3.5 text-right">Gross Delivery Revenue</th>
-                    <th className="px-4 py-3.5 text-right">Rider Payout</th>
-                    <th className="px-4 py-3.5 text-right">Logged Expenses</th>
-                    <th className="px-5 py-3.5 text-right font-black">Net Profit (₦)</th>
+                    <th className="px-5 py-3.5 text-right font-black text-brand-700">Delivery Revenue</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {isLoading ? (
                     [...Array(3)].map((_, i) => (
                       <tr key={i} className="animate-pulse">
-                        <td colSpan={7} className="px-5 py-4 bg-slate-50/50">
+                        <td colSpan={3} className="px-5 py-4 bg-slate-50/50">
                           <div className="h-4 bg-slate-200 rounded w-full" />
                         </td>
                       </tr>
                     ))
                   ) : monthlyWeeklyData.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-5 py-12 text-center text-slate-400">
+                      <td colSpan={3} className="px-5 py-12 text-center text-slate-400">
                         No monthly records found. Click &quot;Sync Orders&quot; in the header to ingest batch data.
                       </td>
                     </tr>
@@ -465,43 +461,30 @@ export default function ExecutiveDashboardPage() {
                       const isExpanded = !!expandedMonths[m.monthKey];
                       return (
                         <React.Fragment key={m.monthKey}>
-                          {/* Month Header Row (Clickable Accordion) */}
+                          {/* Month Header Row (Clickable Accordion) — 3 cols: Period | Completed Orders | Delivery Revenue */}
                           <tr
                             onClick={() => toggleMonth(m.monthKey)}
                             className="bg-slate-50/90 hover:bg-slate-100/80 cursor-pointer font-bold text-slate-900 transition-colors select-none border-b border-slate-200"
                           >
-                            <td className="px-5 py-4 flex items-center gap-2.5">
-                              {isExpanded ? (
-                                <ChevronDown className="w-4 h-4 text-brand-600 shrink-0" />
-                              ) : (
-                                <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                              )}
-                              <span className="font-extrabold text-sm">{m.monthName}</span>
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200 font-bold">
-                                Monthly Total
-                              </span>
+                            <td className="px-5 py-4">
+                              <div className="flex items-center gap-2.5">
+                                {isExpanded ? (
+                                  <ChevronDown className="w-4 h-4 text-brand-600 shrink-0" />
+                                ) : (
+                                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                                )}
+                                <span className="font-extrabold text-sm">{m.monthName} (Total)</span>
+                              </div>
                             </td>
-                            <td className="px-4 py-4 text-center font-bold">{m.totalOrders}</td>
                             <td className="px-4 py-4 text-center font-extrabold text-blue-600">
                               {m.completedOrders}
                             </td>
-                            <td className="px-4 py-4 text-right font-extrabold text-brand-600 text-sm">
+                            <td className="px-5 py-4 text-right font-extrabold text-brand-600 text-sm">
                               {formatNaira(m.grossRevenue)}
-                            </td>
-                            <td className="px-4 py-4 text-right font-bold text-blue-700">
-                              {formatNaira(m.riderPayout)}
-                            </td>
-                            <td className="px-4 py-4 text-right font-bold text-rose-600">
-                              {formatNaira(m.expenses)}
-                            </td>
-                            <td className="px-5 py-4 text-right">
-                              <span className="px-2.5 py-1 rounded-md text-sm font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                {formatNaira(m.netProfit)}
-                              </span>
                             </td>
                           </tr>
 
-                          {/* Nested Week 1 - 4+ Rows */}
+                          {/* Nested Week 1–4 Rows — 3 cols only */}
                           {isExpanded &&
                             m.weeks.map((week) => (
                               <tr
@@ -511,27 +494,17 @@ export default function ExecutiveDashboardPage() {
                                 <td className="px-5 py-3 pl-12">
                                   <div className="flex items-center gap-2">
                                     <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                                    <span className="font-semibold text-slate-800">{week.weekLabel}</span>
+                                    <span className="font-semibold text-slate-800">- {week.weekLabel}</span>
                                     <span className="text-[10px] text-slate-400 font-medium">
                                       ({week.dateRange})
                                     </span>
                                   </div>
                                 </td>
-                                <td className="px-4 py-3 text-center">{week.totalOrders}</td>
                                 <td className="px-4 py-3 text-center font-medium text-slate-700">
                                   {week.completedOrders}
                                 </td>
-                                <td className="px-4 py-3 text-right font-medium text-slate-900">
+                                <td className="px-5 py-3 text-right font-medium text-slate-900">
                                   {formatNaira(week.grossRevenue)}
-                                </td>
-                                <td className="px-4 py-3 text-right font-medium text-blue-700">
-                                  {formatNaira(week.riderPayout)}
-                                </td>
-                                <td className="px-4 py-3 text-right font-medium text-rose-600">
-                                  {formatNaira(week.expenses)}
-                                </td>
-                                <td className="px-5 py-3 text-right font-bold text-emerald-700">
-                                  {formatNaira(week.netProfit)}
                                 </td>
                               </tr>
                             ))}

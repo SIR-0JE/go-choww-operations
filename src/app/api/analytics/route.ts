@@ -129,7 +129,8 @@ export async function GET() {
       day.cumulativeNetProfit = runningNetProfit;
     }
 
-    const dailyChartData = sortedDays.slice(-21);
+    // Return all days — no truncation; the full Jan–Aug history must be visible
+    const dailyChartData = sortedDays;
 
     // Delivery Type Breakdown for Chart
     const breakdownChartData = [

@@ -77,7 +77,7 @@ export default function DailySummaryPage() {
   const fetchDailySummary = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/orders?limit=500');
+      const res = await fetch('/api/orders?limit=all');
       const data = await res.json();
       const orders = data.orders || [];
 
@@ -128,9 +128,9 @@ export default function DailySummaryPage() {
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       );
 
+      // No slice — show all days from Jan to Aug
       const chartList = [...sortedList]
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        .slice(-20);
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
       setDailyData(sortedList);
       setChartData(chartList);
