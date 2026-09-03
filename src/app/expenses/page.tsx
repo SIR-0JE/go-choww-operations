@@ -197,16 +197,16 @@ export default function ExpensesManagerPage() {
     <AppLayout>
       <Header onSyncComplete={fetchExpensesAndOrders} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-8">
         {/* Page Title & Add Button */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-2.5">
-              <Receipt className="w-7 h-7 text-brand-600" />
-              Expenses &amp; Rider Pay Hub
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
+              <Receipt className="w-6 h-6 text-brand-600" />
+              <span>Operating Expenses &amp; Rider Hub</span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium mt-1">
-              Operational expense ledger paired with the Excel Dynamic Rider Payout calculator
+            <p className="text-xs sm:text-sm text-slate-500 font-normal mt-1">
+              Audit log of logged operational expenditures and standalone rider pay calculator.
             </p>
           </div>
 
@@ -215,7 +215,7 @@ export default function ExpensesManagerPage() {
               setFormFeedback(null);
               setIsAddModalOpen(true);
             }}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-orange-600 hover:from-brand-600 hover:to-orange-700 text-white font-bold text-xs sm:text-sm shadow-sm hover:shadow active:scale-95 transition-all self-start sm:self-auto"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs sm:text-sm shadow-sm active:scale-[0.98] transition-all self-start sm:self-auto"
           >
             <Plus className="w-4 h-4" />
             <span>Add Expense</span>
@@ -225,19 +225,19 @@ export default function ExpensesManagerPage() {
         {/* 2-Column Grid: Left Side (Expense Logs Table) | Right Side (Dynamic Rider Pay Calculator) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* ─────────────────────────────────────────────────────────────
-              LEFT SIDE (8 COLUMNS): EXPENSES LOG TABLE
+              LEFT SIDE (7 COLUMNS): EXPENSES LOG TABLE
           ───────────────────────────────────────────────────────────── */}
           <div className="lg:col-span-7 space-y-4">
             <div className="flex items-center justify-between">
-              <div className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                 Expense Logs
               </div>
-              <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
-                Total Logged: <strong className="text-rose-600 font-black">{formatNaira(totalExpenses)}</strong>
+              <span className="text-xs font-semibold text-slate-600 bg-white px-3 py-1 rounded-xl border border-slate-200/80 shadow-sm">
+                Total Logged: <strong className="text-slate-900 font-bold tabular-nums">{formatNaira(totalExpenses)}</strong>
               </span>
             </div>
 
-            <div className="rounded-2xl bg-white border border-slate-200/90 p-5 shadow-sm space-y-4">
+            <div className="rounded-2xl bg-white border border-slate-200/80 p-6 shadow-sm space-y-4">
               {/* Search & Category Filter */}
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                 <div className="sm:col-span-8 relative">

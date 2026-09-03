@@ -235,86 +235,91 @@ export default function MonthlySummaryPage() {
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
-            BOTTOM: MODERN MONTHLY DATA GRID
+            BODY: MONTHLY BREAKDOWN TABLE
             Exact Columns: Month | Total Orders | Delivery Revenue | Food Value Handled | Same Side | Different Side | Pick Up | Other
         ───────────────────────────────────────────────────────────── */}
-        <div className="rounded-2xl bg-white border border-slate-200/90 shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-slate-100">
-            <h3 className="text-base font-extrabold text-slate-900">Monthly Ledger Table</h3>
-            <p className="text-xs text-slate-500 font-medium">
-              Exact mapped columns from the Excel Monthly Summary worksheet
-            </p>
+        <div className="rounded-2xl bg-white border border-slate-200/80 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Monthly Ledger Table</h3>
+              <p className="text-xs text-slate-500 font-normal mt-0.5">
+                Exact mapped columns from the Excel Monthly Summary worksheet
+              </p>
+            </div>
+            <span className="text-xs font-medium text-slate-400">
+              {monthlyData.length} Calendar Months
+            </span>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-600 whitespace-nowrap">
-              <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-extrabold text-[10px] border-b border-slate-200">
+              <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider text-[11px] font-semibold border-b border-slate-200/80">
                 <tr>
-                  <th className="px-5 py-3.5">Month</th>
-                  <th className="px-4 py-3.5 text-center">Total Orders</th>
-                  <th className="px-4 py-3.5 text-right font-black text-brand-700">Delivery Revenue</th>
-                  <th className="px-4 py-3.5 text-right font-bold text-blue-700">Food Value Handled</th>
-                  <th className="px-4 py-3.5 text-center text-orange-700">Same Side</th>
-                  <th className="px-4 py-3.5 text-center text-blue-700">Different Side</th>
-                  <th className="px-4 py-3.5 text-center text-emerald-700">Pick Up</th>
-                  <th className="px-4 py-3.5 text-center text-purple-700">Other</th>
+                  <th className="px-6 py-4">Month</th>
+                  <th className="px-6 py-4 text-center">Total Orders</th>
+                  <th className="px-6 py-4 text-right">Delivery Revenue</th>
+                  <th className="px-6 py-4 text-right">Food Value Handled</th>
+                  <th className="px-6 py-4 text-center">Same Side (₦50)</th>
+                  <th className="px-6 py-4 text-center">Different Side (₦90)</th>
+                  <th className="px-6 py-4 text-center">Pick Up (₦0)</th>
+                  <th className="px-6 py-4 text-center">Other</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 font-medium">
                 {isLoading ? (
                   [...Array(2)].map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      <td colSpan={8} className="px-5 py-4 bg-slate-50/50">
+                      <td colSpan={8} className="px-6 py-4 bg-slate-50/40">
                         <div className="h-4 bg-slate-200 rounded w-full" />
                       </td>
                     </tr>
                   ))
                 ) : monthlyData.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-5 py-12 text-center text-slate-400">
+                    <td colSpan={8} className="px-6 py-12 text-center text-slate-400">
                       No monthly records found.
                     </td>
                   </tr>
                 ) : (
                   monthlyData.map((m) => (
-                    <tr key={m.monthKey} className="hover:bg-slate-50/80 transition-colors">
+                    <tr key={m.monthKey} className="hover:bg-slate-50/70 transition-colors">
                       {/* Month */}
-                      <td className="px-5 py-4 font-extrabold text-slate-900 text-sm">
+                      <td className="px-6 py-4 font-semibold text-slate-900 text-sm">
                         {m.monthName}
                       </td>
 
                       {/* Total Orders */}
-                      <td className="px-4 py-4 text-center font-bold text-slate-800">
+                      <td className="px-6 py-4 text-center font-bold text-slate-900 tabular-nums">
                         {m.totalOrders}
                       </td>
 
                       {/* Delivery Revenue */}
-                      <td className="px-4 py-4 text-right font-black text-brand-600 text-sm">
+                      <td className="px-6 py-4 text-right font-bold text-slate-900 text-sm tabular-nums">
                         {formatNaira(m.grossRevenue)}
                       </td>
 
                       {/* Food Value Handled */}
-                      <td className="px-4 py-4 text-right font-extrabold text-blue-700">
+                      <td className="px-6 py-4 text-right font-semibold text-slate-700 tabular-nums">
                         {formatNaira(m.foodValueHandled)}
                       </td>
 
                       {/* Same Side */}
-                      <td className="px-4 py-4 text-center font-bold text-orange-700">
+                      <td className="px-6 py-4 text-center text-slate-600 tabular-nums font-medium">
                         {m.sameSide}
                       </td>
 
                       {/* Different Side */}
-                      <td className="px-4 py-4 text-center font-bold text-blue-700">
+                      <td className="px-6 py-4 text-center text-slate-600 tabular-nums font-medium">
                         {m.differentSide}
                       </td>
 
                       {/* Pick Up */}
-                      <td className="px-4 py-4 text-center font-bold text-emerald-700">
+                      <td className="px-6 py-4 text-center text-slate-600 tabular-nums font-medium">
                         {m.pickUp}
                       </td>
 
                       {/* Other */}
-                      <td className="px-4 py-4 text-center font-bold text-purple-700">
+                      <td className="px-6 py-4 text-center text-slate-600 tabular-nums font-medium">
                         {m.other}
                       </td>
                     </tr>

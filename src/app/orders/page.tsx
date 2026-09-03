@@ -144,16 +144,16 @@ export default function RawDataOrdersPage() {
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-2.5">
-              <Database className="w-7 h-7 text-brand-600" />
-              Raw Data Ledger
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
+              <Database className="w-6 h-6 text-brand-600" />
+              <span>Raw Data Ledger</span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium mt-1">
-              Complete transactional audit log mapping all individual delivery orders, timestamps, cafeteria partners, and payouts
+            <p className="text-xs sm:text-sm text-slate-500 font-normal mt-1">
+              Transactional audit log of individual delivery orders, timestamps, cafeteria partners, and payouts.
             </p>
           </div>
-          <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 self-start sm:self-auto">
-            Total Ingested Orders: <strong className="text-slate-900">{totalCount}</strong>
+          <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white text-slate-700 border border-slate-200/80 shadow-sm self-start sm:self-auto">
+            Total Ingested: <strong className="text-slate-900 font-bold tabular-nums">{totalCount}</strong> orders
           </span>
         </div>
 
@@ -168,9 +168,9 @@ export default function RawDataOrdersPage() {
             BODY: FULL-WIDTH RAW DATA TABLE
             Exact Columns: Date | Order Number | Customer Name | Cafeteria | Delivery Address | Food Total | Delivery Fee | Total Amount Paid | Delivery Type | Order Status
         ───────────────────────────────────────────────────────────── */}
-        <div className="rounded-2xl bg-white border border-slate-200/90 shadow-sm overflow-hidden space-y-0">
+        <div className="rounded-2xl bg-white border border-slate-200/80 shadow-sm overflow-hidden space-y-0">
           {/* Filter Bar */}
-          <div className="p-5 border-b border-slate-100 space-y-4">
+          <div className="p-5 sm:p-6 border-b border-slate-100 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
               {/* Search Box */}
               <div className="sm:col-span-6 relative">
@@ -183,7 +183,7 @@ export default function RawDataOrdersPage() {
                     setPage(1);
                   }}
                   placeholder="Search order number, customer, cafeteria, or address..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white transition-all font-medium"
+                  className="w-full bg-slate-50 border border-slate-200/80 rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white transition-all font-medium"
                 />
               </div>
 
@@ -195,7 +195,7 @@ export default function RawDataOrdersPage() {
                     setDeliveryType(e.target.value);
                     setPage(1);
                   }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white transition-all font-medium"
+                  className="w-full bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white transition-all font-medium"
                 >
                   <option value="All">All Delivery Types</option>
                   <option value="Same side">Same side (₦50)</option>
@@ -213,7 +213,7 @@ export default function RawDataOrdersPage() {
                     setOrderStatus(e.target.value);
                     setPage(1);
                   }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white transition-all font-medium"
+                  className="w-full bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white transition-all font-medium"
                 >
                   <option value="All">All Order Statuses</option>
                   <option value="Completed">Completed Only</option>
@@ -227,19 +227,19 @@ export default function RawDataOrdersPage() {
           {/* Table Container */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-600 whitespace-nowrap">
-              <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-extrabold text-[10px] border-b border-slate-200">
+              <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider text-[11px] font-semibold border-b border-slate-200/80">
                 <tr>
-                  <th className="px-4 py-3.5">Date</th>
-                  <th className="px-4 py-3.5">Order Number</th>
-                  <th className="px-4 py-3.5">Customer Name</th>
-                  <th className="px-4 py-3.5">Cafeteria</th>
-                  <th className="px-4 py-3.5">Delivery Address</th>
-                  <th className="px-4 py-3.5 text-right">Food Total</th>
-                  <th className="px-4 py-3.5 text-right">Delivery Fee</th>
-                  <th className="px-4 py-3.5 text-right font-bold">Total Amount Paid</th>
-                  <th className="px-4 py-3.5">Delivery Type</th>
-                  <th className="px-4 py-3.5">Order Status</th>
-                  <th className="px-4 py-3.5 text-center">Action</th>
+                  <th className="px-6 py-4">Date</th>
+                  <th className="px-6 py-4">Order ID</th>
+                  <th className="px-6 py-4">Customer</th>
+                  <th className="px-6 py-4">Cafeteria</th>
+                  <th className="px-6 py-4">Delivery Address</th>
+                  <th className="px-6 py-4 text-right">Food Total</th>
+                  <th className="px-6 py-4 text-right">Delivery Fee</th>
+                  <th className="px-6 py-4 text-right font-bold">Total Paid</th>
+                  <th className="px-6 py-4">Delivery Type</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -261,70 +261,70 @@ export default function RawDataOrdersPage() {
                   </tr>
                 ) : (
                   orders.map((ord) => (
-                    <tr key={ord.orderId} className="hover:bg-slate-50/80 transition-colors">
+                    <tr key={ord.orderId} className="hover:bg-slate-50/70 transition-colors">
                       {/* Date */}
-                      <td className="px-4 py-3.5 font-medium text-slate-700">
+                      <td className="px-6 py-4 font-medium text-slate-700 tabular-nums">
                         {new Date(ord.createdAt).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric',
                         })}
-                        <span className="text-[10px] text-slate-400 ml-1">({ord.time})</span>
+                        <span className="text-[11px] text-slate-400 ml-1.5 font-normal">{ord.time}</span>
                       </td>
 
                       {/* Order Number */}
-                      <td className="px-4 py-3.5 font-bold font-mono text-slate-900">
+                      <td className="px-6 py-4 font-mono font-semibold text-slate-900 text-xs">
                         {ord.orderId}
                       </td>
 
                       {/* Customer Name */}
-                      <td className="px-4 py-3.5 font-bold text-slate-900">
+                      <td className="px-6 py-4 font-semibold text-slate-900">
                         {ord.customerName}
                       </td>
 
                       {/* Cafeteria */}
-                      <td className="px-4 py-3.5 font-medium text-amber-700">
+                      <td className="px-6 py-4 font-medium text-slate-700">
                         {ord.cafeteriaName}
                       </td>
 
                       {/* Delivery Address */}
-                      <td className="px-4 py-3.5 max-w-[200px] truncate text-slate-600 font-medium">
+                      <td className="px-6 py-4 max-w-[220px] truncate text-slate-500 font-normal">
                         {ord.deliveryAddress}
                       </td>
 
                       {/* Food Total */}
-                      <td className="px-4 py-3.5 text-right font-medium text-slate-800">
+                      <td className="px-6 py-4 text-right font-medium text-slate-700 tabular-nums">
                         {formatNaira(ord.foodTotal)}
                       </td>
 
                       {/* Delivery Fee */}
-                      <td className="px-4 py-3.5 text-right font-bold text-brand-600">
+                      <td className="px-6 py-4 text-right font-semibold text-slate-900 tabular-nums">
                         {formatNaira(ord.deliveryFee)}
                       </td>
 
                       {/* Total Amount Paid */}
-                      <td className="px-4 py-3.5 text-right font-black text-slate-900">
+                      <td className="px-6 py-4 text-right font-bold text-slate-900 tabular-nums">
                         {formatNaira(ord.totalAmountPaid)}
                       </td>
 
                       {/* Delivery Type */}
-                      <td className="px-4 py-3.5">
+                      <td className="px-6 py-4">
                         {getDeliveryTypeBadge(ord.deliveryType)}
                       </td>
 
                       {/* Order Status */}
-                      <td className="px-4 py-3.5">
+                      <td className="px-6 py-4">
                         {getOrderStatusBadge(ord.orderStatus, ord.paymentStatus)}
                       </td>
 
                       {/* Action */}
-                      <td className="px-4 py-3.5 text-center">
+                      <td className="px-6 py-4 text-center">
                         <button
                           onClick={() => setSelectedOrder(ord)}
-                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-brand-500 hover:text-white text-slate-600 transition-colors"
+                          className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                           title="Inspect Record"
                         >
-                          <Eye className="w-4 h-4" />
+                          <Eye className="w-3.5 h-3.5" />
                         </button>
                       </td>
                     </tr>
@@ -335,7 +335,7 @@ export default function RawDataOrdersPage() {
           </div>
 
           {/* Pagination Footer */}
-          <div className="p-4 border-t border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+          <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 font-medium">
             <div className="flex items-center gap-2">
               <span>Rows per page:</span>
               <select
@@ -344,35 +344,37 @@ export default function RawDataOrdersPage() {
                   setLimit(parseInt(e.target.value, 10));
                   setPage(1);
                 }}
-                className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-900 text-xs focus:outline-none font-medium shadow-sm"
+                className="bg-white border border-slate-200/80 rounded-lg px-2.5 py-1 text-slate-900 text-xs focus:outline-none font-medium shadow-sm"
               >
                 <option value={15}>15</option>
                 <option value={20}>20</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
               </select>
-              <span>
-                Page <strong className="text-slate-900 font-bold">{page}</strong> of <strong className="text-slate-900 font-bold">{totalPages}</strong>
-              </span>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1 || isLoading}
-                className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors flex items-center gap-1 font-semibold shadow-sm"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                Prev
-              </button>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages || isLoading}
-                className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors flex items-center gap-1 font-semibold shadow-sm"
-              >
-                Next
-                <ChevronRight className="w-4 h-4" />
-              </button>
+            <div className="flex items-center gap-4">
+              <span className="tabular-nums">
+                Page <strong className="font-semibold text-slate-900">{page}</strong> of{' '}
+                <strong className="font-semibold text-slate-900">{totalPages || 1}</strong>
+              </span>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200/80 bg-white text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 font-medium shadow-sm transition-all"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200/80 bg-white text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 font-medium shadow-sm transition-all"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           </div>
         </div>
