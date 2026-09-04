@@ -39,13 +39,13 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
 
   const processRows = async (rows: any[], sourceFileName: string) => {
     if (!rows || rows.length === 0) {
-      setStatusMessage({ text: 'The uploaded file appears to have no data rows.', type: 'error' });
+      setStatusMessage({ text: 'The uploaded file contains no data rows.', type: 'error' });
       setIsUploading(false);
       return;
     }
 
     setStatusMessage({
-      text: `Reading ${rows.length} records from ${sourceFileName}. Filtering status & checking dates...`,
+      text: `Processing ${rows.length} records from ${sourceFileName}...`,
       type: 'info',
     });
     setIsUploading(true);
@@ -89,7 +89,7 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
     if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) {
       try {
         setIsUploading(true);
-        setStatusMessage({ text: `Reading Excel workbook (${file.name})...`, type: 'info' });
+        setStatusMessage({ text: `Reading ${file.name}...`, type: 'info' });
 
         const arrayBuffer = await file.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
@@ -151,25 +151,22 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
   };
 
   return (
-    <div className="rounded-2xl bg-white border border-slate-200/90 p-5 shadow-sm space-y-4">
-      {/* Header Info */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+    <div className="rounded-2xl bg-white border border-slate-200/90 p-5 shadow-sm space-y-3.5">
+      {/* Clean Header */}
+      <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <div className="p-2 rounded-xl bg-brand-50 text-brand-600 border border-brand-200/60 shadow-sm">
             <UploadCloud className="w-5 h-5" />
           </div>
           <div>
             <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-              <span>Incremental CSV &amp; Excel Ingestion Pipeline</span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Live Platform Sync
+              <span>Import Orders</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                .CSV / .XLSX
               </span>
             </h3>
             <p className="text-xs text-slate-500 font-medium">
-              Supported Live Export Headers:{' '}
-              <code className="text-slate-800 font-bold bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">
-                Order ID, Date, Customer, Vendor, Order Type, Subtotal (NGN), Delivery Fee (NGN), Total (NGN), Order Status, Delivery Address
-              </code>
+              Upload your daily CSV or Excel sheet to sync live platform orders
             </p>
           </div>
         </div>
@@ -181,7 +178,7 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2.5 ${
+        className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 ${
           isDragging
             ? 'border-brand-500 bg-brand-50/50 scale-[0.99]'
             : 'border-slate-200 hover:border-brand-400 hover:bg-slate-50/70'
@@ -203,26 +200,24 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
           <p className="text-xs font-bold text-slate-900">
             {isUploading ? (
               <span className="flex items-center justify-center gap-2 text-brand-600">
-                <RefreshCw className="w-4 h-4 animate-spin" /> Ingesting, Filtering &amp; Deduplicating...
+                <RefreshCw className="w-4 h-4 animate-spin" /> Ingesting &amp; Deduplicating...
               </span>
             ) : (
               <span>
-                <strong className="text-brand-600 underline">Click to upload</strong> or drag &amp; drop daily platform export (<span className="font-extrabold text-slate-900">.CSV</span> or <span className="font-extrabold text-slate-900">.XLSX</span>)
+                <strong className="text-brand-600 underline">Click to upload</strong> or drag &amp; drop your spreadsheet here
               </span>
             )}
           </p>
-          <p className="text-[11px] text-slate-400 font-medium mt-1">
-            Smart date check starts from latest database record • Only ingests Completed/Delivered orders • Zero double-counting
+          <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+            Supports .csv and .xlsx files • Automatic deduplication
           </p>
         </div>
       </div>
 
-      {/* ─────────────────────────────────────────────────────────────
-          DETAILED INGESTION SUMMARY BANNER
-      ───────────────────────────────────────────────────────────── */}
+      {/* Detailed Ingestion Summary Banner */}
       {statusMessage && (
         <div
-          className={`p-4 rounded-xl border text-xs transition-all space-y-2.5 ${
+          className={`p-3.5 rounded-xl border text-xs transition-all space-y-2 ${
             statusMessage.type === 'success'
               ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
               : statusMessage.type === 'error'
@@ -231,27 +226,22 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
           }`}
         >
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-2.5">
+            <div className="flex items-start gap-2">
               {statusMessage.type === 'success' ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
               ) : (
-                <AlertCircle className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
+                <AlertCircle className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
               )}
               <div>
-                <p className="font-extrabold text-sm tracking-tight text-slate-900">
+                <p className="font-extrabold text-xs text-slate-900">
                   {statusMessage.text}
                 </p>
-                {statusMessage.type === 'success' && (
-                  <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                    Orders have been verified, deduplicated, and incorporated into platform metrics.
-                  </p>
-                )}
               </div>
             </div>
 
             <button
               onClick={() => setStatusMessage(null)}
-              className="text-slate-400 hover:text-slate-700 px-1.5 py-0.5 text-xs font-bold rounded hover:bg-slate-100"
+              className="text-slate-400 hover:text-slate-700 px-1 py-0.5 text-xs font-bold rounded"
             >
               ✕
             </button>
@@ -260,26 +250,26 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
           {/* Breakdown Stat Pills */}
           {statusMessage.summary && (
             <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-emerald-200/60">
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100/80 text-emerald-900 font-extrabold text-[11px]">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-                {statusMessage.summary.insertedCount} Newly Saved
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-100/80 text-emerald-900 font-extrabold text-[10px]">
+                <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                {statusMessage.summary.insertedCount} Saved
               </span>
 
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 border border-slate-200 text-slate-700 font-bold text-[11px]">
-                <CopyCheck className="w-3.5 h-3.5 text-slate-500" />
-                {statusMessage.summary.skippedDuplicates} Duplicates Filtered
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-white/90 border border-slate-200 text-slate-700 font-bold text-[10px]">
+                <CopyCheck className="w-3 h-3 text-slate-500" />
+                {statusMessage.summary.skippedDuplicates} Duplicates Skipped
               </span>
 
               {statusMessage.summary.skippedOldDateCount > 0 && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 border border-slate-200 text-slate-700 font-bold text-[11px]">
-                  <CalendarCheck className="w-3.5 h-3.5 text-slate-500" />
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-white/90 border border-slate-200 text-slate-700 font-bold text-[10px]">
+                  <CalendarCheck className="w-3 h-3 text-slate-500" />
                   {statusMessage.summary.skippedOldDateCount} Older Records Skipped
                 </span>
               )}
 
               {statusMessage.summary.skippedStatusCount > 0 && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-100/70 border border-amber-200 text-amber-900 font-bold text-[11px]">
-                  <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-amber-100/70 border border-amber-200 text-amber-900 font-bold text-[10px]">
+                  <ShieldCheck className="w-3 h-3 text-amber-700" />
                   {statusMessage.summary.skippedStatusCount} Non-Completed Ignored
                 </span>
               )}

@@ -149,11 +149,11 @@ export default function RawDataOrdersPage() {
               <span>Raw Data Ledger</span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 font-normal mt-1">
-              Transactional audit log of individual delivery orders, timestamps, cafeteria partners, and payouts.
+              Customer deliveries, cafeteria partners, and rider payouts
             </p>
           </div>
           <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white text-slate-700 border border-slate-200/80 shadow-sm self-start sm:self-auto">
-            Total Ingested: <strong className="text-slate-900 font-bold tabular-nums">{totalCount}</strong> orders
+            Total Orders: <strong className="text-slate-900 font-bold tabular-nums">{totalCount}</strong>
           </span>
         </div>
 
