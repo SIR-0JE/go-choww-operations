@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, getInMemoryOrders, updateInMemoryOrderRider } from '@/lib/prisma';
+import { prisma, getInMemoryOrders, updateInMemoryOrder, updateInMemoryOrderRider } from '@/lib/prisma';
 import { calculateRiderPayout, isSettledOrder } from '@/lib/financials';
 
 export const dynamic = 'force-dynamic';
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { orderId, id, riderId } = body;
+    const { orderId, id, riderId, deliveryType, orderType, deliveryFee, orderStatus, paymentStatus, deliveryAddress } = body;
 
     const targetKey = orderId || id;
     if (!targetKey) {
@@ -141,35 +141,109 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const assignedRiderId = riderId === 'unassigned' || !riderId ? null : String(riderId);
+    const updateData: any = {};
+
+    if (riderId !== undefined) {
+      updateData.riderId = riderId === 'unassigned' || !riderId ? null : String(riderId);
+    }
+
+    const finalDeliveryType = deliveryType || orderType;
+    if (finalDeliveryType !== undefined && typeof finalDeliveryType === 'string') {
+      const trimmed = finalDeliveryType.trim();
+      const lower = trimmed.toLowerCase();
+      if (lower.includes('same')) {
+        updateData.deliveryType = 'Same side';
+      } else if (lower.includes('diff')) {
+        updateData.deliveryType = 'Different side';
+      } else if (lower.includes('pick')) {
+        updateData.deliveryType = 'Pick up';
+      } else {
+        updateData.deliveryType = trimmed;
+      }
+    }
+
+    if (deliveryFee !== undefined && deliveryFee !== null) {
+      const parsedFee = Number(deliveryFee);
+      if (isNaN(parsedFee) || parsedFee < 0) {
+        return NextResponse.json(
+          { success: false, error: 'Delivery fee must be a valid non-negative number' },
+          { status: 400 }
+        );
+      }
+      updateData.deliveryFee = parsedFee;
+    }
+
+    if (orderStatus !== undefined) {
+      updateData.orderStatus = String(orderStatus).trim();
+    }
+
+    if (paymentStatus !== undefined) {
+      updateData.paymentStatus = String(paymentStatus).trim();
+    }
+
+    if (deliveryAddress !== undefined) {
+      updateData.deliveryAddress = String(deliveryAddress).trim();
+    }
+
+    let updated: any = null;
 
     try {
-      const updated = await prisma.deliveryOrder.update({
-        where: orderId ? { orderId } : { id },
-        data: { riderId: assignedRiderId },
+      const existing = await prisma.deliveryOrder.findFirst({
+        where: {
+          OR: [{ id: targetKey }, { orderId: targetKey }],
+        },
+      });
+
+      if (!existing) {
+        return NextResponse.json(
+          { success: false, error: 'Order not found' },
+          { status: 404 }
+        );
+      }
+
+      updated = await prisma.deliveryOrder.update({
+        where: { id: existing.id },
+        data: updateData,
         include: {
           rider: {
             select: { id: true, name: true, phone: true, status: true },
           },
         },
       });
-
-      return NextResponse.json({
-        success: true,
-        order: updated,
-        message: assignedRiderId ? 'Rider assigned successfully!' : 'Rider unassigned.',
-      });
     } catch {
-      updateInMemoryOrderRider(targetKey, assignedRiderId);
-      return NextResponse.json({
-        success: true,
-        message: assignedRiderId ? 'Rider assigned successfully!' : 'Rider unassigned.',
-      });
+      updated = updateInMemoryOrder(targetKey, updateData);
     }
+
+    if (!updated) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to update order' },
+        { status: 500 }
+      );
+    }
+
+    const fee = Number(updated.deliveryFee);
+    const settled = isSettledOrder(updated);
+    const riderPayout = settled ? calculateRiderPayout(updated.deliveryType) : 0;
+    const netProfit = settled ? fee - riderPayout : 0;
+
+    return NextResponse.json({
+      success: true,
+      order: {
+        ...updated,
+        deliveryFee: fee,
+        foodTotal: Number(updated.foodTotal),
+        totalAmountPaid: Number(updated.totalAmountPaid),
+        riderPayout,
+        netProfit,
+        isSettled: settled,
+        createdAt: new Date(updated.createdAt).toISOString(),
+      },
+      message: 'Order updated successfully!',
+    });
   } catch (error: any) {
-    console.error('Order Rider Assignment PATCH error:', error);
+    console.error('Order PATCH error:', error);
     return NextResponse.json(
-      { success: false, error: error?.message || 'Failed to update order rider' },
+      { success: false, error: error?.message || 'Failed to update order' },
       { status: 500 }
     );
   }

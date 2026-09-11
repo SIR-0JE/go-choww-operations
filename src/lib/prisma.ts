@@ -48,6 +48,23 @@ export const updateInMemoryOrderRider = (orderId: string, riderId: string | null
   }
 };
 
+export const updateInMemoryOrder = (orderId: string, data: Partial<GeneratedOrder>) => {
+  if (!globalForPrisma.mockOrders) return null;
+  const ord = globalForPrisma.mockOrders.find((o) => o.orderId === orderId || o.id === orderId);
+  if (ord) {
+    Object.assign(ord, data);
+    if (data.riderId !== undefined) {
+      if (data.riderId && globalForPrisma.mockRiders) {
+        ord.rider = globalForPrisma.mockRiders.find((r) => r.id === data.riderId) || null;
+      } else if (!data.riderId) {
+        ord.rider = null;
+      }
+    }
+    return ord;
+  }
+  return null;
+};
+
 export const getInMemoryExpenses = () => globalForPrisma.mockExpenses || [];
 
 export const appendMockExpense = (newExpense: GeneratedExpense) => {

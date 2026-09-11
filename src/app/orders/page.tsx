@@ -17,6 +17,10 @@ import {
   AlertCircle,
   Bike,
   UserCheck,
+  Pencil,
+  Save,
+  RefreshCw,
+  X,
 } from 'lucide-react';
 
 interface RiderOption {
@@ -66,6 +70,14 @@ export default function RawDataOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<RawOrder | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
 
+  // Edit Order Override Modal State
+  const [editingOrder, setEditingOrder] = useState<RawOrder | null>(null);
+  const [editDeliveryType, setEditDeliveryType] = useState<string>('Same side');
+  const [editDeliveryFee, setEditDeliveryFee] = useState<number | string>(100);
+  const [editRiderId, setEditRiderId] = useState<string>('unassigned');
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+  const [editSaveError, setEditSaveError] = useState<string | null>(null);
+
   // Fetch Riders for Dropdown
   const fetchRiders = async () => {
     try {
@@ -113,6 +125,55 @@ export default function RawDataOrdersPage() {
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  // Open Edit Modal
+  const openEditModal = (ord: RawOrder) => {
+    setEditingOrder(ord);
+    setEditDeliveryType(ord.deliveryType || 'Same side');
+    setEditDeliveryFee(ord.deliveryFee);
+    setEditRiderId(ord.riderId || 'unassigned');
+    setEditSaveError(null);
+  };
+
+  // Save Order Override Handler
+  const handleSaveOrderOverride = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingOrder) return;
+    setIsSavingOrder(true);
+    setEditSaveError(null);
+
+    try {
+      const res = await fetch(`/api/orders/${editingOrder.id || editingOrder.orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deliveryType: editDeliveryType,
+          deliveryFee: Number(editDeliveryFee),
+          riderId: editRiderId === 'unassigned' ? null : editRiderId,
+        }),
+      });
+      const data = await res.json();
+
+      if (data.success && data.order) {
+        // Optimistically update orders list with new values
+        setOrders((prev) =>
+          prev.map((ord) => (ord.orderId === editingOrder.orderId ? { ...ord, ...data.order } : ord))
+        );
+        // If the inspect modal is viewing this order, update that too
+        if (selectedOrder && selectedOrder.orderId === editingOrder.orderId) {
+          setSelectedOrder((prev) => (prev ? { ...prev, ...data.order } : null));
+        }
+        setEditingOrder(null);
+      } else {
+        setEditSaveError(data.error || 'Failed to update order');
+      }
+    } catch (err: any) {
+      console.error('Failed to save order override:', err);
+      setEditSaveError(err?.message || 'Network error updating order');
+    } finally {
+      setIsSavingOrder(false);
+    }
+  };
 
   // Inline Rider Assignment Handler
   const handleAssignRider = async (orderId: string, newRiderId: string) => {
@@ -426,13 +487,22 @@ export default function RawDataOrdersPage() {
 
                       {/* Action */}
                       <td className="px-4 py-3.5 text-center">
-                        <button
-                          onClick={() => setSelectedOrder(ord)}
-                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-brand-500 hover:text-white text-slate-600 transition-colors"
-                          title="Inspect Record"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            onClick={() => openEditModal(ord)}
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-brand-500 hover:text-white text-slate-600 transition-colors"
+                            title="Edit Order Override"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setSelectedOrder(ord)}
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-700 hover:text-white text-slate-600 transition-colors"
+                            title="Inspect Record"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -493,12 +563,26 @@ export default function RawDataOrdersPage() {
                   <div className="text-xs font-bold text-brand-600 uppercase tracking-wider">Raw Order Record</div>
                   <div className="text-base font-black text-slate-900 font-mono">{selectedOrder.orderId}</div>
                 </div>
-                <button
-                  onClick={() => setSelectedOrder(null)}
-                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold"
-                >
-                  ✕
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const o = selectedOrder;
+                      setSelectedOrder(null);
+                      openEditModal(o);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-brand-50 hover:bg-brand-600 hover:text-white text-brand-700 border border-brand-200 transition-colors text-xs font-bold flex items-center gap-1"
+                    title="Edit this order"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    onClick={() => setSelectedOrder(null)}
+                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-xs">
@@ -546,6 +630,176 @@ export default function RawDataOrdersPage() {
                   <span className="text-emerald-700 font-black">{formatNaira(selectedOrder.netProfit)}</span>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─────────────────────────────────────────────────────────────
+            EDIT ORDER OVERRIDE MODAL
+        ───────────────────────────────────────────────────────────── */}
+        {editingOrder && (
+          <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-brand-50 text-brand-600 border border-brand-200/60">
+                    <Pencil className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">Manual Order Override</h3>
+                    <p className="text-xs text-slate-500 font-mono font-bold">{editingOrder.orderId}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setEditingOrder(null)}
+                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {editSaveError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{editSaveError}</span>
+                </div>
+              )}
+
+              {/* Order Context Info */}
+              <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <div>
+                  <span className="text-slate-400 font-medium">Customer:</span>
+                  <p className="font-bold text-slate-900 truncate">{editingOrder.customerName}</p>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-medium">Cafeteria (Origin):</span>
+                  <p className="font-bold text-amber-700 truncate">{editingOrder.cafeteriaName}</p>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-slate-400 font-medium">Delivery Address (Destination):</span>
+                  <p className="font-semibold text-slate-800 truncate">{editingOrder.deliveryAddress}</p>
+                </div>
+              </div>
+
+              {/* Form Controls */}
+              <form onSubmit={handleSaveOrderOverride} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Delivery Type / Fulfillment Zone *
+                  </label>
+                  <select
+                    value={editDeliveryType}
+                    onChange={(e) => setEditDeliveryType(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                  >
+                    <option value="Same side">Same side (₦50 Rider Pay)</option>
+                    <option value="Different side">Different side (₦90 Rider Pay)</option>
+                    <option value="Pick up">Pick up (₦0 Rider Pay)</option>
+                    <option value="Other">Other (₦0 Rider Pay)</option>
+                  </select>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Override to Same side or Different side if an order marked as Pickup was fulfilled by a rider.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Delivery Fee (NGN ₦) *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                      ₦
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      required
+                      value={editDeliveryFee}
+                      onChange={(e) => setEditDeliveryFee(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3.5 py-2.5 text-xs sm:text-sm text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Assigned Dispatch Rider
+                  </label>
+                  <select
+                    value={editRiderId}
+                    onChange={(e) => setEditRiderId(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                  >
+                    <option value="unassigned">— Unassigned —</option>
+                    {ridersList.map((rider) => (
+                      <option key={rider.id} value={rider.id}>
+                        {rider.name} ({rider.status || 'Active'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Dynamic Financial Impact Preview */}
+                {(() => {
+                  const typeLower = editDeliveryType.toLowerCase();
+                  const isSame = typeLower.includes('same');
+                  const isDiff = typeLower.includes('diff');
+                  const riderPay = isSame ? 50 : isDiff ? 90 : 0;
+                  const fee = Number(editDeliveryFee) || 0;
+                  const net = fee - riderPay;
+
+                  return (
+                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
+                      <span className="font-bold text-slate-500 text-[10px] uppercase tracking-wider block">
+                        Live Calculation Preview
+                      </span>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Rider Pay:</span>
+                        <span className="font-bold text-blue-700">{formatNaira(riderPay)}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Updated Delivery Fee:</span>
+                        <span className="font-bold text-brand-600">{formatNaira(fee)}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-900 pt-1.5 border-t border-slate-200 font-bold">
+                        <span className="text-emerald-700">Estimated Net Profit:</span>
+                        <span className="text-emerald-700 font-black">{formatNaira(net)}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Form Actions */}
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    disabled={isSavingOrder}
+                    onClick={() => setEditingOrder(null)}
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingOrder}
+                    className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-md shadow-brand-500/20 transition-all disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {isSavingOrder ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Saving Changes...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" />
+                        <span>Save Override</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
