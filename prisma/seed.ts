@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
+import { classifyDeliveryType } from '../src/lib/locations';
 
 const prisma = new PrismaClient();
 
@@ -194,18 +195,15 @@ async function main() {
       foodTotal + deliveryFee
     );
 
-    let deliveryType = String(
+    const rawOrderType = String(
       normalized['deliverytype'] ||
       normalized['type'] ||
       row['Delivery Type'] ||
-      'Same side'
+      row['Order Type'] ||
+      ''
     ).trim();
 
-    const lowerType = deliveryType.toLowerCase();
-    if (lowerType.includes('same')) deliveryType = 'Same side';
-    else if (lowerType.includes('diff')) deliveryType = 'Different side';
-    else if (lowerType.includes('pick')) deliveryType = 'Pick up';
-    else deliveryType = 'Other';
+    const deliveryType = classifyDeliveryType(cafeteriaName, deliveryAddress, rawOrderType);
 
     let orderStatus = String(
       normalized['orderstatus'] ||

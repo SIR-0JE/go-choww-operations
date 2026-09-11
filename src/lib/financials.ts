@@ -2,6 +2,8 @@
  * Core Financial Logic & Business Rules for Go Choww Operations & Debt Recovery
  */
 
+export * from './locations';
+
 export interface OrderFinancials {
   deliveryFee: number;
   foodTotal: number;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, getInMemoryOrders, appendMockOrder } from '@/lib/prisma';
 import { GeneratedOrder } from '@/lib/mockData';
+import { classifyDeliveryType } from '@/lib/locations';
 
 export const dynamic = 'force-dynamic';
 
@@ -236,21 +237,18 @@ export async function POST(request: NextRequest) {
         foodTotal + deliveryFee
       );
 
-      // Live export header mapping: Order Type -> deliveryType
-      let deliveryType = String(
+      // Compute Origin-to-Destination Cross-Site Delivery Classification:
+      // Same Side (₦50) vs Different Side (₦90) vs Pick up (₦0)
+      const rawOrderType = String(
         normalizedRow['ordertype'] ||
         normalizedRow['deliverytype'] ||
         normalizedRow['type'] ||
         row['Order Type'] ||
         row['Delivery Type'] ||
-        'Same side'
+        ''
       ).trim();
 
-      const lowerType = deliveryType.toLowerCase();
-      if (lowerType.includes('same')) deliveryType = 'Same side';
-      else if (lowerType.includes('diff')) deliveryType = 'Different side';
-      else if (lowerType.includes('pick')) deliveryType = 'Pick up';
-      else deliveryType = 'Same side';
+      const deliveryType = classifyDeliveryType(cafeteriaName, deliveryAddress, rawOrderType);
 
       // Verified settled status
       const orderStatus = 'Completed';
