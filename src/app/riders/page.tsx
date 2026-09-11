@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { AppLayout } from '@/components/AppLayout';
 import { Header } from '@/components/Header';
 import { formatNaira } from '@/lib/financials';
+import { RiderOrderAccordion } from '@/components/riders/RiderOrderAccordion';
 import {
   Bike,
   UserPlus,
@@ -22,6 +24,7 @@ import {
   X,
   RefreshCw,
   Trash2,
+  ExternalLink,
 } from 'lucide-react';
 
 interface RiderOrder {
@@ -441,16 +444,25 @@ export default function RidersPage() {
                         <div className="inline-flex items-center gap-1.5">
                           <button
                             onClick={() => setSelectedRider(rider)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-brand-500 hover:text-white text-slate-700 text-xs font-bold transition-colors"
-                            title="View Assigned Orders"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-brand-500 hover:text-white text-slate-700 text-xs font-bold transition-colors"
+                            title="Quick View Breakdown"
                           >
                             <Eye className="w-3.5 h-3.5" />
-                            <span>Orders ({rider.totalOrdersAssigned})</span>
+                            <span>Breakdown</span>
                           </button>
+
+                          <Link
+                            href={`/riders/${rider.id}`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-600 hover:text-white text-brand-700 border border-brand-200/60 text-xs font-bold transition-colors"
+                            title="View Full Chronological Profile"
+                          >
+                            <span>Profile</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </Link>
 
                           <button
                             onClick={() => setRiderToDelete(rider)}
-                            className="p-1 rounded-lg bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-600 transition-colors border border-rose-200/60"
+                            className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-600 transition-colors border border-rose-200/60"
                             title="Delete Rider"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -616,15 +628,15 @@ export default function RidersPage() {
         )}
 
         {/* ─────────────────────────────────────────────────────────────
-            RIDER ORDERS BREAKDOWN MODAL
+            RIDER ORDERS BREAKDOWN MODAL (WITH ACCORDION)
         ───────────────────────────────────────────────────────────── */}
         {selectedRider && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
               {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-brand-50 text-brand-600 font-black flex items-center justify-center text-sm border border-brand-200">
+                  <div className="w-10 h-10 rounded-2xl bg-brand-50 text-brand-600 font-black flex items-center justify-center text-base border border-brand-200">
                     {selectedRider.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
@@ -633,12 +645,21 @@ export default function RidersPage() {
                       {getStatusBadge(selectedRider.status)}
                     </h3>
                     <p className="text-xs text-slate-500 font-medium">
-                      Phone: <span className="font-mono text-slate-700 font-bold">{selectedRider.phone}</span> • Total Payout Earned: <strong className="text-emerald-700">{formatNaira(selectedRider.totalEarnings)}</strong>
+                      Phone: <span className="font-mono text-slate-700 font-bold">{selectedRider.phone}</span> • Total Payout: <strong className="text-emerald-700">{formatNaira(selectedRider.totalEarnings)}</strong>
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <Link
+                    href={`/riders/${selectedRider.id}`}
+                    className="px-3 py-1.5 rounded-xl bg-brand-50 hover:bg-brand-600 hover:text-white text-brand-700 border border-brand-200 transition-colors text-xs font-bold flex items-center gap-1.5"
+                    title="Open Full Profile Page"
+                  >
+                    <span>Full Profile</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
+
                   <button
                     onClick={() => {
                       setRiderToDelete(selectedRider);
@@ -647,7 +668,6 @@ export default function RidersPage() {
                     title="Delete Rider"
                   >
                     <Trash2 className="w-4 h-4" />
-                    <span className="hidden sm:inline">Delete</span>
                   </button>
 
                   <button
@@ -675,72 +695,9 @@ export default function RidersPage() {
                 </div>
               </div>
 
-              {/* Orders Table Container */}
-              <div className="overflow-y-auto flex-1 border border-slate-100 rounded-xl">
-                <table className="w-full text-left text-xs text-slate-600 whitespace-nowrap">
-                  <thead className="bg-slate-50 text-slate-500 uppercase font-extrabold text-[10px] sticky top-0 border-b border-slate-200">
-                    <tr>
-                      <th className="px-4 py-2.5">Date</th>
-                      <th className="px-4 py-2.5">Order ID</th>
-                      <th className="px-4 py-2.5">Cafeteria</th>
-                      <th className="px-4 py-2.5">Destination</th>
-                      <th className="px-4 py-2.5">Type</th>
-                      <th className="px-4 py-2.5 text-right font-bold">Rider Pay</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {selectedRider.orders.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
-                          No deliveries assigned to this rider yet.
-                        </td>
-                      </tr>
-                    ) : (
-                      selectedRider.orders.map((ord) => {
-                        const type = (ord.deliveryType || '').toLowerCase();
-                        const isSame = type.includes('same');
-                        const isDiff = type.includes('diff');
-                        const pay = isSame ? 50 : isDiff ? 90 : 0;
-
-                        return (
-                          <tr key={ord.orderId} className="hover:bg-slate-50/80">
-                            <td className="px-4 py-2.5 font-medium text-slate-700">
-                              {new Date(ord.createdAt).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                              })}
-                            </td>
-                            <td className="px-4 py-2.5 font-bold font-mono text-slate-900 text-[11px]">
-                              {ord.orderId}
-                            </td>
-                            <td className="px-4 py-2.5 font-medium text-amber-700">
-                              {ord.cafeteriaName}
-                            </td>
-                            <td className="px-4 py-2.5 text-slate-600 max-w-[150px] truncate">
-                              {ord.deliveryAddress}
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <span
-                                className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
-                                  isSame
-                                    ? 'bg-orange-50 text-orange-700 border border-orange-200'
-                                    : isDiff
-                                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                }`}
-                              >
-                                {ord.deliveryType}
-                              </span>
-                            </td>
-                            <td className="px-4 py-2.5 text-right font-black text-slate-900">
-                              {formatNaira(pay)}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
+              {/* Hierarchical Accordion Container */}
+              <div className="overflow-y-auto flex-1 pr-1">
+                <RiderOrderAccordion orders={selectedRider.orders} />
               </div>
             </div>
           </div>
