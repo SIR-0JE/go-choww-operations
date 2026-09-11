@@ -10,6 +10,17 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model Rider {
+  id        String          @id @default(uuid())
+  name      String
+  phone     String?
+  status    String          @default("Active") // "Active", "Inactive", "On Leave"
+  createdAt DateTime        @default(now())
+  orders    DeliveryOrder[]
+
+  @@index([status])
+}
+
 model DeliveryOrder {
   id              String   @id @default(uuid())
   orderId         String   @unique
@@ -25,9 +36,13 @@ model DeliveryOrder {
   orderStatus     String   // Values: "Completed", "Cancelled", "Pending"
   paymentStatus   String   // Values: "success", "failed", "pending"
 
+  riderId         String?
+  rider           Rider?   @relation(fields: [riderId], references: [id], onDelete: SetNull)
+
   @@index([orderStatus, paymentStatus])
   @@index([createdAt])
   @@index([deliveryType])
+  @@index([riderId])
 }
 
 model Expense {

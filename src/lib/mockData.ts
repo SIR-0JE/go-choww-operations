@@ -1,6 +1,14 @@
 /**
- * Types and Empty Data Cache for Go Choww Operations & Expenses
+ * Types and Empty Data Cache for Go Choww Operations, Expenses & Riders
  */
+
+export interface GeneratedRider {
+  id: string;
+  name: string;
+  phone?: string | null;
+  status: 'Active' | 'Inactive' | 'On Leave';
+  createdAt: Date;
+}
 
 export interface GeneratedOrder {
   id?: string;
@@ -16,6 +24,8 @@ export interface GeneratedOrder {
   deliveryType: 'Same side' | 'Different side' | 'Pick up' | 'Other';
   orderStatus: 'Completed' | 'Cancelled' | 'Pending';
   paymentStatus: 'success' | 'failed' | 'pending';
+  riderId?: string | null;
+  rider?: GeneratedRider | null;
 }
 
 export interface GeneratedExpense {
@@ -28,5 +38,5 @@ export interface GeneratedExpense {
 }
 
 export const initialMockExpenses: GeneratedExpense[] = [];
-
 export const staticOrdersCache: GeneratedOrder[] = [];
+export const staticRidersCache: GeneratedRider[] = [];

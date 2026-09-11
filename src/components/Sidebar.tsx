@@ -13,6 +13,7 @@ import {
   X,
   ChevronRight,
   Target,
+  Bike,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -36,7 +37,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
       label: 'Raw Data',
       href: '/orders',
       icon: Database,
-      active: pathname === '/orders',
+      active: pathname === '/orders' || pathname === '/raw-data',
+    },
+    {
+      label: 'Riders',
+      href: '/riders',
+      icon: Bike,
+      active: pathname === '/riders',
+      badge: 'Fleet',
     },
     {
       label: 'Expenses',

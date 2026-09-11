@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, getInMemoryOrders } from '@/lib/prisma';
+import { prisma, getInMemoryOrders, updateInMemoryOrderRider } from '@/lib/prisma';
 import { calculateRiderPayout, isSettledOrder } from '@/lib/financials';
 
 export const dynamic = 'force-dynamic';
@@ -10,9 +10,9 @@ export async function GET(request: NextRequest) {
     const search = (searchParams.get('search') || '').toLowerCase().trim();
     const deliveryType = searchParams.get('deliveryType') || 'All';
     const orderStatus = searchParams.get('orderStatus') || 'All';
+    const riderId = searchParams.get('riderId') || 'All';
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limitParam = searchParams.get('limit') || '20';
-    // Support limit=all to return every record without pagination (used by analytics pages)
     const fetchAll = limitParam === 'all';
     const limit = fetchAll ? 999999 : Math.min(5000, Math.max(5, parseInt(limitParam, 10)));
 
@@ -21,6 +21,16 @@ export async function GET(request: NextRequest) {
     try {
       rawOrders = await prisma.deliveryOrder.findMany({
         orderBy: { createdAt: 'desc' },
+        include: {
+          rider: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              status: true,
+            },
+          },
+        },
       });
     } catch {
       rawOrders = getInMemoryOrders();
@@ -45,6 +55,8 @@ export async function GET(request: NextRequest) {
         riderPayout,
         netProfit,
         isSettled: settled,
+        riderId: o.riderId || null,
+        rider: o.rider || null,
         createdAt: new Date(o.createdAt).toISOString(),
       };
     });
@@ -56,7 +68,8 @@ export async function GET(request: NextRequest) {
           o.orderId.toLowerCase().includes(search) ||
           o.customerName.toLowerCase().includes(search) ||
           o.cafeteriaName.toLowerCase().includes(search) ||
-          o.deliveryAddress.toLowerCase().includes(search)
+          o.deliveryAddress.toLowerCase().includes(search) ||
+          (o.rider?.name && o.rider.name.toLowerCase().includes(search))
       );
     }
 
@@ -72,6 +85,15 @@ export async function GET(request: NextRequest) {
       processed = processed.filter(
         (o) => o.orderStatus.toLowerCase() === orderStatus.toLowerCase()
       );
+    }
+
+    // 4. Filter by Rider ID
+    if (riderId !== 'All') {
+      if (riderId === 'unassigned') {
+        processed = processed.filter((o) => !o.riderId);
+      } else {
+        processed = processed.filter((o) => o.riderId === riderId);
+      }
     }
 
     // Pagination
@@ -94,6 +116,53 @@ export async function GET(request: NextRequest) {
     console.error('Orders GET API error:', error);
     return NextResponse.json(
       { success: false, error: error?.message || 'Failed to fetch orders' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { orderId, id, riderId } = body;
+
+    const targetKey = orderId || id;
+    if (!targetKey) {
+      return NextResponse.json(
+        { success: false, error: 'orderId or id is required' },
+        { status: 400 }
+      );
+    }
+
+    const assignedRiderId = riderId === 'unassigned' || !riderId ? null : String(riderId);
+
+    try {
+      const updated = await prisma.deliveryOrder.update({
+        where: orderId ? { orderId } : { id },
+        data: { riderId: assignedRiderId },
+        include: {
+          rider: {
+            select: { id: true, name: true, phone: true, status: true },
+          },
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        order: updated,
+        message: assignedRiderId ? 'Rider assigned successfully!' : 'Rider unassigned.',
+      });
+    } catch {
+      updateInMemoryOrderRider(targetKey, assignedRiderId);
+      return NextResponse.json({
+        success: true,
+        message: assignedRiderId ? 'Rider assigned successfully!' : 'Rider unassigned.',
+      });
+    }
+  } catch (error: any) {
+    console.error('Order Rider Assignment PATCH error:', error);
+    return NextResponse.json(
+      { success: false, error: error?.message || 'Failed to update order rider' },
       { status: 500 }
     );
   }
