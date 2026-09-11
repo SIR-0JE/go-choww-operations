@@ -75,6 +75,19 @@ export const updateMockRiderStatus = (id: string, status: 'Active' | 'Inactive' 
   }
 };
 
+export const deleteMockRider = (id: string) => {
+  if (!globalForPrisma.mockRiders) return;
+  globalForPrisma.mockRiders = globalForPrisma.mockRiders.filter((r) => r.id !== id);
+  if (globalForPrisma.mockOrders) {
+    for (const ord of globalForPrisma.mockOrders) {
+      if (ord.riderId === id) {
+        ord.riderId = null;
+        ord.rider = null;
+      }
+    }
+  }
+};
+
 export const clearAllInMemoryData = () => {
   globalForPrisma.mockOrders = [];
   globalForPrisma.mockExpenses = [];

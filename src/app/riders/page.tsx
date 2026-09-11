@@ -21,6 +21,7 @@ import {
   Calendar,
   X,
   RefreshCw,
+  Trash2,
 } from 'lucide-react';
 
 interface RiderOrder {
@@ -78,6 +79,8 @@ export default function RidersPage() {
   // Modal States
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [selectedRider, setSelectedRider] = useState<RiderItem | null>(null);
+  const [riderToDelete, setRiderToDelete] = useState<RiderItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Register Form State
   const [newRiderName, setNewRiderName] = useState('');
@@ -149,6 +152,30 @@ export default function RidersPage() {
       setFormError(err?.message || 'Network error.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteRider = async (id: string) => {
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/riders?id=${id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setRiderToDelete(null);
+        if (selectedRider?.id === id) {
+          setSelectedRider(null);
+        }
+        fetchRiders();
+      } else {
+        alert(data.error || 'Failed to delete rider');
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Network error deleting rider');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -331,7 +358,7 @@ export default function RidersPage() {
                   <th className="px-5 py-3.5 text-center">Same-Side (₦50)</th>
                   <th className="px-5 py-3.5 text-center">Different-Side (₦90)</th>
                   <th className="px-5 py-3.5 text-right font-bold">Total Earnings</th>
-                  <th className="px-5 py-3.5 text-center">Action</th>
+                  <th className="px-5 py-3.5 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -409,16 +436,26 @@ export default function RidersPage() {
                         </span>
                       </td>
 
-                      {/* Action */}
+                      {/* Actions */}
                       <td className="px-5 py-4 text-center">
-                        <button
-                          onClick={() => setSelectedRider(rider)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-brand-500 hover:text-white text-slate-700 text-xs font-bold transition-colors"
-                          title="View Assigned Orders"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Orders ({rider.totalOrdersAssigned})</span>
-                        </button>
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            onClick={() => setSelectedRider(rider)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-brand-500 hover:text-white text-slate-700 text-xs font-bold transition-colors"
+                            title="View Assigned Orders"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Orders ({rider.totalOrdersAssigned})</span>
+                          </button>
+
+                          <button
+                            onClick={() => setRiderToDelete(rider)}
+                            className="p-1 rounded-lg bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-600 transition-colors border border-rose-200/60"
+                            title="Delete Rider"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -525,6 +562,60 @@ export default function RidersPage() {
         )}
 
         {/* ─────────────────────────────────────────────────────────────
+            DELETE RIDER CONFIRMATION MODAL
+        ───────────────────────────────────────────────────────────── */}
+        {riderToDelete && (
+          <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-rose-50 text-rose-600 border border-rose-200">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Delete Rider</h3>
+                  <p className="text-xs text-slate-500">Remove rider from dispatch roster</p>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 space-y-1.5">
+                <p>
+                  Are you sure you want to delete <strong className="text-slate-900 font-bold">{riderToDelete.name}</strong>?
+                </p>
+                <p className="text-slate-500 text-[11px]">
+                  All {riderToDelete.totalOrdersAssigned} delivery orders assigned to this rider will remain safe and be marked as <strong className="text-slate-700">Unassigned</strong>.
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => setRiderToDelete(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => handleDeleteRider(riderToDelete.id)}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-500/20 transition-all flex items-center gap-2"
+                >
+                  {isDeleting ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <span>Confirm Delete</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─────────────────────────────────────────────────────────────
             RIDER ORDERS BREAKDOWN MODAL
         ───────────────────────────────────────────────────────────── */}
         {selectedRider && (
@@ -546,12 +637,26 @@ export default function RidersPage() {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setSelectedRider(null)}
-                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setRiderToDelete(selectedRider);
+                    }}
+                    className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-600 border border-rose-200 transition-colors text-xs font-bold flex items-center gap-1"
+                    title="Delete Rider"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Delete</span>
+                  </button>
+
+                  <button
+                    onClick={() => setSelectedRider(null)}
+                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               {/* Order Stats Pill */}

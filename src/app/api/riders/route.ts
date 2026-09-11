@@ -4,6 +4,7 @@ import {
   getInMemoryRiders,
   appendMockRider,
   updateMockRiderStatus,
+  deleteMockRider,
   getInMemoryOrders,
 } from '@/lib/prisma';
 import { GeneratedRider } from '@/lib/mockData';
@@ -240,6 +241,50 @@ export async function PATCH(request: NextRequest) {
     console.error('Riders PATCH API error:', error);
     return NextResponse.json(
       { success: false, error: error?.message || 'Failed to update rider' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'Rider ID is required' },
+        { status: 400 }
+      );
+    }
+
+    try {
+      // 1. Unassign any orders assigned to this rider
+      await prisma.deliveryOrder.updateMany({
+        where: { riderId: id },
+        data: { riderId: null },
+      });
+
+      // 2. Delete the rider record
+      await prisma.rider.delete({
+        where: { id },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Rider deleted successfully! Assigned orders are now marked as unassigned.',
+      });
+    } catch {
+      deleteMockRider(id);
+      return NextResponse.json({
+        success: true,
+        message: 'Rider deleted successfully! Assigned orders are now marked as unassigned.',
+      });
+    }
+  } catch (error: any) {
+    console.error('Riders DELETE API error:', error);
+    return NextResponse.json(
+      { success: false, error: error?.message || 'Failed to delete rider' },
       { status: 500 }
     );
   }

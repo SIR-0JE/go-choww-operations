@@ -19,19 +19,26 @@ export async function GET(request: NextRequest) {
     let rawOrders: any[] = [];
 
     try {
-      rawOrders = await prisma.deliveryOrder.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: {
-          rider: {
-            select: {
-              id: true,
-              name: true,
-              phone: true,
-              status: true,
+      try {
+        rawOrders = await prisma.deliveryOrder.findMany({
+          orderBy: { createdAt: 'desc' },
+          include: {
+            rider: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                status: true,
+              },
             },
           },
-        },
-      });
+        });
+      } catch {
+        // Safe fallback if riderId relation column is not yet pushed to DB
+        rawOrders = await prisma.deliveryOrder.findMany({
+          orderBy: { createdAt: 'desc' },
+        });
+      }
     } catch {
       rawOrders = getInMemoryOrders();
     }
