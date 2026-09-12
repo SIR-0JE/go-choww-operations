@@ -93,33 +93,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // 1. SMART DATE CHECKING: QUERY LATEST ORDER DATE IN DATABASE
-    // ─────────────────────────────────────────────────────────────
-    let latestDbOrderDate: Date | null = null;
-    try {
-      const latestRecord = await prisma.deliveryOrder.findFirst({
-        orderBy: { createdAt: 'desc' },
-        select: { createdAt: true },
-      });
-      if (latestRecord?.createdAt) {
-        latestDbOrderDate = new Date(latestRecord.createdAt);
-      }
-    } catch {
-      const inMemory = getInMemoryOrders();
-      if (inMemory && inMemory.length > 0) {
-        const sorted = [...inMemory].sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        latestDbOrderDate = new Date(sorted[0].createdAt);
-      }
-    }
-
     const candidateOrders: any[] = [];
     const seenOrderIds = new Set<string>();
     let inBatchDuplicates = 0;
     let skippedStatusCount = 0;
-    let skippedOldDateCount = 0;
 
     for (const row of rawRows) {
       // Normalize header keys (case-insensitive, strip whitespace and punctuation)
@@ -173,12 +150,6 @@ export async function POST(request: NextRequest) {
         new Date().toISOString();
 
       const { date: parsedDate, timeStr } = parseDateString(rawDate);
-
-      // Smart Date Filtering: If DB has a latest order date, filter out records strictly older than latest date
-      if (latestDbOrderDate && parsedDate.getTime() < latestDbOrderDate.getTime()) {
-        skippedOldDateCount++;
-        continue;
-      }
 
       // Live export header mapping: Customer -> customerName
       const customerName = String(
@@ -333,7 +304,7 @@ export async function POST(request: NextRequest) {
         insertedCount === 1 ? '' : 's'
       } from ${formattedDate}. ${dupText}`;
     } else {
-      message = `Sync complete: 0 new orders added (${totalDuplicates} duplicates, ${skippedOldDateCount} older records, and ${skippedStatusCount} non-completed records were skipped).`;
+      message = `Sync complete: 0 new orders added (${totalDuplicates} duplicates and ${skippedStatusCount} non-completed records were skipped).`;
     }
 
     return NextResponse.json({
@@ -345,9 +316,7 @@ export async function POST(request: NextRequest) {
         totalRows: rawRows.length,
         insertedCount,
         skippedDuplicates: totalDuplicates,
-        skippedOldDateCount,
         skippedStatusCount,
-        latestDbDate: latestDbOrderDate ? latestDbOrderDate.toISOString() : null,
       },
     });
   } catch (error: any) {

@@ -18,9 +18,9 @@ interface UploadSummary {
   totalRows: number;
   insertedCount: number;
   skippedDuplicates: number;
-  skippedOldDateCount: number;
+  skippedOldDateCount?: number;
   skippedStatusCount: number;
-  latestDbDate: string | null;
+  latestDbDate?: string | null;
 }
 
 interface CsvUploadDropzoneProps {
@@ -260,7 +260,7 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
                 {statusMessage.summary.skippedDuplicates} Duplicates Skipped
               </span>
 
-              {statusMessage.summary.skippedOldDateCount > 0 && (
+              {Boolean(statusMessage.summary.skippedOldDateCount && statusMessage.summary.skippedOldDateCount > 0) && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-white/90 border border-slate-200 text-slate-700 font-bold text-[10px]">
                   <CalendarCheck className="w-3 h-3 text-slate-500" />
                   {statusMessage.summary.skippedOldDateCount} Older Records Skipped
