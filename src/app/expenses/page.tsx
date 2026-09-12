@@ -17,6 +17,7 @@ import {
   TrendingDown,
   Layers,
   Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 
 interface ExpenseItem {
@@ -38,15 +39,19 @@ export default function ExpensesManagerPage() {
   // Form State for Adding Expense
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formDate, setFormDate] = useState('2026-09-01');
+  const [formDate, setFormDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [formCategory, setFormCategory] = useState('Fuel');
   const [formDescription, setFormDescription] = useState('');
   const [formAmount, setFormAmount] = useState('');
   const [formFeedback, setFormFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Dynamic Rider Pay Calculator State
-  const [calcStartDate, setCalcStartDate] = useState('2026-08-01');
-  const [calcEndDate, setCalcEndDate] = useState('2026-09-01');
+  const [calcStartDate, setCalcStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().split('T')[0];
+  });
+  const [calcEndDate, setCalcEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [paymentModel, setPaymentModel] = useState<'standard' | 'flat' | 'custom'>('standard');
   const [customSameRate, setCustomSameRate] = useState(50);
   const [customDiffRate, setCustomDiffRate] = useState(90);
@@ -569,16 +574,21 @@ export default function ExpensesManagerPage() {
 
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">Amount (NGN ₦)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="100"
-                    value={formAmount}
-                    onChange={(e) => setFormAmount(e.target.value)}
-                    placeholder="e.g. 15000"
-                    required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white placeholder-slate-400"
-                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">
+                      ₦
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={formAmount}
+                      onChange={(e) => setFormAmount(e.target.value)}
+                      placeholder="e.g. 15000"
+                      required
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white placeholder-slate-400 font-semibold"
+                    />
+                  </div>
                 </div>
 
                 <div className="pt-2 flex justify-end gap-2">
@@ -592,9 +602,16 @@ export default function ExpensesManagerPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-brand-500 to-orange-600 text-white font-extrabold hover:from-brand-600 hover:to-orange-700 disabled:opacity-50 shadow-sm"
+                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-brand-500 to-orange-600 text-white font-extrabold hover:from-brand-600 hover:to-orange-700 disabled:opacity-50 shadow-sm flex items-center gap-1.5"
                   >
-                    {isSubmitting ? 'Saving...' : 'Save Expense'}
+                    {isSubmitting ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <span>Save Expense</span>
+                    )}
                   </button>
                 </div>
               </form>
