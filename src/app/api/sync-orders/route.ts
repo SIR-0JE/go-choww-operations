@@ -161,6 +161,8 @@ async function performSync(force: boolean = false) {
         const customerName = String(order.user?.name || order.customerName || 'Student Customer').trim();
         const cafeteriaName = String(order.vendor?.restaurantName || order.cafeteriaName || 'Campus Cafeteria').trim();
         const deliveryAddress = String(order.deliveryAddress || 'Campus Hostel Block').trim();
+        // Extract phone from GoChow user profile if present
+        const customerPhone = String(order.user?.phone || order.user?.phoneNumber || order.customerPhone || '').trim() || null;
 
         const deliveryFee = Number(order.deliveryFee ?? 0);
         const foodTotal = Number(order.subtotal ?? order.foodTotal ?? 0);
@@ -185,6 +187,7 @@ async function performSync(force: boolean = false) {
             deliveryType,
             orderStatus: liveOrderStatus,
             paymentStatus: livePaymentStatus,
+            ...(customerPhone && { customerPhone }),
           });
         } else {
           const currentDbStatus = (existing.orderStatus || '').trim().toLowerCase();

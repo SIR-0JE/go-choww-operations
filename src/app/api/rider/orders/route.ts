@@ -109,6 +109,7 @@ export async function GET(request: NextRequest) {
           orderStatus: true,
           createdAt: true,
           time: true,
+          customerPhone: true,
         },
       });
 
@@ -252,6 +253,29 @@ export async function POST(request: NextRequest) {
           },
           { status: 409 }
         );
+      }
+
+      // 5-order cap: rider cannot hold more than 5 active orders at once
+      try {
+        const activeCount = await prisma.deliveryOrder.count({
+          where: {
+            riderId: rider.id,
+            orderStatus: {
+              notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
+            },
+          },
+        });
+        if (activeCount >= 5) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'You already have 5 active orders. Deliver one before accepting more.',
+            },
+            { status: 409 }
+          );
+        }
+      } catch {
+        // If DB check fails, proceed — don't block rider on a transient error
       }
 
       // Assign to this rider atomically

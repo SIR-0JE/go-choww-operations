@@ -11,12 +11,16 @@ import {
   Store,
   MapPin,
   User,
-  Clock,
   CheckCircle2,
   PackageCheck,
   RefreshCw,
   AlertCircle,
   Sparkles,
+  Hash,
+  WifiOff,
+  Wifi,
+  Clock,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface RiderOrder {
@@ -29,6 +33,7 @@ interface RiderOrder {
   orderStatus: string;
   createdAt: string;
   time: string;
+  customerPhone?: string | null;
 }
 
 interface RiderProfile {
@@ -37,6 +42,8 @@ interface RiderProfile {
   phone: string;
   isOnline: boolean;
 }
+
+const MAX_ACTIVE_ORDERS = 5;
 
 export default function RiderPortalPage() {
   const router = useRouter();
@@ -61,10 +68,10 @@ export default function RiderPortalPage() {
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setToastMessage({ text, type });
-    toastTimeoutRef.current = setTimeout(() => setToastMessage(null), 3500);
+    toastTimeoutRef.current = setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // ── Web Audio Chime Synthesizer ─────────────────────────────────────────────
+  // ── Web Audio Chime ──────────────────────────────────────────────────────────
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   const initOrResumeAudio = useCallback(() => {
@@ -72,23 +79,16 @@ export default function RiderPortalPage() {
       if (typeof window === 'undefined') return null;
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return null;
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new AudioCtx();
-      }
-      if (audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume();
-      }
+      if (!audioCtxRef.current) audioCtxRef.current = new AudioCtx();
+      if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
       return audioCtxRef.current;
     } catch {
       return null;
     }
   }, []);
 
-  // Unlock browser audio upon first touch/click
   useEffect(() => {
-    const unlock = () => {
-      initOrResumeAudio();
-    };
+    const unlock = () => initOrResumeAudio();
     window.addEventListener('click', unlock, { once: true });
     window.addEventListener('touchstart', unlock, { once: true });
     return () => {
@@ -102,9 +102,7 @@ export default function RiderPortalPage() {
     try {
       const ctx = initOrResumeAudio();
       if (!ctx) return;
-
       const now = ctx.currentTime;
-      // Note 1 (D5 = 587.33Hz)
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();
       osc1.type = 'sine';
@@ -115,8 +113,6 @@ export default function RiderPortalPage() {
       gain1.connect(ctx.destination);
       osc1.start(now);
       osc1.stop(now + 0.35);
-
-      // Note 2 (A5 = 880Hz)
       const osc2 = ctx.createOscillator();
       const gain2 = ctx.createGain();
       osc2.type = 'sine';
@@ -127,8 +123,6 @@ export default function RiderPortalPage() {
       gain2.connect(ctx.destination);
       osc2.start(now + 0.14);
       osc2.stop(now + 0.6);
-
-      // Mobile vibration
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         navigator.vibrate([200, 100, 200]);
       }
@@ -137,7 +131,7 @@ export default function RiderPortalPage() {
     }
   }, [soundEnabled, initOrResumeAudio]);
 
-  // ── Initial Restore from LocalStorage ─────────────────────────────────────
+  // ── Restore session from localStorage ───────────────────────────────────────
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('rider_session');
@@ -146,35 +140,25 @@ export default function RiderPortalPage() {
           const parsed = JSON.parse(saved);
           setRider(parsed);
           setIsOnline(Boolean(parsed.isOnline));
-        } catch {
-          // ignore
-        }
+        } catch { /* ignore */ }
       }
     }
   }, []);
 
-  // ── Fetch Rider Profile & Orders ────────────────────────────────────────────
+  // ── Fetch Rider Profile & Orders ─────────────────────────────────────────────
   const fetchPortalData = useCallback(
     async (isBackground = false) => {
       if (!isBackground) setIsRefreshing(true);
-
       const localRiderId = typeof window !== 'undefined' ? localStorage.getItem('rider_id') : null;
-
       try {
         const headers: Record<string, string> = {};
         if (localRiderId) headers['x-rider-id'] = localRiderId;
-
         const res = await fetch('/api/rider/orders', { headers });
         if (res.status === 401) {
-          // Never violently kick out on background poll hiccups
-          if (!isBackground && !localRiderId) {
-            router.push('/rider/login');
-          }
+          if (!isBackground && !localRiderId) router.push('/rider/login');
           return;
         }
-
         const data = await res.json();
-
         if (data.success) {
           if (data.rider) {
             setRider(data.rider);
@@ -184,12 +168,10 @@ export default function RiderPortalPage() {
               localStorage.setItem('rider_id', data.rider.id);
             }
           }
-
           const newAvailable: RiderOrder[] = data.available || [];
           const newActive: RiderOrder[] = data.active || [];
           const newCompleted: RiderOrder[] = data.completedToday || [];
 
-          // Detect newly added orders to trigger audio chime
           if (isBackground && prevAvailableIdsRef.current.size > 0) {
             const hasNewOrder = newAvailable.some((ord) => !prevAvailableIdsRef.current.has(ord.orderId));
             if (hasNewOrder) {
@@ -197,15 +179,10 @@ export default function RiderPortalPage() {
               showToast('🔔 New order available in the dispatch pool!', 'success');
             }
           }
-
-          // Update cache of seen available IDs
           prevAvailableIdsRef.current = new Set(newAvailable.map((o) => o.orderId));
-
           setAvailableOrders(newAvailable);
           setActiveTasks(newActive);
           setCompletedToday(newCompleted);
-
-          // If rider has an active task and currently on available tab, prompt or switch
           if (newActive.length > 0 && activeTasks.length === 0 && !isBackground) {
             setActiveTab('active');
           }
@@ -220,13 +197,11 @@ export default function RiderPortalPage() {
     [router, playAlertChime, activeTasks.length]
   );
 
-  // ── Auto-poll: pulls latest GoChow orders & listens for phone wake ───────
+  // ── Auto-poll ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     let isOffHours = false;
-
     const triggerSyncAndFetch = async (background: boolean) => {
       try {
-        // If cafeteria is closed/sleeping, avoid spamming external sync on background ticks
         if (!isOffHours || !background) {
           const syncRes = await fetch('/api/sync-orders', { method: 'POST' });
           const syncData = await syncRes.json();
@@ -235,48 +210,27 @@ export default function RiderPortalPage() {
           } else {
             isOffHours = false;
           }
-
           if (syncData?.hasChanges && typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('orders-synced', { detail: syncData }));
           }
         }
-      } catch {
-        // ignore
-      }
+      } catch { /* ignore */ }
       await fetchPortalData(background);
     };
 
     triggerSyncAndFetch(false);
-
-    const interval = setInterval(() => {
-      triggerSyncAndFetch(true);
-    }, 6000);
-
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        triggerSyncAndFetch(false);
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('focus', handleVisibility);
-
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('focus', handleVisibility);
-    };
+    const interval = setInterval(() => triggerSyncAndFetch(true), 30000);
+    return () => clearInterval(interval);
   }, [fetchPortalData]);
 
-  // ── Toggle Online / On-Duty Status ──────────────────────────────────────────
+  // ── Toggle Online Status ────────────────────────────────────────────────────
   const toggleOnlineStatus = async () => {
     const newStatus = !isOnline;
     setIsOnline(newStatus);
     const localRiderId = typeof window !== 'undefined' ? localStorage.getItem('rider_id') : null;
-
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (localRiderId) headers['x-rider-id'] = localRiderId;
-
       const res = await fetch('/api/rider/status', {
         method: 'PATCH',
         headers,
@@ -286,23 +240,20 @@ export default function RiderPortalPage() {
       if (data.success) {
         showToast(data.message, 'success');
         if (typeof window !== 'undefined' && rider) {
-          const updated = { ...rider, isOnline: newStatus };
-          localStorage.setItem('rider_session', JSON.stringify(updated));
+          localStorage.setItem('rider_session', JSON.stringify({ ...rider, isOnline: newStatus }));
         }
       }
     } catch {
-      setIsOnline(!newStatus); // revert on error
+      setIsOnline(!newStatus);
       showToast('Could not update status. Check your connection.', 'error');
     }
   };
 
-  // ── Logout ──────────────────────────────────────────────────────────────────
+  // ── Logout ────────────────────────────────────────────────────────────────────
   const handleLogout = async () => {
     try {
       await fetch('/api/rider/auth', { method: 'DELETE' });
-    } catch {
-      // ignore
-    } finally {
+    } catch { /* ignore */ } finally {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('rider_session');
         localStorage.removeItem('rider_id');
@@ -311,31 +262,30 @@ export default function RiderPortalPage() {
     }
   };
 
-  // ── Order Actions: Claim, Pick Up, Deliver ───────────────────────────────────
+  // ── Order Actions ─────────────────────────────────────────────────────────────
   const handleOrderAction = async (orderId: string, action: 'claim' | 'pickup' | 'deliver') => {
+    // Client-side 5-order cap guard
+    if (action === 'claim' && activeTasks.length >= MAX_ACTIVE_ORDERS) {
+      showToast(`You already have ${MAX_ACTIVE_ORDERS} active orders. Deliver one before accepting more.`, 'error');
+      return;
+    }
+
     setActionLoadingId(orderId);
     const localRiderId = typeof window !== 'undefined' ? localStorage.getItem('rider_id') : null;
-
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (localRiderId) headers['x-rider-id'] = localRiderId;
-
       const res = await fetch('/api/rider/orders', {
         method: 'POST',
         headers,
         body: JSON.stringify({ orderId, action }),
       });
-
       const data = await res.json();
-
       if (data.success) {
         showToast(data.message, 'success');
         await fetchPortalData(false);
-        if (action === 'claim') {
-          setActiveTab('active');
-        } else if (action === 'deliver') {
-          setActiveTab('completed');
-        }
+        if (action === 'claim') setActiveTab('active');
+        else if (action === 'deliver') setActiveTab('completed');
       } else {
         showToast(data.error || 'Action could not be completed.', 'error');
         await fetchPortalData(false);
@@ -347,92 +297,88 @@ export default function RiderPortalPage() {
     }
   };
 
-  // ── Render Helpers ──────────────────────────────────────────────────────────
-  const renderBadge = (type: string) => {
-    const isSameSide = type?.toLowerCase().includes('same');
-    return (
-      <span
-        className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
-          isSameSide
-            ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-            : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-        }`}
-      >
-        {type || 'Standard Delivery'}
-      </span>
-    );
+  // ── Pickup code: last 4 chars of orderId ─────────────────────────────────────
+  const getPickupCode = (orderId: string) => {
+    const clean = orderId.replace(/[-\s]/g, '');
+    return clean.slice(-4).toUpperCase();
   };
 
+  const atCapacity = activeTasks.length >= MAX_ACTIVE_ORDERS;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 rounded-2xl bg-amber-500 flex items-center justify-center mx-auto shadow-lg">
+            <Bike className="w-5 h-5 text-white" />
+          </div>
+          <p className="text-sm text-slate-500 font-medium">Loading your portal...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col max-w-md mx-auto relative shadow-2xl border-x border-slate-900">
-      {/* ── Top App Bar ──────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-xl border-b border-slate-800/80 px-4 py-3">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col max-w-md mx-auto">
+
+      {/* ── Top App Bar ───────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-3 shadow-sm">
         <div className="flex items-center justify-between">
           {/* Rider identity */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center font-bold text-slate-950 text-sm shadow-md shadow-amber-500/20">
-              <Bike className="w-5 h-5 stroke-[2.5]" />
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center shadow-sm shrink-0">
+              <Bike className="w-5 h-5 text-white stroke-[2.5]" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white tracking-tight leading-tight">
+              <h2 className="text-sm font-bold text-slate-900 leading-tight">
                 {rider?.name || 'Dispatch Rider'}
               </h2>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span
                   className={`w-2 h-2 rounded-full ${
-                    isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'
+                    isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
                   }`}
                 />
-                <span className="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">
+                <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
                   {isOnline ? 'On Duty' : 'Off Duty'}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Quick controls: Sound, Online toggle, Logout */}
-          <div className="flex items-center gap-2">
-            {/* Sound Toggle */}
+          {/* Controls */}
+          <div className="flex items-center gap-1.5">
+            {/* Sound toggle */}
             <button
               onClick={() => {
-                const nextState = !soundEnabled;
-                setSoundEnabled(nextState);
-                if (nextState) {
-                  const ctx = initOrResumeAudio();
-                  if (ctx) {
-                    playAlertChime();
-                  }
-                  showToast('🔊 Alert chime enabled and tested!', 'success');
-                } else {
-                  showToast('🔇 Alert sound muted', 'success');
-                }
+                const next = !soundEnabled;
+                setSoundEnabled(next);
+                if (next) { initOrResumeAudio(); playAlertChime(); showToast('🔊 Sound enabled', 'success'); }
+                else showToast('🔇 Sound muted', 'success');
               }}
-              className={`p-2 rounded-xl border transition-all ${
-                soundEnabled
-                  ? 'bg-slate-800/80 border-slate-700 text-amber-400'
-                  : 'bg-slate-900 border-slate-800 text-slate-500'
-              }`}
-              title={soundEnabled ? 'Mute Alert Sound' : 'Enable Alert Sound'}
+              className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 transition-all"
+              title={soundEnabled ? 'Mute' : 'Enable sound'}
             >
               {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
 
-            {/* Online / Offline switch */}
+            {/* Online toggle */}
             <button
               onClick={toggleOnlineStatus}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all flex items-center gap-1.5 ${
                 isOnline
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
-                  : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                  : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              <span>{isOnline ? 'Go Offline' : 'Go Online'}</span>
+              {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+              <span>{isOnline ? 'Online' : 'Offline'}</span>
             </button>
 
             {/* Logout */}
             <button
               onClick={handleLogout}
-              className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/20 transition-all"
+              className="p-2 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-all"
               title="Log Out"
             >
               <LogOut className="w-4 h-4" />
@@ -441,223 +387,219 @@ export default function RiderPortalPage() {
         </div>
       </header>
 
-      {/* ── Toast Banner ─────────────────────────────────────────────────────── */}
+      {/* ── Toast ─────────────────────────────────────────────────────────────── */}
       {toastMessage && (
         <div
-          className={`px-4 py-2.5 text-xs font-semibold flex items-center justify-between border-b transition-all ${
+          className={`mx-4 mt-3 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between border shadow-sm ${
             toastMessage.type === 'success'
-              ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
-              : 'bg-rose-500/15 border-rose-500/30 text-rose-300'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-rose-50 border-rose-200 text-rose-800'
           }`}
         >
           <div className="flex items-center gap-2">
-            {toastMessage.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-            )}
+            {toastMessage.type === 'success'
+              ? <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+              : <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />}
             <span>{toastMessage.text}</span>
           </div>
-          <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-white font-bold ml-2">
-            ✕
-          </button>
+          <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-slate-600 ml-2 shrink-0 font-bold">✕</button>
         </div>
       )}
 
-      {/* ── Tabs Navigation ──────────────────────────────────────────────────── */}
-      <div className="bg-slate-900/60 p-2 border-b border-slate-800/80 sticky top-[61px] z-30 backdrop-blur-md">
-        <div className="grid grid-cols-3 gap-1.5 bg-slate-950/80 p-1 rounded-2xl border border-slate-800">
-          {/* Available Tab */}
+      {/* ── Capacity Banner ───────────────────────────────────────────────────── */}
+      {atCapacity && activeTab === 'available' && (
+        <div className="mx-4 mt-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2.5">
+          <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-bold text-amber-800">Active Order Limit Reached (5/5)</p>
+            <p className="text-[11px] text-amber-700 mt-0.5">
+              Complete or deliver an active order to unlock new pickups.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tabs ──────────────────────────────────────────────────────────────── */}
+      <div className="sticky top-[61px] z-30 bg-white border-b border-slate-200 px-4 py-3">
+        <div className="grid grid-cols-3 gap-2 bg-slate-100 p-1 rounded-xl">
+          {/* Pool tab */}
           <button
             onClick={() => setActiveTab('available')}
-            className={`py-2 px-1 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-0.5 ${
+            className={`py-2 px-1 rounded-lg text-xs font-bold transition-all flex flex-col items-center gap-0.5 ${
               activeTab === 'available'
-                ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-slate-950 shadow-md shadow-amber-500/20'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-white text-amber-700 shadow-sm border border-slate-200'
+                : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             <div className="flex items-center gap-1.5">
               <span>Pool</span>
-              <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                  activeTab === 'available'
-                    ? 'bg-slate-950 text-amber-400'
-                    : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                }`}
-              >
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                activeTab === 'available' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600'
+              }`}>
                 {availableOrders.length}
               </span>
             </div>
-            <span className="text-[9px] opacity-80 font-normal">Available</span>
+            <span className="text-[9px] font-normal opacity-70">Available</span>
           </button>
 
-          {/* Active Tasks Tab */}
+          {/* Active tab */}
           <button
             onClick={() => setActiveTab('active')}
-            className={`py-2 px-1 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-0.5 ${
+            className={`py-2 px-1 rounded-lg text-xs font-bold transition-all flex flex-col items-center gap-0.5 ${
               activeTab === 'active'
-                ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-slate-950 shadow-md shadow-amber-500/20'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-white text-blue-700 shadow-sm border border-slate-200'
+                : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             <div className="flex items-center gap-1.5">
               <span>Active</span>
-              <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                  activeTab === 'active'
-                    ? 'bg-slate-950 text-amber-400'
-                    : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                }`}
-              >
-                {activeTasks.length}
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                activeTab === 'active' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-600'
+              }`}>
+                {activeTasks.length}/{MAX_ACTIVE_ORDERS}
               </span>
             </div>
-            <span className="text-[9px] opacity-80 font-normal">In Transit</span>
+            <span className="text-[9px] font-normal opacity-70">In Transit</span>
           </button>
 
-          {/* Completed Today Tab */}
+          {/* Done tab */}
           <button
             onClick={() => setActiveTab('completed')}
-            className={`py-2 px-1 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-0.5 ${
+            className={`py-2 px-1 rounded-lg text-xs font-bold transition-all flex flex-col items-center gap-0.5 ${
               activeTab === 'completed'
-                ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-slate-950 shadow-md shadow-amber-500/20'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-white text-emerald-700 shadow-sm border border-slate-200'
+                : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             <div className="flex items-center gap-1.5">
               <span>Done</span>
-              <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                  activeTab === 'completed'
-                    ? 'bg-slate-950 text-amber-400'
-                    : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                }`}
-              >
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                activeTab === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
+              }`}>
                 {completedToday.length}
               </span>
             </div>
-            <span className="text-[9px] opacity-80 font-normal">Today</span>
+            <span className="text-[9px] font-normal opacity-70">Today</span>
           </button>
         </div>
       </div>
 
-      {/* ── Main Orders Container ────────────────────────────────────────────── */}
-      <main className="flex-1 p-4 overflow-y-auto space-y-4 pb-20">
+      {/* ── Main Content ──────────────────────────────────────────────────────── */}
+      <main className="flex-1 p-4 space-y-3 pb-10">
+
         {/* Offline notice */}
         {!isOnline && (
-          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-xs flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-amber-400" />
-              <span>You are currently <strong>Off Duty</strong>. Tap Online to claim orders.</span>
+          <div className="p-4 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-slate-600 text-xs">
+              <WifiOff className="w-4 h-4 text-slate-400" />
+              <span>You are <strong>Off Duty</strong>. Go online to claim orders.</span>
             </div>
             <button
               onClick={toggleOnlineStatus}
-              className="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-bold text-[11px] shrink-0 ml-2"
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs shrink-0 ml-2 hover:bg-emerald-700 transition-colors"
             >
               Go Online
             </button>
           </div>
         )}
 
-        {/* ── TAB 1: AVAILABLE POOL ─────────────────────────────────────────── */}
+        {/* ── TAB 1: AVAILABLE POOL ──────────────────────────────────────────── */}
         {activeTab === 'available' && (
           <div className="space-y-3">
-            <div className="flex items-center justify-between text-xs text-slate-400 px-1">
-              <span className="font-semibold text-slate-300">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Unassigned Orders ({availableOrders.length})
-              </span>
+              </p>
               <button
                 onClick={() => fetchPortalData(false)}
                 disabled={isRefreshing}
-                className="flex items-center gap-1 text-[11px] text-amber-400 hover:underline"
+                className="flex items-center gap-1 text-[11px] text-amber-600 hover:text-amber-700 font-medium"
               >
                 <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span>Refresh</span>
+                Refresh
               </button>
             </div>
 
             {availableOrders.length === 0 ? (
-              <div className="py-16 text-center text-slate-400 border border-dashed border-slate-800 rounded-3xl bg-slate-900/30 p-6">
-                <Bike className="w-12 h-12 mx-auto mb-3 text-slate-600 stroke-[1.5]" />
-                <h3 className="text-sm font-bold text-slate-300">No Orders in the Pool</h3>
+              <div className="py-16 text-center border border-dashed border-slate-300 rounded-2xl bg-white p-6">
+                <Bike className="w-10 h-10 mx-auto mb-3 text-slate-300 stroke-[1.5]" />
+                <h3 className="text-sm font-semibold text-slate-700">No Orders in the Pool</h3>
                 <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                  New campus orders will pop up here live with a sound alert as soon as customers pay.
+                  New orders will appear here with a sound alert once customers pay.
                 </p>
               </div>
             ) : (
               availableOrders.map((ord) => {
                 const isLoadingAction = actionLoadingId === ord.id || actionLoadingId === ord.orderId;
+                const isAtCap = atCapacity;
 
                 return (
                   <div
                     key={ord.id || ord.orderId}
-                    className="p-4 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-lg relative overflow-hidden transition-all hover:border-slate-700"
+                    className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3"
                   >
-                    {/* Top status & ID */}
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-[11px] font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
-                        {ord.orderId}
-                      </span>
-                      {renderBadge(ord.deliveryType)}
-                    </div>
-
-                    {/* Cafeteria Pickup */}
-                    <div className="flex items-start gap-2.5 mb-2.5">
-                      <div className="p-1.5 rounded-xl bg-orange-500/10 text-orange-400 mt-0.5 shrink-0">
-                        <Store className="w-4 h-4" />
+                    {/* Cafeteria */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0">
+                        <Store className="w-4 h-4 text-orange-500" />
                       </div>
-                      <div>
-                        <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                          Pickup Location
-                        </div>
-                        <div className="text-sm font-bold text-white leading-snug">
-                          {ord.cafeteriaName || 'Campus Cafeteria'}
-                        </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Cafeteria</p>
+                        <p className="text-sm font-bold text-slate-900 truncate">{ord.cafeteriaName || 'Campus Cafeteria'}</p>
                       </div>
                     </div>
 
-                    {/* Destination Delivery */}
-                    <div className="flex items-start gap-2.5 mb-4">
-                      <div className="p-1.5 rounded-xl bg-blue-500/10 text-blue-400 mt-0.5 shrink-0">
-                        <MapPin className="w-4 h-4" />
+                    <div className="border-t border-slate-100" />
+
+                    {/* Location */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                        <MapPin className="w-4 h-4 text-blue-500" />
                       </div>
-                      <div>
-                        <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                          Drop-Off Hostel
-                        </div>
-                        <div className="text-xs font-semibold text-slate-200 leading-snug">
-                          {ord.deliveryAddress || 'Campus Hostel'}
-                        </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Location</p>
+                        <p className="text-sm font-semibold text-slate-800 truncate">{ord.deliveryAddress || 'Campus Hostel'}</p>
                       </div>
                     </div>
 
-                    {/* Customer Info */}
-                    <div className="flex items-center justify-between pt-3 border-t border-slate-800/80 mb-4 text-xs text-slate-400">
-                      <div className="flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="font-medium text-slate-300">{ord.customerName}</span>
+                    <div className="border-t border-slate-100" />
+
+                    {/* Customer Name */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                        <User className="w-4 h-4 text-slate-500" />
                       </div>
-                      <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                        <Clock className="w-3 h-3" />
-                        <span>{ord.time || new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <div className="min-w-0">
+                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Customer</p>
+                        <p className="text-sm font-medium text-slate-700 truncate">{ord.customerName}</p>
                       </div>
                     </div>
 
-                    {/* Claim Button */}
+                    {/* Accept Button */}
                     <button
                       onClick={() => handleOrderAction(ord.id || ord.orderId, 'claim')}
-                      disabled={isLoadingAction || !isOnline}
-                      className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black py-3 px-4 rounded-2xl text-xs uppercase tracking-wider transition-all shadow-lg shadow-amber-500/20 active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                      disabled={isLoadingAction || !isOnline || isAtCap}
+                      title={isAtCap ? 'You have reached the 5-order limit' : undefined}
+                      className={`w-full font-bold py-3 px-4 rounded-xl text-sm transition-all flex items-center justify-center gap-2 mt-1 ${
+                        isAtCap || !isOnline
+                          ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
+                          : 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm active:scale-[0.98]'
+                      }`}
                     >
                       {isLoadingAction ? (
                         <>
-                          <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
-                          <span>Accepting Delivery...</span>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Accepting...</span>
+                        </>
+                      ) : isAtCap ? (
+                        <>
+                          <ShieldAlert className="w-4 h-4" />
+                          <span>Limit Reached (5/5)</span>
                         </>
                       ) : (
                         <>
-                          <Sparkles className="w-4 h-4 stroke-[2.5]" />
-                          <span>Accept Delivery Run</span>
+                          <Sparkles className="w-4 h-4" />
+                          <span>Accept Delivery</span>
                         </>
                       )}
                     </button>
@@ -668,156 +610,144 @@ export default function RiderPortalPage() {
           </div>
         )}
 
-        {/* ── TAB 2: ACTIVE TASKS ───────────────────────────────────────────── */}
+        {/* ── TAB 2: ACTIVE TASKS ────────────────────────────────────────────── */}
         {activeTab === 'active' && (
           <div className="space-y-3">
-            <div className="flex items-center justify-between text-xs text-slate-400 px-1">
-              <span className="font-semibold text-slate-300">
-                My Active Deliveries ({activeTasks.length})
-              </span>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                My Active Deliveries ({activeTasks.length}/{MAX_ACTIVE_ORDERS})
+              </p>
               <button
                 onClick={() => fetchPortalData(false)}
                 disabled={isRefreshing}
-                className="flex items-center gap-1 text-[11px] text-amber-400 hover:underline"
+                className="flex items-center gap-1 text-[11px] text-amber-600 hover:text-amber-700 font-medium"
               >
                 <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span>Refresh</span>
+                Refresh
               </button>
             </div>
 
             {activeTasks.length === 0 ? (
-              <div className="py-16 text-center text-slate-400 border border-dashed border-slate-800 rounded-3xl bg-slate-900/30 p-6">
-                <PackageCheck className="w-12 h-12 mx-auto mb-3 text-slate-600 stroke-[1.5]" />
-                <h3 className="text-sm font-bold text-slate-300">No Active Dispatches</h3>
+              <div className="py-16 text-center border border-dashed border-slate-300 rounded-2xl bg-white p-6">
+                <PackageCheck className="w-10 h-10 mx-auto mb-3 text-slate-300 stroke-[1.5]" />
+                <h3 className="text-sm font-semibold text-slate-700">No Active Dispatches</h3>
                 <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                  You have not accepted any deliveries yet. Head to the <strong>Pool</strong> tab to claim available orders.
+                  Head to the Pool tab to claim available orders.
                 </p>
                 <button
                   onClick={() => setActiveTab('available')}
-                  className="mt-4 px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs"
+                  className="mt-4 px-4 py-2 rounded-xl bg-amber-500 text-white font-bold text-xs hover:bg-amber-600 transition-colors"
                 >
-                  View Available Orders ({availableOrders.length})
+                  View Pool ({availableOrders.length})
                 </button>
               </div>
             ) : (
               activeTasks.map((ord) => {
                 const isLoadingAction = actionLoadingId === ord.id || actionLoadingId === ord.orderId;
                 const isDispatched = (ord.orderStatus || '').toLowerCase().includes('disp');
+                const pickupCode = getPickupCode(ord.orderId);
 
                 return (
                   <div
                     key={ord.id || ord.orderId}
-                    className="p-5 rounded-3xl bg-slate-900 border-2 border-amber-500/40 shadow-xl relative overflow-hidden"
+                    className="bg-white rounded-2xl border-2 border-amber-300 shadow-md overflow-hidden"
                   >
-                    {/* Status Badge */}
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-[11px] font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
-                        {ord.orderId}
-                      </span>
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-black border uppercase tracking-wider ${
-                          isDispatched
-                            ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 animate-pulse'
-                            : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                        }`}
-                      >
-                        {isDispatched ? '🚴 In Transit' : '⏳ Go to Cafeteria'}
+                    {/* Status header strip */}
+                    <div className={`px-4 py-2.5 flex items-center justify-between ${
+                      isDispatched ? 'bg-blue-50 border-b border-blue-100' : 'bg-amber-50 border-b border-amber-100'
+                    }`}>
+                      <span className="text-[10px] font-mono font-bold text-slate-500">{ord.orderId}</span>
+                      <span className={`text-[11px] font-black uppercase tracking-wide ${
+                        isDispatched ? 'text-blue-700' : 'text-amber-700'
+                      }`}>
+                        {isDispatched ? '🚴 In Transit' : '⏳ Awaiting Pickup'}
                       </span>
                     </div>
 
-                    {/* Step 1: Pickup info */}
-                    <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80 mb-3">
-                      <div className="flex items-start gap-2.5">
-                        <div className="p-1.5 rounded-xl bg-orange-500/10 text-orange-400 mt-0.5 shrink-0">
-                          <Store className="w-4 h-4" />
+                    <div className="p-4 space-y-3">
+                      {/* Step 1: Cafeteria */}
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-orange-50 border border-orange-100">
+                        <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
+                          <Store className="w-4 h-4 text-orange-600" />
                         </div>
-                        <div>
-                          <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                            Step 1: Pick Up Food Here
-                          </div>
-                          <div className="text-sm font-bold text-white">
-                            {ord.cafeteriaName || 'Campus Cafeteria'}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Step 2: Destination info */}
-                    <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80 mb-3">
-                      <div className="flex items-start gap-2.5">
-                        <div className="p-1.5 rounded-xl bg-blue-500/10 text-blue-400 mt-0.5 shrink-0">
-                          <MapPin className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                            Step 2: Deliver to Hostel
-                          </div>
-                          <div className="text-sm font-bold text-slate-100">
-                            {ord.deliveryAddress || 'Campus Hostel'}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Customer contact row with one-tap call */}
-                    <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80 mb-4">
-                      <div className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-slate-400" />
-                        <div>
-                          <div className="text-xs font-bold text-white">{ord.customerName}</div>
-                          <div className="text-[10px] text-slate-400">Recipient</div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-orange-600 font-bold uppercase tracking-wider">Step 1 · Pick Up Here</p>
+                          <p className="text-sm font-bold text-slate-900 truncate">{ord.cafeteriaName || 'Campus Cafeteria'}</p>
                         </div>
                       </div>
 
-                      {/* One-Tap Call Customer Button */}
-                      <a
-                        href="tel:08000000000"
-                        onClick={(e) => {
-                          // Prompt or trigger native phone dialer
-                          const customerPhone = prompt(
-                            `Call recipient "${ord.customerName}". Enter or confirm phone:`,
-                            '080'
-                          );
-                          if (customerPhone) {
-                            window.location.href = `tel:${customerPhone.replace(/\D/g, '')}`;
-                          }
-                          e.preventDefault();
-                        }}
-                        className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95 transition-all"
-                      >
-                        <Phone className="w-3.5 h-3.5 stroke-[2.5]" />
-                        <span>Call Recipient</span>
-                      </a>
-                    </div>
+                      {/* Step 2: Location */}
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 border border-blue-100">
+                        <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                          <MapPin className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Step 2 · Deliver Here</p>
+                          <p className="text-sm font-bold text-slate-900 truncate">{ord.deliveryAddress || 'Campus Hostel'}</p>
+                        </div>
+                      </div>
 
-                    {/* 3-Step Lifecycle Action Buttons */}
-                    {!isDispatched ? (
-                      <button
-                        onClick={() => handleOrderAction(ord.id || ord.orderId, 'pickup')}
-                        disabled={isLoadingAction}
-                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black py-3.5 px-4 rounded-2xl text-xs uppercase tracking-wider transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
-                      >
-                        {isLoadingAction ? (
-                          <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                      {/* Pickup Code */}
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                        <div className="w-8 h-8 rounded-lg bg-amber-200 flex items-center justify-center shrink-0">
+                          <Hash className="w-4 h-4 text-amber-800" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-amber-700 font-bold uppercase tracking-wider">Pickup Code</p>
+                          <p className="text-xl font-black text-amber-900 tracking-[0.2em]">{pickupCode}</p>
+                        </div>
+                      </div>
+
+                      {/* Customer + Phone */}
+                      <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center shrink-0">
+                            <User className="w-4 h-4 text-slate-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-slate-900">{ord.customerName}</p>
+                            <p className="text-[10px] text-slate-500">Recipient</p>
+                          </div>
+                        </div>
+
+                        {ord.customerPhone ? (
+                          <a
+                            href={`tel:${ord.customerPhone.replace(/\D/g, '')}`}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition-colors shadow-sm"
+                          >
+                            <Phone className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>Call</span>
+                          </a>
                         ) : (
-                          <Store className="w-4 h-4" />
+                          <span className="text-[11px] text-slate-400 italic">No phone on file</span>
                         )}
-                        <span>1. Confirm Food Picked Up from Cafeteria</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleOrderAction(ord.id || ord.orderId, 'deliver')}
-                        disabled={isLoadingAction}
-                        className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black py-3.5 px-4 rounded-2xl text-xs uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/25 active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
-                      >
-                        {isLoadingAction ? (
-                          <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
-                        ) : (
-                          <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-                        )}
-                        <span>2. Confirm Delivered to Customer</span>
-                      </button>
-                    )}
+                      </div>
+
+                      {/* Action Buttons */}
+                      {!isDispatched ? (
+                        <button
+                          onClick={() => handleOrderAction(ord.id || ord.orderId, 'pickup')}
+                          disabled={isLoadingAction}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl text-sm transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
+                        >
+                          {isLoadingAction
+                            ? <RefreshCw className="w-4 h-4 animate-spin" />
+                            : <Store className="w-4 h-4" />}
+                          <span>1. Confirm Food Picked Up</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleOrderAction(ord.id || ord.orderId, 'deliver')}
+                          disabled={isLoadingAction}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl text-sm transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
+                        >
+                          {isLoadingAction
+                            ? <RefreshCw className="w-4 h-4 animate-spin" />
+                            : <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />}
+                          <span>2. Confirm Delivered to Customer</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })
@@ -828,53 +758,47 @@ export default function RiderPortalPage() {
         {/* ── TAB 3: COMPLETED TODAY ────────────────────────────────────────── */}
         {activeTab === 'completed' && (
           <div className="space-y-3">
-            <div className="flex items-center justify-between text-xs text-slate-400 px-1">
-              <span className="font-semibold text-slate-300">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Delivered Today ({completedToday.length} runs)
-              </span>
+              </p>
               <button
                 onClick={() => fetchPortalData(false)}
                 disabled={isRefreshing}
-                className="flex items-center gap-1 text-[11px] text-amber-400 hover:underline"
+                className="flex items-center gap-1 text-[11px] text-amber-600 hover:text-amber-700 font-medium"
               >
                 <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span>Refresh</span>
+                Refresh
               </button>
             </div>
 
             {completedToday.length === 0 ? (
-              <div className="py-16 text-center text-slate-400 border border-dashed border-slate-800 rounded-3xl bg-slate-900/30 p-6">
-                <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-slate-600 stroke-[1.5]" />
-                <h3 className="text-sm font-bold text-slate-300">No Completed Trips Today</h3>
-                <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                  Orders you deliver today will show up here as your proof of completed runs.
-                </p>
+              <div className="py-16 text-center border border-dashed border-slate-300 rounded-2xl bg-white p-6">
+                <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-slate-300 stroke-[1.5]" />
+                <h3 className="text-sm font-semibold text-slate-700">No Completed Trips Yet</h3>
+                <p className="text-xs text-slate-400 mt-1">Orders you deliver today will appear here.</p>
               </div>
             ) : (
               completedToday.map((ord) => (
                 <div
                   key={ord.id || ord.orderId}
-                  className="p-4 rounded-3xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between"
+                  className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-                      <CheckCircle2 className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <span>{ord.orderId}</span>
-                        <span className="text-[10px] text-emerald-400 font-semibold">• Delivered</span>
-                      </div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
-                        {ord.cafeteriaName} → {ord.deliveryAddress}
-                      </div>
-                    </div>
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   </div>
-
-                  <div className="text-right">
-                    <span className="text-[10px] font-mono text-slate-400">
-                      {ord.time || new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-900">{ord.orderId}</span>
+                      <span className="text-[10px] font-semibold text-emerald-600">• Delivered</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                      {ord.cafeteriaName} → {ord.deliveryAddress}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 text-[11px] text-slate-400 shrink-0">
+                    <Clock className="w-3 h-3" />
+                    <span>{ord.time || new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                 </div>
               ))
