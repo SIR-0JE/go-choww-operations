@@ -218,6 +218,15 @@ export default function ExecutiveDashboardPage() {
     fetchData();
   }, [fetchData]);
 
+  // Listen for global auto-sync events so dashboard metrics update live without manual page refresh
+  useEffect(() => {
+    const handleSync = () => {
+      fetchData();
+    };
+    window.addEventListener('orders-synced', handleSync);
+    return () => window.removeEventListener('orders-synced', handleSync);
+  }, [fetchData]);
+
   const toggleMonth = (mKey: string) => {
     setExpandedMonths((prev) => ({
       ...prev,

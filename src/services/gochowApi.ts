@@ -30,9 +30,9 @@ async function getAdminToken(): Promise<string> {
 }
 
 /**
- * Fetch the latest live orders from GoChow (defaults to top 10)
+ * Fetch the latest live orders from GoChow (defaults to top 30)
  */
-export async function fetchLiveGoChowOrders(limit: number = 10): Promise<any[]> {
+export async function fetchLiveGoChowOrders(limit: number = 30): Promise<any[]> {
   try {
     const token = await getAdminToken();
     const ordersResponse = await axios.get(`${BASE_URL}/admin/orders?page=1&limit=${limit}`, {

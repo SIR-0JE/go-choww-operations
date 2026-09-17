@@ -110,6 +110,9 @@ export async function GET(request: NextRequest) {
 
     // Pagination
     const totalCount = processed.length;
+    const activeTotalCount = processed.filter(
+      (o) => !o.orderStatus.toLowerCase().includes('canc')
+    ).length;
     const totalPages = Math.ceil(totalCount / limit) || 1;
     const startIndex = (page - 1) * limit;
     const paginatedOrders = processed.slice(startIndex, startIndex + limit);
@@ -121,6 +124,7 @@ export async function GET(request: NextRequest) {
         page,
         limit,
         totalCount,
+        activeTotalCount,
         totalPages,
       },
     });

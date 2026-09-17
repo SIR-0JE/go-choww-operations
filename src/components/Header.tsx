@@ -28,6 +28,12 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
   const router = useRouter();
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isSyncRunningRef = useRef(false);
+  const onSyncCompleteRef = useRef(onSyncComplete);
+
+  useEffect(() => {
+    onSyncCompleteRef.current = onSyncComplete;
+  }, [onSyncComplete]);
 
   // ── Toast helper ────────────────────────────────────────────────────────────
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
@@ -39,26 +45,32 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
   // ── Core sync function (shared by auto-poll and manual button) ─────────────
   const runSync = useCallback(
     async (options: { silent: boolean }) => {
+      if (isSyncRunningRef.current) return;
+      isSyncRunningRef.current = true;
+
       try {
         const res = await fetch('/api/sync-orders', { method: 'POST' });
         const data = await res.json();
 
         if (res.ok && data.success) {
-          const hasChanges = data.hasChanges ?? (data.newlySyncedCount > 0 || data.statusUpdatedCount > 0);
+          const hasChanges = Boolean(data.hasChanges ?? (data.newlySyncedCount > 0 || data.statusUpdatedCount > 0));
 
           if (!options.silent || hasChanges) {
-            // Auto-poll: only toast if something actually changed
-            // Manual: always toast so user gets confirmation
             showToast(
               data.message || `Sync complete — ${data.newlySyncedCount ?? 0} new order(s).`,
               'success'
             );
           }
 
-          if (hasChanges) {
-            if (onSyncComplete) onSyncComplete();
-            router.refresh();
+          // Always notify listening pages so their local React state updates reactively
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('orders-synced', { detail: data }));
           }
+
+          if (onSyncCompleteRef.current) {
+            onSyncCompleteRef.current();
+          }
+          router.refresh();
         } else if (!options.silent) {
           showToast(data.error || 'Failed to sync orders', 'error');
         }
@@ -66,12 +78,14 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
         if (!options.silent) {
           showToast(err?.message || 'Network error while syncing', 'error');
         }
+      } finally {
+        isSyncRunningRef.current = false;
       }
     },
-    [onSyncComplete, router, showToast]
+    [router, showToast]
   );
 
-  // ── Auto-poll: runs every 10 seconds on every page ─────────────────────────
+  // ── Auto-poll: runs every 15 seconds on every page ─────────────────────────
   useEffect(() => {
     const poll = async () => {
       setIsPolling(true);
@@ -79,7 +93,7 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
       setIsPolling(false);
     };
 
-    // Run immediately on mount to fix any stale statuses right away
+    // Run immediately on mount to catch any live updates right away
     poll();
 
     pollIntervalRef.current = setInterval(poll, POLL_INTERVAL_MS);

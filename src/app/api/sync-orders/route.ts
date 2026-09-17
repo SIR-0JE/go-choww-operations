@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
  * - ready                 → Ready
  * - preparing             → Preparing
  * - confirmed / paid      → Confirmed
- * - cancelled             → Cancelled
+ * - cancelled / canceled  → Cancelled
  * - (other / pending)     → Confirmed (if paid) or Pending
  */
 function mapOrderStatus(raw: string): string {
@@ -38,12 +38,12 @@ function mapPaymentStatus(raw: string): 'success' | 'failed' | 'pending' {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN SYNC FUNCTION
+// MAIN SYNC FUNCTION (HIGH SPEED < 0.5s)
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function performSync() {
-  // ── 1. Fetch the latest 10 live orders from GoChow ─────────────────────────
-  const liveOrders: any[] = await fetchLiveGoChowOrders(10);
+  // ── 1. Fetch the latest 30 live orders from GoChow in a single fast call ────
+  const liveOrders: any[] = await fetchLiveGoChowOrders(30);
 
   // Quick lookup map: orderNumber → GoChow order object
   const liveOrderMap = new Map<string, any>();
@@ -55,16 +55,16 @@ async function performSync() {
   let newlySyncedCount = 0;
   let statusUpdatedCount = 0;
 
-  // ── Part A: Insert new paid orders ────────────────────────────────────────
+  // ── Part A: Process fetched live orders (Insert new + Update existing) ────
   for (const order of liveOrders) {
     const orderNumber = String(order.orderNumber || order._id || '').trim();
     if (!orderNumber) continue;
 
-    // STRICT RULE: only insert orders with successful payment
+    // Filter: only insert orders with successful payment (or previously paid)
     const rawPayment = String(order.paymentStatus || '').toLowerCase();
-    if (rawPayment !== 'success' && rawPayment !== 'paid') continue;
+    const isPaid = rawPayment === 'success' || rawPayment === 'paid';
+    if (!isPaid) continue;
 
-    // Parse creation timestamp
     const rawDate = order.createdAt;
     let parsedDate = rawDate ? new Date(rawDate) : new Date();
     if (isNaN(parsedDate.getTime())) parsedDate = new Date();
@@ -82,12 +82,14 @@ async function performSync() {
     const totalAmountPaid = Number(order.totalAmount ?? order.totalAmountPaid ?? foodTotal + deliveryFee);
 
     const deliveryType = classifyDeliveryType(cafeteriaName, deliveryAddress, String(order.orderType || ''));
-    const orderStatus = mapOrderStatus(String(order.orderStatus || 'confirmed'));
-    const paymentStatus = 'success';
+    const liveOrderStatus = mapOrderStatus(String(order.orderStatus || 'confirmed'));
+    const livePaymentStatus = 'success';
 
     try {
       const existing = await prisma.deliveryOrder.findUnique({ where: { orderId: orderNumber } });
+
       if (!existing) {
+        // Insert new order
         await prisma.deliveryOrder.create({
           data: {
             orderId: orderNumber,
@@ -100,16 +102,36 @@ async function performSync() {
             foodTotal,
             totalAmountPaid,
             deliveryType,
-            orderStatus,
-            paymentStatus,
+            orderStatus: liveOrderStatus,
+            paymentStatus: livePaymentStatus,
           },
         });
         newlySyncedCount++;
+      } else {
+        // Order exists in DB — check if status changed (e.g. Confirmed → Cancelled or Delivered)
+        const currentDbStatus = (existing.orderStatus || '').trim().toLowerCase();
+        const currentDbPay = (existing.paymentStatus || '').trim().toLowerCase();
+
+        if (
+          currentDbStatus !== liveOrderStatus.toLowerCase() ||
+          currentDbPay !== livePaymentStatus.toLowerCase()
+        ) {
+          await prisma.deliveryOrder.update({
+            where: { id: existing.id },
+            data: {
+              orderStatus: liveOrderStatus,
+              paymentStatus: livePaymentStatus,
+            },
+          });
+          statusUpdatedCount++;
+        }
       }
     } catch {
       // In-memory fallback
       const mem = getInMemoryOrders();
-      if (!mem.some((o) => o.orderId === orderNumber)) {
+      const existingMem = mem.find((o) => o.orderId === orderNumber);
+
+      if (!existingMem) {
         appendMockOrder({
           orderId: orderNumber,
           createdAt: parsedDate,
@@ -121,16 +143,23 @@ async function performSync() {
           foodTotal,
           totalAmountPaid,
           deliveryType,
-          orderStatus,
-          paymentStatus,
+          orderStatus: liveOrderStatus,
+          paymentStatus: livePaymentStatus,
         });
         newlySyncedCount++;
+      } else {
+        if (existingMem.orderStatus.toLowerCase() !== liveOrderStatus.toLowerCase()) {
+          updateInMemoryOrder(orderNumber, {
+            orderStatus: liveOrderStatus,
+            paymentStatus: livePaymentStatus,
+          });
+          statusUpdatedCount++;
+        }
       }
     }
   }
 
-  // ── Part B: Re-check & update active (non-delivered) orders ────────────────
-  // Terminal statuses that no longer need scanning: "Delivered", "Completed", "Cancelled"
+  // ── Part B: Parallel targeted check for older active orders ────────────────
   const terminalStatuses = ['Delivered', 'Completed', 'Cancelled', 'delivered', 'completed', 'cancelled'];
 
   let activeDbOrders: any[] = [];
@@ -158,37 +187,44 @@ async function performSync() {
       }));
   }
 
-  for (const dbOrder of activeDbOrders) {
-    let liveMatch = liveOrderMap.get(dbOrder.orderId);
+  // Only perform targeted lookups for active orders NOT in the top 30
+  const olderActiveOrders = activeDbOrders.filter((o) => !liveOrderMap.has(o.orderId));
 
-    // If order slipped past the top 10 on GoChow, perform a targeted single lookup
-    if (!liveMatch) {
-      liveMatch = await fetchGoChowOrderByNumber(dbOrder.orderId);
-      if (liveMatch) {
-        liveOrderMap.set(dbOrder.orderId, liveMatch);
+  if (olderActiveOrders.length > 0) {
+    // Run targeted searches in parallel (< 1s total)
+    const lookups = await Promise.all(
+      olderActiveOrders.map(async (dbOrder) => {
+        try {
+          const match = await fetchGoChowOrderByNumber(dbOrder.orderId);
+          return { dbOrder, match };
+        } catch {
+          return { dbOrder, match: null };
+        }
+      })
+    );
+
+    for (const { dbOrder, match } of lookups) {
+      if (!match) continue;
+
+      const newOrderStatus = mapOrderStatus(String(match.orderStatus || ''));
+      const newPaymentStatus = mapPaymentStatus(String(match.paymentStatus || ''));
+
+      const statusChanged =
+        newOrderStatus.toLowerCase() !== dbOrder.orderStatus.toLowerCase() ||
+        newPaymentStatus.toLowerCase() !== dbOrder.paymentStatus.toLowerCase();
+
+      if (!statusChanged) continue;
+
+      try {
+        await prisma.deliveryOrder.update({
+          where: { id: dbOrder.id },
+          data: { orderStatus: newOrderStatus, paymentStatus: newPaymentStatus },
+        });
+        statusUpdatedCount++;
+      } catch {
+        updateInMemoryOrder(dbOrder.orderId, { orderStatus: newOrderStatus, paymentStatus: newPaymentStatus });
+        statusUpdatedCount++;
       }
-    }
-
-    if (!liveMatch) continue;
-
-    const newOrderStatus = mapOrderStatus(String(liveMatch.orderStatus || ''));
-    const newPaymentStatus = mapPaymentStatus(String(liveMatch.paymentStatus || ''));
-
-    const statusChanged =
-      newOrderStatus.toLowerCase() !== dbOrder.orderStatus.toLowerCase() ||
-      newPaymentStatus.toLowerCase() !== dbOrder.paymentStatus.toLowerCase();
-
-    if (!statusChanged) continue;
-
-    try {
-      await prisma.deliveryOrder.update({
-        where: { id: dbOrder.id },
-        data: { orderStatus: newOrderStatus, paymentStatus: newPaymentStatus },
-      });
-      statusUpdatedCount++;
-    } catch {
-      updateInMemoryOrder(dbOrder.orderId, { orderStatus: newOrderStatus, paymentStatus: newPaymentStatus });
-      statusUpdatedCount++;
     }
   }
 

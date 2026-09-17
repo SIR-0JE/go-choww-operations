@@ -115,8 +115,8 @@ export default function RawDataOrdersPage() {
 
       if (data.success) {
         setOrders(data.orders || []);
-        setTotalCount(data.pagination.totalCount || 0);
-        setTotalPages(data.pagination.totalPages || 1);
+        setTotalCount(data.pagination?.activeTotalCount ?? data.pagination?.totalCount ?? 0);
+        setTotalPages(data.pagination?.totalPages || 1);
       }
     } catch (err) {
       console.error('Failed to load raw orders:', err);
@@ -127,6 +127,15 @@ export default function RawDataOrdersPage() {
 
   useEffect(() => {
     fetchOrders();
+  }, [fetchOrders]);
+
+  // Listen for global auto-sync events so data updates live without manual page refresh
+  useEffect(() => {
+    const handleSync = () => {
+      fetchOrders();
+    };
+    window.addEventListener('orders-synced', handleSync);
+    return () => window.removeEventListener('orders-synced', handleSync);
   }, [fetchOrders]);
 
   // Open Edit Modal
@@ -261,8 +270,8 @@ export default function RawDataOrdersPage() {
     }
     if (s.includes('canc')) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-          <XCircle className="w-3 h-3 text-rose-600" />
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+          <XCircle className="w-3 h-3 text-slate-400" />
           Cancelled
         </span>
       );
@@ -449,8 +458,17 @@ export default function RawDataOrdersPage() {
                     </td>
                   </tr>
                 ) : (
-                  orders.map((ord) => (
-                    <tr key={ord.orderId} className="hover:bg-slate-50/80 transition-colors">
+                  orders.map((ord) => {
+                    const isCancelled = (ord.orderStatus || '').toLowerCase().includes('canc');
+                    return (
+                      <tr
+                        key={ord.orderId}
+                        className={
+                          isCancelled
+                            ? 'bg-slate-50/70 opacity-60 text-slate-400 hover:bg-slate-100/70 transition-colors'
+                            : 'hover:bg-slate-50/80 transition-colors'
+                        }
+                      >
                       {/* Date */}
                       <td className="px-4 py-3.5 font-medium text-slate-700">
                         {new Date(ord.createdAt).toLocaleDateString('en-US', {
@@ -543,9 +561,10 @@ export default function RawDataOrdersPage() {
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
+                  );
+                })
+              )}
+            </tbody>
             </table>
           </div>
 

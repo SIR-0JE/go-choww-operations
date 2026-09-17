@@ -72,8 +72,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ refreshKey }) => {
 
       if (data.success) {
         setOrders(data.orders || []);
-        setTotalCount(data.pagination.totalCount || 0);
-        setTotalPages(data.pagination.totalPages || 1);
+        setTotalCount(data.pagination?.activeTotalCount ?? data.pagination?.totalCount ?? 0);
+        setTotalPages(data.pagination?.totalPages || 1);
       }
     } catch (err) {
       console.error('Failed to load orders:', err);
@@ -85,6 +85,14 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ refreshKey }) => {
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders, refreshKey]);
+
+  useEffect(() => {
+    const handleSync = () => {
+      fetchOrders();
+    };
+    window.addEventListener('orders-synced', handleSync);
+    return () => window.removeEventListener('orders-synced', handleSync);
+  }, [fetchOrders]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
@@ -145,8 +153,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ refreshKey }) => {
     }
     if (s.includes('canc')) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
-          <XCircle className="w-3.5 h-3.5 text-rose-600" />
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-500 border border-slate-200">
+          <XCircle className="w-3.5 h-3.5 text-slate-400" />
           Cancelled
         </span>
       );
@@ -325,13 +333,19 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ refreshKey }) => {
                 </td>
               </tr>
             ) : (
-              orders.map((order) => (
-                <tr
-                  key={order.orderId}
-                  className={`hover:bg-slate-50/80 transition-colors ${
-                    !order.isSettled ? 'opacity-65 bg-slate-50/30' : ''
-                  }`}
-                >
+              orders.map((order) => {
+                const isCancelled = (order.orderStatus || '').toLowerCase().includes('canc');
+                return (
+                  <tr
+                    key={order.orderId}
+                    className={`hover:bg-slate-50/80 transition-colors ${
+                      isCancelled
+                        ? 'opacity-60 bg-slate-50/70 text-slate-400'
+                        : !order.isSettled
+                        ? 'opacity-65 bg-slate-50/30'
+                        : ''
+                    }`}
+                  >
                   {/* Order ID & Time */}
                   <td className="px-4 py-3.5">
                     <div className="font-extrabold text-slate-900 font-mono tracking-tight text-xs">
@@ -410,7 +424,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ refreshKey }) => {
                     </button>
                   </td>
                 </tr>
-              ))
+              );
+            })
             )}
           </tbody>
         </table>
