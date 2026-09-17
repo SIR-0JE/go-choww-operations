@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { RefreshCw, CheckCircle2, AlertCircle, Calendar, Menu } from 'lucide-react';
 import { useSidebar } from './AppLayout';
 
-const POLL_INTERVAL_MS = 15_000; // 15 seconds
+const DEFAULT_POLL_INTERVAL_MS = 15_000; // 15 seconds
 
 interface HeaderProps {
   onSyncComplete?: () => void;
@@ -24,6 +25,15 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
     type: 'success' | 'error';
   } | null>(null);
 
+  // Live schedule status
+  const [syncScheduleStatus, setSyncScheduleStatus] = useState<{
+    isOperating: boolean;
+    badgeText: string;
+    statusText: string;
+    mode: string;
+    intervalSeconds?: number;
+  } | null>(null);
+
   const { openSidebar } = useSidebar();
   const router = useRouter();
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -35,6 +45,40 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
     onSyncCompleteRef.current = onSyncComplete;
   }, [onSyncComplete]);
 
+  // ── Fetch current sync schedule status & listen for updates ─────────────────
+  useEffect(() => {
+    const fetchScheduleStatus = async () => {
+      try {
+        const res = await fetch('/api/settings/sync');
+        const data = await res.json();
+        if (data.success && data.status) {
+          setSyncScheduleStatus({
+            ...data.status,
+            intervalSeconds: data.settings?.intervalSeconds || 15,
+          });
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    fetchScheduleStatus();
+
+    const handleSettingsUpdated = (e: any) => {
+      if (e?.detail?.status) {
+        setSyncScheduleStatus({
+          ...e.detail.status,
+          intervalSeconds: e.detail.settings?.intervalSeconds || 15,
+        });
+      } else {
+        fetchScheduleStatus();
+      }
+    };
+
+    window.addEventListener('sync-settings-updated', handleSettingsUpdated);
+    return () => window.removeEventListener('sync-settings-updated', handleSettingsUpdated);
+  }, []);
+
   // ── Toast helper ────────────────────────────────────────────────────────────
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -44,7 +88,7 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
 
   // ── Core sync function (shared by auto-poll and manual button) ─────────────
   const runSync = useCallback(
-    async (options: { silent: boolean }) => {
+    async (options: { silent: boolean; force?: boolean }) => {
       if (isSyncRunningRef.current) return;
       isSyncRunningRef.current = true;
 
@@ -59,11 +103,20 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
       try {
         const res = await fetch('/api/sync-orders', {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ force: Boolean(options.force) }),
           signal: controller.signal,
         });
         const data = await res.json();
 
         if (res.ok && data.success) {
+          if (data.operatingStatus) {
+            setSyncScheduleStatus((prev) => ({
+              ...prev,
+              ...data.operatingStatus,
+            }));
+          }
+
           const hasChanges = Boolean(data.hasChanges ?? (data.newlySyncedCount > 0 || data.statusUpdatedCount > 0));
 
           if (!options.silent || hasChanges) {
@@ -98,18 +151,19 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
     [router, showToast]
   );
 
-  // ── Auto-poll: runs every 15 seconds on every page + tab focus wakeup ───────
+  // ── Auto-poll: runs periodically on every page + tab focus wakeup ──────────
   useEffect(() => {
     const poll = async () => {
       setIsPolling(true);
-      await runSync({ silent: true });
+      await runSync({ silent: true, force: false });
       setIsPolling(false);
     };
 
-    // Run immediately on mount to catch any live updates right away
+    // Run immediately on mount
     poll();
 
-    pollIntervalRef.current = setInterval(poll, POLL_INTERVAL_MS);
+    const intervalMs = (syncScheduleStatus?.intervalSeconds || 15) * 1000;
+    pollIntervalRef.current = setInterval(poll, intervalMs);
 
     // Instant sync on tab focus or phone screen unlock
     const handleVisibilityChange = () => {
@@ -126,24 +180,37 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleVisibilityChange);
     };
-  }, [runSync]);
+  }, [runSync, syncScheduleStatus?.intervalSeconds]);
 
-  // ── Manual sync button handler ──────────────────────────────────────────────
+  // ── Manual sync button handler (Always bypasses schedule with force: true) ─
   const handleSyncOrders = async () => {
     if (isSyncing) return;
     setIsSyncing(true);
-    await runSync({ silent: false });
+    await runSync({ silent: false, force: true });
     setIsSyncing(false);
   };
 
   // ── Live badge state ────────────────────────────────────────────────────────
-  const badgeText = isPolling ? 'Syncing…' : 'Live';
-  const badgeDotClass = isPolling
-    ? 'bg-blue-500 animate-pulse'
-    : 'bg-emerald-500 animate-pulse';
-  const badgeClass = isPolling
-    ? 'bg-blue-50 text-blue-700 border-blue-200/80'
-    : 'bg-emerald-50 text-emerald-700 border-emerald-200/80';
+  let badgeText = 'Live';
+  let badgeDotClass = 'bg-emerald-500 animate-pulse';
+  let badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200/80';
+  let badgeTitle = 'Auto-Sync is active within operating hours';
+
+  if (isPolling) {
+    badgeText = 'Syncing…';
+    badgeDotClass = 'bg-blue-500 animate-pulse';
+    badgeClass = 'bg-blue-50 text-blue-700 border-blue-200/80';
+  } else if (syncScheduleStatus?.mode === 'paused') {
+    badgeText = 'Paused';
+    badgeDotClass = 'bg-rose-500';
+    badgeClass = 'bg-rose-50 text-rose-700 border-rose-200/80';
+    badgeTitle = 'Auto-sync is manually paused. Click to configure in Settings.';
+  } else if (syncScheduleStatus && !syncScheduleStatus.isOperating) {
+    badgeText = 'Sleeping';
+    badgeDotClass = 'bg-amber-500';
+    badgeClass = 'bg-amber-50 text-amber-700 border-amber-200/80';
+    badgeTitle = syncScheduleStatus.statusText || 'Outside operating hours (Resumes at start time)';
+  }
 
   return (
     <header className="border-b border-slate-200/80 bg-white/95 backdrop-blur-sm sticky top-0 z-30">
@@ -164,13 +231,15 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
               <h2 className="text-sm font-semibold text-slate-900 tracking-tight">
                 Welcome back, Admin
               </h2>
-              {/* Live / Syncing badge */}
-              <span
-                className={`hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors duration-300 ${badgeClass}`}
+              {/* Live / Sleeping / Paused status badge linked to Settings */}
+              <Link
+                href="/settings"
+                title={badgeTitle}
+                className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border transition-all duration-300 hover:opacity-85 ${badgeClass}`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${badgeDotClass}`} />
-                {badgeText}
-              </span>
+                <span>{badgeText}</span>
+              </Link>
             </div>
             <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
               Centralized Logistics &amp; Operational Settlement Platform

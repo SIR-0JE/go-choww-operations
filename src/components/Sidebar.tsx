@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Target,
   Bike,
+  Settings,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -70,6 +71,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
       icon: Target,
       active: pathname === '/target',
       badge: 'Sprint',
+    },
+    {
+      label: 'Settings',
+      href: '/settings',
+      icon: Settings,
+      active: pathname === '/settings',
+      badge: 'Sync',
     },
   ];
 

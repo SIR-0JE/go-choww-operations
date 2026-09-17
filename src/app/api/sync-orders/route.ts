@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma, getInMemoryOrders, appendMockOrder, updateInMemoryOrder } from '@/lib/prisma';
 import { fetchLiveGoChowOrders } from '@/services/gochowApi';
 import { classifyDeliveryType } from '@/lib/locations';
+import { getSyncSettings, isWithinOperatingWindow, getOperationalStatus } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,7 +91,27 @@ function shouldSyncUpdateOrderStatus(currentDbStatus: string, incomingLiveStatus
 // MAIN SYNC FUNCTION (HIGH SPEED < 0.5s)
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function performSync() {
+async function performSync(force: boolean = false) {
+  // ── 0. Check Operating Schedule Window ───────────────────────────────────────
+  const settings = await getSyncSettings();
+  const isOperating = isWithinOperatingWindow(settings);
+
+  if (!force && !isOperating) {
+    const status = getOperationalStatus(settings);
+    return {
+      success: true,
+      hasChanges: false,
+      skipped: true,
+      inOperatingWindow: false,
+      operatingStatus: status,
+      newlySyncedCount: 0,
+      syncedCount: 0,
+      statusUpdatedCount: 0,
+      totalFetched: 0,
+      message: status.statusText,
+    };
+  }
+
   // ── 1. Fetch the latest 30 live orders from GoChow in a single fast call ────
   const liveOrders: any[] = await fetchLiveGoChowOrders(30);
 
@@ -283,9 +304,13 @@ async function performSync() {
     message = parts.join('. ') + '.';
   }
 
+  const status = getOperationalStatus(settings);
+
   return {
     success: true,
     hasChanges,
+    inOperatingWindow: true,
+    operatingStatus: status,
     newlySyncedCount,
     syncedCount: newlySyncedCount,
     statusUpdatedCount,
@@ -295,24 +320,41 @@ async function performSync() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ROUTE HANDLERS WITH IN-FLIGHT DEDUPLICATION
+// ROUTE HANDLERS WITH IN-FLIGHT DEDUPLICATION & FORCE OVERRIDE
 // ─────────────────────────────────────────────────────────────────────────────
 
 let inFlightSync: Promise<any> | null = null;
 
-async function synchronizedSync() {
-  if (inFlightSync) {
+async function synchronizedSync(force: boolean = false) {
+  if (inFlightSync && !force) {
     return inFlightSync;
   }
-  inFlightSync = performSync().finally(() => {
-    inFlightSync = null;
+  const currentPromise = performSync(force).finally(() => {
+    if (inFlightSync === currentPromise) {
+      inFlightSync = null;
+    }
   });
-  return inFlightSync;
+  if (!inFlightSync) {
+    inFlightSync = currentPromise;
+  }
+  return currentPromise;
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    const result = await synchronizedSync();
+    let force = false;
+    try {
+      const body = await request.json();
+      force = Boolean(body?.force);
+    } catch {
+      // not JSON body
+    }
+    const { searchParams } = new URL(request.url);
+    if (searchParams.get('force') === 'true') {
+      force = true;
+    }
+
+    const result = await synchronizedSync(force);
     return NextResponse.json(result);
   } catch (error: any) {
     console.error('[sync-orders] Error:', error);
@@ -323,9 +365,12 @@ export async function POST() {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const result = await synchronizedSync();
+    const { searchParams } = new URL(request.url);
+    const force = searchParams.get('force') === 'true';
+
+    const result = await synchronizedSync(force);
     return NextResponse.json(result);
   } catch (error: any) {
     console.error('[sync-orders] Error:', error);

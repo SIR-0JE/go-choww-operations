@@ -59,3 +59,9 @@ model Expense {
   @@index([date])
   @@index([category])
 }
+
+model SystemSetting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
