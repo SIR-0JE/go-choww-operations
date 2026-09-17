@@ -21,6 +21,9 @@ import {
   Wifi,
   Clock,
   ShieldAlert,
+  ArrowRightLeft,
+  Users,
+  X,
 } from 'lucide-react';
 
 interface RiderOrder {
@@ -43,6 +46,14 @@ interface RiderProfile {
   isOnline: boolean;
 }
 
+interface OtherRider {
+  id: string;
+  name: string;
+  phone: string;
+  isOnline: boolean;
+  activeCount: number;
+}
+
 const MAX_ACTIVE_ORDERS = 5;
 
 export default function RiderPortalPage() {
@@ -61,6 +72,12 @@ export default function RiderPortalPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Peer-to-Peer Transfer States
+  const [otherRiders, setOtherRiders] = useState<OtherRider[]>([]);
+  const [transferModalOrder, setTransferModalOrder] = useState<RiderOrder | null>(null);
+  const [selectedTargetRiderId, setSelectedTargetRiderId] = useState<string>('');
+  const [isTransferring, setIsTransferring] = useState(false);
 
   const prevAvailableIdsRef = useRef<Set<string>>(new Set());
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -183,6 +200,9 @@ export default function RiderPortalPage() {
           setAvailableOrders(newAvailable);
           setActiveTasks(newActive);
           setCompletedToday(newCompleted);
+          if (data.otherRiders) {
+            setOtherRiders(data.otherRiders);
+          }
           if (newActive.length > 0 && activeTasks.length === 0 && !isBackground) {
             setActiveTab('active');
           }
@@ -294,6 +314,43 @@ export default function RiderPortalPage() {
       showToast(err?.message || 'Network error.', 'error');
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  // ── Peer-to-Peer Order Transfer ──────────────────────────────────────────────
+  const handleTransferOrder = async () => {
+    if (!transferModalOrder || !selectedTargetRiderId) {
+      showToast('Please select an active rider to receive this delivery.', 'error');
+      return;
+    }
+
+    setIsTransferring(true);
+    const localRiderId = typeof window !== 'undefined' ? localStorage.getItem('rider_id') : null;
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (localRiderId) headers['x-rider-id'] = localRiderId;
+      const res = await fetch('/api/rider/orders', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          orderId: transferModalOrder.id || transferModalOrder.orderId,
+          action: 'transfer',
+          targetRiderId: selectedTargetRiderId,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message || 'Order successfully handed over!', 'success');
+        setTransferModalOrder(null);
+        setSelectedTargetRiderId('');
+        await fetchPortalData(false);
+      } else {
+        showToast(data.error || 'Could not transfer order.', 'error');
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Network error.', 'error');
+    } finally {
+      setIsTransferring(false);
     }
   };
 
@@ -747,6 +804,20 @@ export default function RiderPortalPage() {
                           <span>2. Confirm Delivered to Customer</span>
                         </button>
                       )}
+
+                      {/* Secondary Action: Hand Over / Transfer to Another Rider */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTransferModalOrder(ord);
+                          setSelectedTargetRiderId('');
+                        }}
+                        disabled={isLoadingAction}
+                        className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] border border-slate-200"
+                      >
+                        <ArrowRightLeft className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Hand Over / Transfer to Another Rider</span>
+                      </button>
                     </div>
                   </div>
                 );
@@ -806,6 +877,166 @@ export default function RiderPortalPage() {
           </div>
         )}
       </main>
+
+      {/* ─────────────────────────────────────────────────────────────
+          PEER-TO-PEER ORDER TRANSFER MODAL
+      ───────────────────────────────────────────────────────────── */}
+      {transferModalOrder && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl border border-slate-200 w-full max-w-lg overflow-hidden shadow-2xl p-5 space-y-4 animate-in fade-in slide-in-from-bottom sm:zoom-in-95 duration-150 max-h-[85vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
+                  <ArrowRightLeft className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Transfer Order</h3>
+                  <p className="text-xs text-slate-500 font-mono">Order #{transferModalOrder.orderId}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setTransferModalOrder(null);
+                  setSelectedTargetRiderId('');
+                }}
+                className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Order brief summary */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-xs space-y-1 shrink-0">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Cafeteria:</span>
+                <span className="font-bold text-slate-800 truncate max-w-[240px]">{transferModalOrder.cafeteriaName}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Deliver To:</span>
+                <span className="font-bold text-slate-800 truncate max-w-[240px]">{transferModalOrder.deliveryAddress}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Pickup Code:</span>
+                <span className="font-black text-amber-700 tracking-widest">{getPickupCode(transferModalOrder.orderId)}</span>
+              </div>
+            </div>
+
+            {/* Rider selection prompt */}
+            <div className="shrink-0">
+              <label className="block text-xs font-bold text-slate-700 mb-0.5">
+                Select Rider to Hand Over to:
+              </label>
+              <p className="text-[11px] text-slate-400">
+                The order will immediately be assigned to this rider in the system.
+              </p>
+            </div>
+
+            {/* List of other active riders */}
+            <div className="overflow-y-auto flex-1 space-y-2 pr-1">
+              {otherRiders.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-xl border border-slate-200">
+                  <Users className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                  <p className="text-xs font-medium">No other active dispatch riders currently found.</p>
+                </div>
+              ) : (
+                otherRiders.map((targetRider) => {
+                  const isFull = targetRider.activeCount >= MAX_ACTIVE_ORDERS;
+                  const isSelected = selectedTargetRiderId === targetRider.id;
+
+                  return (
+                    <div
+                      key={targetRider.id}
+                      onClick={() => {
+                        if (!isFull) setSelectedTargetRiderId(targetRider.id);
+                      }}
+                      className={`p-3 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+                        isFull
+                          ? 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
+                          : isSelected
+                          ? 'bg-amber-50/80 border-amber-400 ring-2 ring-amber-400/20 shadow-sm cursor-pointer'
+                          : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
+                            isSelected
+                              ? 'bg-amber-500 text-white'
+                              : isFull
+                              ? 'bg-slate-200 text-slate-500'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {targetRider.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 truncate flex items-center gap-1.5">
+                            <span>{targetRider.name}</span>
+                            {targetRider.isOnline && (
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Online" />
+                            )}
+                          </p>
+                          <p className="text-[10px] text-slate-500 font-mono">{targetRider.phone || 'No phone'}</p>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        {isFull ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                            5/5 Full
+                          </span>
+                        ) : (
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                            targetRider.activeCount === 0
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-slate-100 text-slate-700 border-slate-200'
+                          }`}>
+                            {targetRider.activeCount}/5 active
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                disabled={isTransferring}
+                onClick={() => {
+                  setTransferModalOrder(null);
+                  setSelectedTargetRiderId('');
+                }}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isTransferring || !selectedTargetRiderId}
+                onClick={handleTransferOrder}
+                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md shadow-amber-500/20 transition-all disabled:opacity-50 flex items-center gap-2"
+              >
+                {isTransferring ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Transferring...</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowRightLeft className="w-3.5 h-3.5" />
+                    <span>Confirm Handover</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

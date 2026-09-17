@@ -145,6 +145,46 @@ export async function GET(request: NextRequest) {
         },
       });
 
+      // 4. Other active riders available for peer-to-peer transfer
+      let otherRidersWithCounts: any[] = [];
+      try {
+        const otherRidersList = await prisma.rider.findMany({
+          where: {
+            id: { not: rider.id },
+            status: 'Active',
+          },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            isOnline: true,
+          },
+          orderBy: { name: 'asc' },
+        });
+
+        otherRidersWithCounts = await Promise.all(
+          otherRidersList.map(async (r) => {
+            const count = await prisma.deliveryOrder.count({
+              where: {
+                riderId: r.id,
+                orderStatus: {
+                  notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
+                },
+              },
+            });
+            return {
+              id: r.id,
+              name: r.name,
+              phone: r.phone,
+              isOnline: r.isOnline,
+              activeCount: count,
+            };
+          })
+        );
+      } catch (err) {
+        console.warn('[Rider otherRiders fetch warning]:', err);
+      }
+
       return NextResponse.json({
         success: true,
         rider: {
@@ -156,6 +196,7 @@ export async function GET(request: NextRequest) {
         available: availableOrders,
         active: activeTasks,
         completedToday,
+        otherRiders: otherRidersWithCounts,
         counts: {
           available: availableOrders.length,
           active: activeTasks.length,
@@ -364,6 +405,109 @@ export async function POST(request: NextRequest) {
         order: {
           id: updated.id,
           orderId: updated.orderId,
+          orderStatus: updated.orderStatus,
+        },
+      });
+    }
+
+    // ── ACTION: TRANSFER (RIDER TO RIDER) ────────────────────────────────────
+    if (action === 'transfer') {
+      const { targetRiderId } = body;
+      if (!targetRiderId) {
+        return NextResponse.json(
+          { success: false, error: 'Recipient rider is required for transfer' },
+          { status: 400 }
+        );
+      }
+
+      if (targetRiderId === rider.id) {
+        return NextResponse.json(
+          { success: false, error: 'You cannot transfer an order to yourself' },
+          { status: 400 }
+        );
+      }
+
+      // Check that caller is currently assigned to this order
+      if (order.riderId !== rider.id) {
+        return NextResponse.json(
+          { success: false, error: 'You can only transfer orders currently assigned to you' },
+          { status: 403 }
+        );
+      }
+
+      // Check if order is already delivered or cancelled
+      const lowerStatus = (order.orderStatus || '').toLowerCase();
+      if (['delivered', 'completed', 'cancelled'].includes(lowerStatus)) {
+        return NextResponse.json(
+          { success: false, error: `Cannot transfer an order that is already ${order.orderStatus}` },
+          { status: 400 }
+        );
+      }
+
+      // Verify recipient rider exists and is Active
+      let targetRider: any = null;
+      try {
+        targetRider = await prisma.rider.findUnique({
+          where: { id: targetRiderId },
+        });
+      } catch (err) {
+        console.warn('Target rider lookup DB error:', err);
+      }
+
+      if (!targetRider || targetRider.status !== 'Active') {
+        return NextResponse.json(
+          { success: false, error: 'Selected rider is not active or could not be found' },
+          { status: 400 }
+        );
+      }
+
+      // Check 5-order cap on the recipient rider
+      try {
+        const recipientActiveCount = await prisma.deliveryOrder.count({
+          where: {
+            riderId: targetRider.id,
+            orderStatus: {
+              notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
+            },
+          },
+        });
+        if (recipientActiveCount >= 5) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `${targetRider.name} already has 5 active orders (limit reached). Please select another rider.`,
+            },
+            { status: 409 }
+          );
+        }
+      } catch {
+        // Proceed if DB count check fails
+      }
+
+      // Update riderId to targetRiderId atomically
+      let updated: any;
+      try {
+        updated = await prisma.deliveryOrder.update({
+          where: { id: order.id },
+          data: {
+            riderId: targetRider.id,
+          },
+        });
+      } catch {
+        updateInMemoryOrderRider(order.orderId || order.id, targetRider.id);
+        updated = {
+          ...order,
+          riderId: targetRider.id,
+        };
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Order #${order.orderId} successfully transferred to ${targetRider.name}!`,
+        order: {
+          id: updated.id,
+          orderId: updated.orderId,
+          riderId: updated.riderId,
           orderStatus: updated.orderStatus,
         },
       });

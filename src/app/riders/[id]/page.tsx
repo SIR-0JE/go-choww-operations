@@ -347,7 +347,7 @@ export default function RiderProfilePage() {
               </div>
 
               {/* The 4-Level Accordion Component */}
-              <RiderOrderAccordion orders={rider.orders} />
+              <RiderOrderAccordion orders={rider.orders} onOrderReassigned={fetchRider} />
             </div>
           </>
         )}

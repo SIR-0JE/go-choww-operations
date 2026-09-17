@@ -676,7 +676,7 @@ export default function RidersPage() {
         ───────────────────────────────────────────────────────────── */}
         {selectedRider && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-5xl overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
               {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
                 <div className="flex items-center gap-3">
@@ -741,7 +741,14 @@ export default function RidersPage() {
 
               {/* Hierarchical Accordion Container */}
               <div className="overflow-y-auto flex-1 pr-1">
-                <RiderOrderAccordion orders={selectedRider.orders} />
+                <RiderOrderAccordion
+                  orders={selectedRider.orders}
+                  ridersList={riders}
+                  onOrderReassigned={() => {
+                    fetchRiders();
+                    setSelectedRider(null);
+                  }}
+                />
               </div>
             </div>
           </div>
