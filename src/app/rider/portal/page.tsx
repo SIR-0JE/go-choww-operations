@@ -160,18 +160,33 @@ export default function RiderPortalPage() {
     [router, playAlertChime, activeTasks.length]
   );
 
-  // Initial Load
+  // ── Auto-poll: runs every 6s, pulls latest GoChow orders & listens for phone wake ──
   useEffect(() => {
-    fetchPortalData(false);
-  }, [fetchPortalData]);
+    const triggerSyncAndFetch = async (background: boolean) => {
+      // Fire-and-forget fast batch sync to guarantee new GoChow orders enter the pool
+      fetch('/api/sync-orders', { method: 'POST' }).catch(() => {});
+      await fetchPortalData(background);
+    };
 
-  // Live Auto-Poll every 6 seconds for instantaneous order claiming
-  useEffect(() => {
+    triggerSyncAndFetch(false);
+
     const interval = setInterval(() => {
-      fetchPortalData(true);
+      triggerSyncAndFetch(true);
     }, 6000);
 
-    return () => clearInterval(interval);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        triggerSyncAndFetch(false);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
+    };
   }, [fetchPortalData]);
 
   // ── Toggle Online / On-Duty Status ──────────────────────────────────────────

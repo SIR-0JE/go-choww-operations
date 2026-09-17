@@ -48,8 +48,19 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
       if (isSyncRunningRef.current) return;
       isSyncRunningRef.current = true;
 
+      // Watchdog: force unlock after 10s if network ever hangs
+      const watchdog = setTimeout(() => {
+        isSyncRunningRef.current = false;
+      }, 10000);
+
+      const controller = new AbortController();
+      const abortTimeout = setTimeout(() => controller.abort(), 9000);
+
       try {
-        const res = await fetch('/api/sync-orders', { method: 'POST' });
+        const res = await fetch('/api/sync-orders', {
+          method: 'POST',
+          signal: controller.signal,
+        });
         const data = await res.json();
 
         if (res.ok && data.success) {
@@ -75,17 +86,19 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
           showToast(data.error || 'Failed to sync orders', 'error');
         }
       } catch (err: any) {
-        if (!options.silent) {
+        if (!options.silent && err?.name !== 'AbortError') {
           showToast(err?.message || 'Network error while syncing', 'error');
         }
       } finally {
+        clearTimeout(abortTimeout);
+        clearTimeout(watchdog);
         isSyncRunningRef.current = false;
       }
     },
     [router, showToast]
   );
 
-  // ── Auto-poll: runs every 15 seconds on every page ─────────────────────────
+  // ── Auto-poll: runs every 15 seconds on every page + tab focus wakeup ───────
   useEffect(() => {
     const poll = async () => {
       setIsPolling(true);
@@ -98,9 +111,20 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
 
     pollIntervalRef.current = setInterval(poll, POLL_INTERVAL_MS);
 
+    // Instant sync on tab focus or phone screen unlock
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        poll();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
     };
   }, [runSync]);
 

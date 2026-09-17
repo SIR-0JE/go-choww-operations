@@ -14,10 +14,14 @@ async function getAdminToken(): Promise<string> {
     return cachedToken;
   }
 
-  const loginResponse = await axios.post(`${BASE_URL}/admin/login`, {
-    email: process.env.GOCHOW_ADMIN_EMAIL,
-    password: process.env.GOCHOW_ADMIN_PASSWORD,
-  });
+  const loginResponse = await axios.post(
+    `${BASE_URL}/admin/login`,
+    {
+      email: process.env.GOCHOW_ADMIN_EMAIL,
+      password: process.env.GOCHOW_ADMIN_PASSWORD,
+    },
+    { timeout: 8000 }
+  );
 
   const token = loginResponse.data.token || loginResponse.data.accessToken;
   if (!token) {
@@ -37,6 +41,7 @@ export async function fetchLiveGoChowOrders(limit: number = 30): Promise<any[]> 
     const token = await getAdminToken();
     const ordersResponse = await axios.get(`${BASE_URL}/admin/orders?page=1&limit=${limit}`, {
       headers: { Authorization: `Bearer ${token}` },
+      timeout: 8000,
     });
 
     return ordersResponse.data.orders ?? [];
@@ -63,6 +68,7 @@ export async function fetchGoChowOrderByNumber(orderNumber: string): Promise<any
       `${BASE_URL}/admin/orders?search=${encodeURIComponent(orderNumber.trim())}`,
       {
         headers: { Authorization: `Bearer ${token}` },
+        timeout: 5000,
       }
     );
 

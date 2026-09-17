@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { AppLayout } from '@/components/AppLayout';
 import { Header } from '@/components/Header';
 import { formatNaira, MetricsSummary, isSettledOrder } from '@/lib/financials';
@@ -18,6 +19,7 @@ import {
   ChevronRight,
   Target,
   Layers,
+  Clock,
 } from 'lucide-react';
 
 interface MonthlyWeeklyBreakdown {
@@ -46,6 +48,8 @@ export default function ExecutiveDashboardPage() {
   const [monthlyWeeklyData, setMonthlyWeeklyData] = useState<MonthlyWeeklyBreakdown[]>([]);
   const [expandedMonths, setExpandedMonths] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [activeOrdersCount, setActiveOrdersCount] = useState<number>(0);
 
   // Operational Volume Breakdown stats
   const [volumeStats, setVolumeStats] = useState({
@@ -58,8 +62,8 @@ export default function ExecutiveDashboardPage() {
     other: 0,
   });
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
+  const fetchData = useCallback(async (isInitial = false) => {
+    if (isInitial) setIsLoading(true);
     try {
       const [analyticsRes, ordersRes, expensesRes] = await Promise.all([
         fetch('/api/analytics'),
@@ -78,6 +82,9 @@ export default function ExecutiveDashboardPage() {
       const allOrders: any[] = ordersData.orders || [];
       const allExpenses: any[] = expensesData.expenses || [];
 
+      // Extract latest 10 orders for live incoming dispatches feed
+      setRecentOrders(allOrders.slice(0, 10));
+
       // Calculate Operational Volume Counts
       let comp = 0;
       let refFail = 0;
@@ -86,6 +93,7 @@ export default function ExecutiveDashboardPage() {
       let diff = 0;
       let pick = 0;
       let oth = 0;
+      let inTransit = 0;
 
       for (const ord of allOrders) {
         const oStatus = (ord.orderStatus || '').toLowerCase();
@@ -97,6 +105,9 @@ export default function ExecutiveDashboardPage() {
           refFail += 1;
         } else if (oStatus.includes('canc')) {
           canc += 1;
+        } else {
+          // Active uncompleted order (Confirmed, Preparing, Ready, Dispatched)
+          inTransit += 1;
         }
 
         const dType = (ord.deliveryType || '').toLowerCase();
@@ -105,6 +116,8 @@ export default function ExecutiveDashboardPage() {
         else if (dType === 'pick up' || dType === 'pickup') pick += 1;
         else oth += 1;
       }
+
+      setActiveOrdersCount(inTransit);
 
       setVolumeStats({
         completed: comp,
@@ -121,7 +134,7 @@ export default function ExecutiveDashboardPage() {
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     } finally {
-      setIsLoading(false);
+      if (isInitial) setIsLoading(false);
     }
   }, []);
 
@@ -215,13 +228,13 @@ export default function ExecutiveDashboardPage() {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(true);
   }, [fetchData]);
 
   // Listen for global auto-sync events so dashboard metrics update live without manual page refresh
   useEffect(() => {
     const handleSync = () => {
-      fetchData();
+      fetchData(false);
     };
     window.addEventListener('orders-synced', handleSync);
     return () => window.removeEventListener('orders-synced', handleSync);
@@ -232,6 +245,64 @@ export default function ExecutiveDashboardPage() {
       ...prev,
       [mKey]: !prev[mKey],
     }));
+  };
+
+  const renderStatusBadge = (status: string, payStatus: string) => {
+    const s = (status || '').toLowerCase().trim();
+    if (s === 'delivered' || s === 'completed') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+          Delivered
+        </span>
+      );
+    }
+    if (s === 'dispatched') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+          <Bike className="w-3 h-3 text-blue-600" />
+          Dispatched
+        </span>
+      );
+    }
+    if (s === 'ready') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
+          <PackageCheck className="w-3 h-3 text-teal-600" />
+          Ready
+        </span>
+      );
+    }
+    if (s === 'preparing') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+          <Clock className="w-3 h-3 text-amber-600" />
+          Preparing
+        </span>
+      );
+    }
+    if (s === 'confirmed' || s === 'pending') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+          <Clock className="w-3 h-3 text-slate-500" />
+          Confirmed
+        </span>
+      );
+    }
+    if (s.includes('canc')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+          <XCircle className="w-3 h-3 text-slate-400" />
+          Cancelled
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+        <Clock className="w-3 h-3 text-slate-500" />
+        {status}
+      </span>
+    );
   };
 
   return (
@@ -250,7 +321,13 @@ export default function ExecutiveDashboardPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+            {activeOrdersCount > 0 && (
+              <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200/80 shadow-sm flex items-center gap-1.5 animate-pulse">
+                <Bike className="w-3.5 h-3.5 text-blue-600" />
+                <span>Live Dispatches: <strong className="text-blue-900 font-bold tabular-nums">{activeOrdersCount}</strong> in transit</span>
+              </span>
+            )}
             <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white text-slate-700 border border-slate-200/80 shadow-sm flex items-center gap-1.5">
               <Target className="w-3.5 h-3.5 text-brand-600" />
               <span>Sprint Target: <strong className="text-slate-900 font-bold tabular-nums">₦3,500,000</strong></span>
@@ -337,6 +414,92 @@ export default function ExecutiveDashboardPage() {
                   Retained Margin
                 </span>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ─────────────────────────────────────────────────────────────
+            LIVE INCOMING ORDERS & DISPATCHES (REAL-TIME FEED)
+        ───────────────────────────────────────────────────────────── */}
+        <section aria-label="Live Incoming Orders" className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-600">
+                Live Incoming Orders &amp; Dispatches
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Auto-Syncing
+              </span>
+            </div>
+            <Link
+              href="/orders"
+              className="text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1 transition-colors"
+            >
+              <span>View full ledger</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-600 whitespace-nowrap">
+                <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-extrabold text-[10px] border-b border-slate-200">
+                  <tr>
+                    <th className="px-4 py-3">Order ID</th>
+                    <th className="px-4 py-3">Time</th>
+                    <th className="px-4 py-3">Customer</th>
+                    <th className="px-4 py-3">Cafeteria</th>
+                    <th className="px-4 py-3">Hostel / Destination</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Assigned Rider</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {recentOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                        No orders recorded yet. As orders enter GoChow, they will show here automatically.
+                      </td>
+                    </tr>
+                  ) : (
+                    recentOrders.map((ord: any) => (
+                      <tr key={ord.id || ord.orderId} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="px-4 py-3 font-bold font-mono text-slate-900">
+                          {ord.orderId}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 text-[11px]">
+                          {ord.time || (ord.createdAt ? new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-slate-800">
+                          {ord.customerName}
+                        </td>
+                        <td className="px-4 py-3 text-amber-700 font-medium">
+                          {ord.cafeteriaName}
+                        </td>
+                        <td className="px-4 py-3 max-w-[200px] truncate text-slate-600">
+                          {ord.deliveryAddress}
+                        </td>
+                        <td className="px-4 py-3">
+                          {renderStatusBadge(ord.orderStatus, ord.paymentStatus)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {ord.rider ? (
+                            <span className="inline-flex items-center gap-1 font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200/60 text-[11px]">
+                              <Bike className="w-3 h-3 text-blue-600" />
+                              {ord.rider.name}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-[11px] italic">
+                              Unassigned (In Pool)
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
