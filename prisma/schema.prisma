@@ -13,12 +13,15 @@ datasource db {
 model Rider {
   id        String          @id @default(uuid())
   name      String
-  phone     String?
+  phone     String?         @unique
+  pin       String          @default("1234") // 4-digit PIN for portal login
   status    String          @default("Active") // "Active", "Inactive", "On Leave"
+  isOnline  Boolean         @default(false)    // Rider online duty toggle
   createdAt DateTime        @default(now())
   orders    DeliveryOrder[]
 
   @@index([status])
+  @@index([phone])
 }
 
 model DeliveryOrder {

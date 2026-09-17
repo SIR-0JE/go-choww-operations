@@ -46,6 +46,8 @@ interface RiderItem {
   name: string;
   phone: string;
   status: 'Active' | 'Inactive' | 'On Leave';
+  isOnline?: boolean;
+  pin?: string;
   createdAt: string;
   totalOrdersAssigned: number;
   settledOrdersCount: number;
@@ -88,6 +90,7 @@ export default function RidersPage() {
   // Register Form State
   const [newRiderName, setNewRiderName] = useState('');
   const [newRiderPhone, setNewRiderPhone] = useState('');
+  const [newRiderPin, setNewRiderPin] = useState('1234');
   const [newRiderStatus, setNewRiderStatus] = useState<'Active' | 'Inactive' | 'On Leave'>('Active');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -137,6 +140,7 @@ export default function RidersPage() {
         body: JSON.stringify({
           name: newRiderName.trim(),
           phone: newRiderPhone.trim() || null,
+          pin: newRiderPin.trim() || '1234',
           status: newRiderStatus,
         }),
       });
@@ -146,6 +150,7 @@ export default function RidersPage() {
         setIsRegisterModalOpen(false);
         setNewRiderName('');
         setNewRiderPhone('');
+        setNewRiderPin('1234');
         setNewRiderStatus('Active');
         fetchRiders();
       } else {
@@ -225,13 +230,24 @@ export default function RidersPage() {
             </p>
           </div>
 
-          <button
-            onClick={() => setIsRegisterModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-brand-500/20 transition-all hover:scale-[1.01] active:scale-[0.99]"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Register New Rider</span>
-          </button>
+          <div className="flex items-center gap-2.5">
+            <Link
+              href="/rider/login"
+              target="_blank"
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold shadow-sm transition-all"
+            >
+              <ExternalLink className="w-4 h-4 text-amber-400" />
+              <span>Rider Mobile Portal</span>
+            </Link>
+
+            <button
+              onClick={() => setIsRegisterModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-brand-500/20 transition-all hover:scale-[1.01] active:scale-[0.99]"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Register New Rider</span>
+            </button>
+          </div>
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
@@ -402,7 +418,20 @@ export default function RidersPage() {
 
                       {/* Status */}
                       <td className="px-5 py-4">
-                        {getStatusBadge(rider.status)}
+                        <div className="flex flex-col gap-1 items-start">
+                          {getStatusBadge(rider.status)}
+                          {rider.isOnline ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              Online
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                              Offline
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Total Orders */}
@@ -529,6 +558,21 @@ export default function RidersPage() {
                     onChange={(e) => setNewRiderPhone(e.target.value)}
                     placeholder="e.g. 08012345678"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-medium font-mono"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">Rider Portal PIN (4 Digits)</label>
+                    <span className="text-[10px] text-slate-400">Default: 1234</span>
+                  </div>
+                  <input
+                    type="text"
+                    maxLength={4}
+                    value={newRiderPin}
+                    onChange={(e) => setNewRiderPin(e.target.value)}
+                    placeholder="1234"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-medium font-mono tracking-widest"
                   />
                 </div>
 

@@ -104,6 +104,8 @@ export async function GET(request: NextRequest) {
         name: rider.name,
         phone: rider.phone || 'N/A',
         status: rider.status || 'Active',
+        isOnline: Boolean(rider.isOnline),
+        pin: rider.pin || '1234',
         createdAt: rider.createdAt,
         totalOrdersAssigned: riderOrders.length,
         settledOrdersCount: settledOrders.length,
@@ -150,7 +152,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, phone, status } = body;
+    const { name, phone, status, pin } = body;
 
     if (!name || typeof name !== 'string' || !name.trim()) {
       return NextResponse.json(
@@ -162,6 +164,7 @@ export async function POST(request: NextRequest) {
     const cleanName = name.trim();
     const cleanPhone = phone ? String(phone).trim() : null;
     const cleanStatus = status || 'Active';
+    const cleanPin = pin ? String(pin).trim() : '1234';
     const riderId = `rider-${Date.now().toString(36)}`;
 
     const newRider: GeneratedRider = {
@@ -179,6 +182,7 @@ export async function POST(request: NextRequest) {
           name: cleanName,
           phone: cleanPhone,
           status: cleanStatus,
+          pin: cleanPin,
         },
       });
       return NextResponse.json({
