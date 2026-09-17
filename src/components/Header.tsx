@@ -126,15 +126,15 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
             );
           }
 
-          // Always notify listening pages so their local React state updates reactively
-          if (typeof window !== 'undefined') {
+          // Only notify listening components if there were genuine new orders or status updates
+          if (hasChanges && typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('orders-synced', { detail: data }));
           }
 
-          if (onSyncCompleteRef.current) {
+          if (hasChanges && onSyncCompleteRef.current) {
             onSyncCompleteRef.current();
           }
-          router.refresh();
+          // Note: router.refresh() is intentionally removed to avoid disruptive DOM re-renders and input focus loss
         } else if (!options.silent) {
           showToast(data.error || 'Failed to sync orders', 'error');
         }
@@ -148,18 +148,56 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
         isSyncRunningRef.current = false;
       }
     },
-    [router, showToast]
+    [showToast]
   );
 
-  // ── Auto-poll: runs periodically on every page + tab focus wakeup ──────────
+  // ── Auto-poll: runs periodically during operating hours; sleeps off-hours ────
   useEffect(() => {
+    // If auto-sync is sleeping off-hours or paused, DO NOT poll /api/sync-orders!
+    const isSleepingOrPaused =
+      syncScheduleStatus && (!syncScheduleStatus.isOperating || syncScheduleStatus.mode === 'paused');
+
+    if (isSleepingOrPaused) {
+      // Quiet schedule check every 60s to detect when morning operating hours resume
+      const checkSchedule = async () => {
+        try {
+          const res = await fetch('/api/settings/sync');
+          const data = await res.json();
+          if (data.success && data.status) {
+            setSyncScheduleStatus({
+              ...data.status,
+              intervalSeconds: data.settings?.intervalSeconds || 15,
+            });
+          }
+        } catch {
+          // ignore
+        }
+      };
+
+      const scheduleInterval = setInterval(checkSchedule, 60000);
+
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          checkSchedule();
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', handleVisibilityChange);
+
+      return () => {
+        clearInterval(scheduleInterval);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', handleVisibilityChange);
+      };
+    }
+
     const poll = async () => {
       setIsPolling(true);
       await runSync({ silent: true, force: false });
       setIsPolling(false);
     };
 
-    // Run immediately on mount
+    // Run immediately when operating window is active
     poll();
 
     const intervalMs = (syncScheduleStatus?.intervalSeconds || 15) * 1000;
@@ -180,7 +218,7 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleVisibilityChange);
     };
-  }, [runSync, syncScheduleStatus?.intervalSeconds]);
+  }, [runSync, syncScheduleStatus?.intervalSeconds, syncScheduleStatus?.isOperating, syncScheduleStatus?.mode]);
 
   // ── Manual sync button handler (Always bypasses schedule with force: true) ─
   const handleSyncOrders = async () => {

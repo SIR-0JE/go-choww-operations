@@ -220,14 +220,25 @@ export default function RiderPortalPage() {
     [router, playAlertChime, activeTasks.length]
   );
 
-  // ── Auto-poll: runs every 6s, pulls latest GoChow orders & listens for phone wake ──
+  // ── Auto-poll: pulls latest GoChow orders & listens for phone wake ───────
   useEffect(() => {
+    let isOffHours = false;
+
     const triggerSyncAndFetch = async (background: boolean) => {
       try {
-        const syncRes = await fetch('/api/sync-orders', { method: 'POST' });
-        const syncData = await syncRes.json();
-        if (syncData?.hasChanges && typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('orders-synced', { detail: syncData }));
+        // If cafeteria is closed/sleeping, avoid spamming external sync on background ticks
+        if (!isOffHours || !background) {
+          const syncRes = await fetch('/api/sync-orders', { method: 'POST' });
+          const syncData = await syncRes.json();
+          if (syncData && syncData.inOperatingWindow === false) {
+            isOffHours = true;
+          } else {
+            isOffHours = false;
+          }
+
+          if (syncData?.hasChanges && typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('orders-synced', { detail: syncData }));
+          }
         }
       } catch {
         // ignore

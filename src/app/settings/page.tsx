@@ -43,6 +43,16 @@ interface OperationalStatus {
   nextWindowText: string;
 }
 
+function formatTimeTo12h(time24: string): string {
+  if (!time24 || !time24.includes(':')) return time24 || '08:00 AM';
+  const [hStr, mStr] = time24.split(':');
+  const h = parseInt(hStr, 10);
+  const m = parseInt(mStr, 10) || 0;
+  const period = h >= 12 ? 'PM' : 'AM';
+  const displayH = h % 12 === 0 ? 12 : h % 12;
+  return `${displayH.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${period}`;
+}
+
 const DAYS_OF_WEEK = [
   { day: 1, name: 'Monday', short: 'Mon' },
   { day: 2, name: 'Tuesday', short: 'Tue' },
@@ -430,9 +440,14 @@ export default function SettingsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 {/* Start Time Input */}
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold text-slate-700">
-                    Daily Start Time (Cafeteria Opens)
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Daily Start Time (Cafeteria Opens)
+                    </label>
+                    <span className="text-xs font-black text-brand-700 bg-brand-50 border border-brand-200/80 px-2 py-0.5 rounded-md">
+                      {formatTimeTo12h(settings.startTime)}
+                    </span>
+                  </div>
                   <div className="relative">
                     <input
                       type="time"
@@ -443,18 +458,23 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap pt-1">
                     <span className="text-[10px] text-slate-400 font-medium">Presets:</span>
-                    {['07:00', '08:00', '08:30', '09:00'].map((t) => (
+                    {[
+                      { val: '07:00', label: '7:00 AM' },
+                      { val: '08:00', label: '8:00 AM' },
+                      { val: '08:30', label: '8:30 AM' },
+                      { val: '09:00', label: '9:00 AM' },
+                    ].map((p) => (
                       <button
-                        key={t}
+                        key={p.val}
                         type="button"
-                        onClick={() => setSettings({ ...settings, startTime: t })}
-                        className={`text-[10px] px-2 py-0.5 rounded-lg border font-semibold transition-all ${
-                          settings.startTime === t
-                            ? 'bg-slate-900 text-white border-slate-900'
+                        onClick={() => setSettings({ ...settings, startTime: p.val })}
+                        className={`text-[11px] px-2.5 py-1 rounded-lg border font-semibold transition-all ${
+                          settings.startTime === p.val
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
                             : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                         }`}
                       >
-                        {t}
+                        {p.label}
                       </button>
                     ))}
                   </div>
@@ -462,9 +482,14 @@ export default function SettingsPage() {
 
                 {/* End Time Input */}
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold text-slate-700">
-                    Daily End Time (Cafeteria Closes)
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Daily End Time (Cafeteria Closes)
+                    </label>
+                    <span className="text-xs font-black text-amber-800 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md">
+                      {formatTimeTo12h(settings.endTime)}
+                    </span>
+                  </div>
                   <div className="relative">
                     <input
                       type="time"
@@ -475,18 +500,24 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap pt-1">
                     <span className="text-[10px] text-slate-400 font-medium">Presets:</span>
-                    {['21:00', '22:00', '22:30', '23:00', '23:59'].map((t) => (
+                    {[
+                      { val: '20:00', label: '8:00 PM' },
+                      { val: '21:00', label: '9:00 PM (21:00)' },
+                      { val: '22:00', label: '10:00 PM (22:00)' },
+                      { val: '22:30', label: '10:30 PM' },
+                      { val: '23:00', label: '11:00 PM' },
+                    ].map((p) => (
                       <button
-                        key={t}
+                        key={p.val}
                         type="button"
-                        onClick={() => setSettings({ ...settings, endTime: t })}
-                        className={`text-[10px] px-2 py-0.5 rounded-lg border font-semibold transition-all ${
-                          settings.endTime === t
-                            ? 'bg-slate-900 text-white border-slate-900'
+                        onClick={() => setSettings({ ...settings, endTime: p.val })}
+                        className={`text-[11px] px-2.5 py-1 rounded-lg border font-semibold transition-all ${
+                          settings.endTime === p.val
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
                             : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                         }`}
                       >
-                        {t}
+                        {p.label}
                       </button>
                     ))}
                   </div>

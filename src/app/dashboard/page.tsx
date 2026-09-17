@@ -231,20 +231,15 @@ export default function ExecutiveDashboardPage() {
     fetchData(true);
   }, [fetchData]);
 
-  // Listen for global auto-sync events & auto-refresh dashboard every 10s
+  // Listen for global auto-sync events so data updates live without manual page refresh
   useEffect(() => {
     const handleSync = () => {
       fetchData(false);
     };
     window.addEventListener('orders-synced', handleSync);
 
-    const interval = setInterval(() => {
-      fetchData(false);
-    }, 10000);
-
     return () => {
       window.removeEventListener('orders-synced', handleSync);
-      clearInterval(interval);
     };
   }, [fetchData]);
 
