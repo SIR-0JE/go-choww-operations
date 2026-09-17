@@ -37,6 +37,55 @@ function mapPaymentStatus(raw: string): 'success' | 'failed' | 'pending' {
   return 'pending';
 }
 
+const STATUS_RANK: Record<string, number> = {
+  pending: 1,
+  confirmed: 1,
+  paid: 1,
+  preparing: 2,
+  ready: 3,
+  dispatched: 4,
+  delivered: 5,
+  completed: 5,
+};
+
+/**
+ * Enforces one-way forward status progression during external sync.
+ * Prevents remote GoChow sync from reverting/demoting locally dispatched or delivered orders.
+ */
+function shouldSyncUpdateOrderStatus(currentDbStatus: string, incomingLiveStatus: string): boolean {
+  const current = (currentDbStatus || '').trim().toLowerCase();
+  const incoming = (incomingLiveStatus || '').trim().toLowerCase();
+
+  if (!incoming || current === incoming) return false;
+
+  // 1. Terminal Delivered / Completed: Never demote or cancel once delivered to customer
+  if (current === 'delivered' || current === 'completed') {
+    return false;
+  }
+
+  // 2. Cancellation handling
+  if (incoming === 'cancelled' || incoming === 'canceled') {
+    // Only cancel if not already delivered
+    return current !== 'delivered' && current !== 'completed';
+  }
+
+  // 3. If locally cancelled, do not resurrect unless remote explicitly marks delivered
+  if (current === 'cancelled' || current === 'canceled') {
+    return incoming === 'delivered' || incoming === 'completed';
+  }
+
+  // 4. If currently Dispatched (rider is physically en route), never demote back to Ready, Preparing, or Confirmed
+  if (current === 'dispatched') {
+    return incoming === 'delivered' || incoming === 'completed';
+  }
+
+  // 5. Forward progression rule: incoming rank must be strictly higher than current
+  const currentRank = STATUS_RANK[current] ?? 0;
+  const incomingRank = STATUS_RANK[incoming] ?? 0;
+
+  return incomingRank > currentRank;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN SYNC FUNCTION (HIGH SPEED < 0.5s)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -120,14 +169,14 @@ async function performSync() {
           const currentDbStatus = (existing.orderStatus || '').trim().toLowerCase();
           const currentDbPay = (existing.paymentStatus || '').trim().toLowerCase();
 
-          if (
-            currentDbStatus !== liveOrderStatus.toLowerCase() ||
-            currentDbPay !== livePaymentStatus.toLowerCase()
-          ) {
+          const updateStatus = shouldSyncUpdateOrderStatus(currentDbStatus, liveOrderStatus);
+          const updatePay = currentDbPay !== livePaymentStatus.toLowerCase();
+
+          if (updateStatus || updatePay) {
             toUpdate.push({
               id: existing.id,
-              status: liveOrderStatus,
-              pay: livePaymentStatus,
+              status: updateStatus ? liveOrderStatus : existing.orderStatus,
+              pay: updatePay ? livePaymentStatus : existing.paymentStatus,
             });
           }
         }
@@ -208,12 +257,16 @@ async function performSync() {
             paymentStatus: livePaymentStatus,
           });
           newlySyncedCount++;
-        } else if (existingMem.orderStatus.toLowerCase() !== liveOrderStatus.toLowerCase()) {
-          updateInMemoryOrder(orderNumber, {
-            orderStatus: liveOrderStatus,
-            paymentStatus: livePaymentStatus,
-          });
-          statusUpdatedCount++;
+        } else {
+          const updateStatus = shouldSyncUpdateOrderStatus(existingMem.orderStatus, liveOrderStatus);
+          const updatePay = (existingMem.paymentStatus || '').toLowerCase() !== livePaymentStatus.toLowerCase();
+          if (updateStatus || updatePay) {
+            updateInMemoryOrder(orderNumber, {
+              orderStatus: updateStatus ? liveOrderStatus : existingMem.orderStatus,
+              paymentStatus: updatePay ? livePaymentStatus : existingMem.paymentStatus,
+            });
+            statusUpdatedCount++;
+          }
         }
       }
     }

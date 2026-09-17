@@ -322,6 +322,8 @@ export default function RiderPortalPage() {
         await fetchPortalData(false);
         if (action === 'claim') {
           setActiveTab('active');
+        } else if (action === 'deliver') {
+          setActiveTab('completed');
         }
       } else {
         showToast(data.error || 'Action could not be completed.', 'error');

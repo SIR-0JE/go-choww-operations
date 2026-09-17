@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, getInMemoryOrders, updateInMemoryOrder, updateInMemoryOrderRider } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
@@ -66,97 +66,136 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized rider session' }, { status: 401 });
     }
 
-    // 1. Available Unassigned Pool (Active orders not yet delivered, completed, or cancelled)
-    const availableOrders = await prisma.deliveryOrder.findMany({
-      where: {
-        riderId: null,
-        orderStatus: {
-          notIn: ['Delivered', 'Completed', 'Cancelled'],
+    try {
+      // 1. Available Unassigned Pool (Active orders not yet delivered, completed, or cancelled)
+      const availableOrders = await prisma.deliveryOrder.findMany({
+        where: {
+          riderId: null,
+          orderStatus: {
+            notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
+          },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 40,
-      select: {
-        id: true,
-        orderId: true,
-        customerName: true,
-        cafeteriaName: true,
-        deliveryAddress: true,
-        deliveryType: true,
-        orderStatus: true,
-        createdAt: true,
-        time: true,
-      },
-    });
-
-    // 2. Active Tasks claimed by this rider
-    const activeTasks = await prisma.deliveryOrder.findMany({
-      where: {
-        riderId: rider.id,
-        orderStatus: {
-          notIn: ['Delivered', 'Completed', 'Cancelled'],
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        select: {
+          id: true,
+          orderId: true,
+          customerName: true,
+          cafeteriaName: true,
+          deliveryAddress: true,
+          deliveryType: true,
+          orderStatus: true,
+          createdAt: true,
+          time: true,
         },
-      },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        orderId: true,
-        customerName: true,
-        cafeteriaName: true,
-        deliveryAddress: true,
-        deliveryType: true,
-        orderStatus: true,
-        createdAt: true,
-        time: true,
-      },
-    });
+      });
 
-    // 3. Completed Today by this rider
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const completedToday = await prisma.deliveryOrder.findMany({
-      where: {
-        riderId: rider.id,
-        orderStatus: {
-          in: ['Delivered', 'Completed'],
+      // 2. Active Tasks claimed by this rider
+      const activeTasks = await prisma.deliveryOrder.findMany({
+        where: {
+          riderId: rider.id,
+          orderStatus: {
+            notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
+          },
         },
-        createdAt: {
-          gte: today,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          orderId: true,
+          customerName: true,
+          cafeteriaName: true,
+          deliveryAddress: true,
+          deliveryType: true,
+          orderStatus: true,
+          createdAt: true,
+          time: true,
         },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 30,
-      select: {
-        id: true,
-        orderId: true,
-        customerName: true,
-        cafeteriaName: true,
-        deliveryAddress: true,
-        deliveryType: true,
-        orderStatus: true,
-        createdAt: true,
-        time: true,
-      },
-    });
+      });
 
-    return NextResponse.json({
-      success: true,
-      rider: {
-        id: rider.id,
-        name: rider.name,
-        phone: rider.phone,
-        isOnline: rider.isOnline,
-      },
-      available: availableOrders,
-      active: activeTasks,
-      completedToday,
-      counts: {
-        available: availableOrders.length,
-        active: activeTasks.length,
-        completedToday: completedToday.length,
-      },
-    });
+      // 3. Completed Today / Current Shift by this rider
+      // Use a 24-hour shift window (or midnight, whichever earlier) to reliably capture all delivered runs
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const todayMidnight = new Date();
+      todayMidnight.setHours(0, 0, 0, 0);
+      const shiftCutoff = dayAgo < todayMidnight ? dayAgo : todayMidnight;
+
+      const completedToday = await prisma.deliveryOrder.findMany({
+        where: {
+          riderId: rider.id,
+          orderStatus: {
+            in: ['Delivered', 'Completed', 'delivered', 'completed'],
+          },
+          createdAt: {
+            gte: shiftCutoff,
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+        select: {
+          id: true,
+          orderId: true,
+          customerName: true,
+          cafeteriaName: true,
+          deliveryAddress: true,
+          deliveryType: true,
+          orderStatus: true,
+          createdAt: true,
+          time: true,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        rider: {
+          id: rider.id,
+          name: rider.name,
+          phone: rider.phone,
+          isOnline: rider.isOnline,
+        },
+        available: availableOrders,
+        active: activeTasks,
+        completedToday,
+        counts: {
+          available: availableOrders.length,
+          active: activeTasks.length,
+          completedToday: completedToday.length,
+        },
+      });
+    } catch (dbErr) {
+      console.warn('[Rider Orders Fetch] DB fallback to memory:', dbErr);
+      const mem = getInMemoryOrders();
+      const availableOrders = mem.filter(
+        (o) => !o.riderId && !['delivered', 'completed', 'cancelled'].includes((o.orderStatus || '').toLowerCase())
+      );
+      const activeTasks = mem.filter(
+        (o) => o.riderId === rider.id && !['delivered', 'completed', 'cancelled'].includes((o.orderStatus || '').toLowerCase())
+      );
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const completedToday = mem.filter(
+        (o) =>
+          o.riderId === rider.id &&
+          ['delivered', 'completed'].includes((o.orderStatus || '').toLowerCase()) &&
+          new Date(o.createdAt).getTime() >= dayAgo.getTime()
+      );
+
+      return NextResponse.json({
+        success: true,
+        rider: {
+          id: rider.id,
+          name: rider.name,
+          phone: rider.phone,
+          isOnline: rider.isOnline,
+        },
+        available: availableOrders,
+        active: activeTasks,
+        completedToday,
+        counts: {
+          available: availableOrders.length,
+          active: activeTasks.length,
+          completedToday: completedToday.length,
+        },
+      });
+    }
   } catch (error: any) {
     console.error('[Rider Orders Fetch Error]:', error);
     return NextResponse.json({ success: false, error: error?.message || 'Failed to fetch orders' }, { status: 500 });
@@ -182,11 +221,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Find the order
-    const order = await prisma.deliveryOrder.findFirst({
-      where: {
-        OR: [{ id: orderId }, { orderId: orderId }],
-      },
-    });
+    let order: any = null;
+    try {
+      order = await prisma.deliveryOrder.findFirst({
+        where: {
+          OR: [{ id: orderId }, { orderId: orderId }],
+        },
+      });
+    } catch {
+      const mem = getInMemoryOrders();
+      order = mem.find((o) => o.id === orderId || o.orderId === orderId);
+    }
 
     if (!order) {
       return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
@@ -210,14 +255,22 @@ export async function POST(request: NextRequest) {
       }
 
       // Assign to this rider atomically
-      const updated = await prisma.deliveryOrder.update({
-        where: { id: order.id },
-        data: {
+      let updated: any;
+      try {
+        updated = await prisma.deliveryOrder.update({
+          where: { id: order.id },
+          data: {
+            riderId: rider.id,
+            orderStatus: order.orderStatus === 'Delivered' ? 'Delivered' : order.orderStatus,
+          },
+        });
+      } catch {
+        updateInMemoryOrderRider(order.orderId || order.id, rider.id);
+        updated = {
+          ...order,
           riderId: rider.id,
-          // If status was still pending/confirmed, advance to preparing or dispatched
-          orderStatus: order.orderStatus === 'Delivered' ? 'Delivered' : order.orderStatus,
-        },
-      });
+        };
+      }
 
       return NextResponse.json({
         success: true,
@@ -236,12 +289,19 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'You are not assigned to this order' }, { status: 403 });
       }
 
-      const updated = await prisma.deliveryOrder.update({
-        where: { id: order.id },
-        data: {
+      let updated: any;
+      try {
+        updated = await prisma.deliveryOrder.update({
+          where: { id: order.id },
+          data: {
+            orderStatus: 'Dispatched',
+          },
+        });
+      } catch {
+        updated = updateInMemoryOrder(order.orderId || order.id, {
           orderStatus: 'Dispatched',
-        },
-      });
+        });
+      }
 
       return NextResponse.json({
         success: true,
@@ -260,12 +320,19 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'You are not assigned to this order' }, { status: 403 });
       }
 
-      const updated = await prisma.deliveryOrder.update({
-        where: { id: order.id },
-        data: {
+      let updated: any;
+      try {
+        updated = await prisma.deliveryOrder.update({
+          where: { id: order.id },
+          data: {
+            orderStatus: 'Delivered',
+          },
+        });
+      } catch {
+        updated = updateInMemoryOrder(order.orderId || order.id, {
           orderStatus: 'Delivered',
-        },
-      });
+        });
+      }
 
       return NextResponse.json({
         success: true,
