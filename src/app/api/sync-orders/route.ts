@@ -242,12 +242,24 @@ async function performSync() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ROUTE HANDLERS
+// ROUTE HANDLERS WITH IN-FLIGHT DEDUPLICATION
 // ─────────────────────────────────────────────────────────────────────────────
+
+let inFlightSync: Promise<any> | null = null;
+
+async function synchronizedSync() {
+  if (inFlightSync) {
+    return inFlightSync;
+  }
+  inFlightSync = performSync().finally(() => {
+    inFlightSync = null;
+  });
+  return inFlightSync;
+}
 
 export async function POST() {
   try {
-    const result = await performSync();
+    const result = await synchronizedSync();
     return NextResponse.json(result);
   } catch (error: any) {
     console.error('[sync-orders] Error:', error);
@@ -260,7 +272,7 @@ export async function POST() {
 
 export async function GET() {
   try {
-    const result = await performSync();
+    const result = await synchronizedSync();
     return NextResponse.json(result);
   } catch (error: any) {
     console.error('[sync-orders] Error:', error);

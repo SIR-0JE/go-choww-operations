@@ -231,13 +231,21 @@ export default function ExecutiveDashboardPage() {
     fetchData(true);
   }, [fetchData]);
 
-  // Listen for global auto-sync events so dashboard metrics update live without manual page refresh
+  // Listen for global auto-sync events & auto-refresh dashboard every 10s
   useEffect(() => {
     const handleSync = () => {
       fetchData(false);
     };
     window.addEventListener('orders-synced', handleSync);
-    return () => window.removeEventListener('orders-synced', handleSync);
+
+    const interval = setInterval(() => {
+      fetchData(false);
+    }, 10000);
+
+    return () => {
+      window.removeEventListener('orders-synced', handleSync);
+      clearInterval(interval);
+    };
   }, [fetchData]);
 
   const toggleMonth = (mKey: string) => {

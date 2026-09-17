@@ -65,45 +65,77 @@ export default function RiderPortalPage() {
   };
 
   // ── Web Audio Chime Synthesizer ─────────────────────────────────────────────
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const initOrResumeAudio = useCallback(() => {
+    try {
+      if (typeof window === 'undefined') return null;
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return null;
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new AudioCtx();
+      }
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
+      return audioCtxRef.current;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // Unlock browser audio upon first touch/click
+  useEffect(() => {
+    const unlock = () => {
+      initOrResumeAudio();
+    };
+    window.addEventListener('click', unlock, { once: true });
+    window.addEventListener('touchstart', unlock, { once: true });
+    return () => {
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+  }, [initOrResumeAudio]);
+
   const playAlertChime = useCallback(() => {
     if (!soundEnabled) return;
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
+      const ctx = initOrResumeAudio();
+      if (!ctx) return;
 
-      // First note
+      const now = ctx.currentTime;
+      // Note 1 (D5 = 587.33Hz)
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();
       osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      gain1.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc1.frequency.setValueAtTime(587.33, now);
+      gain1.gain.setValueAtTime(0.25, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
       osc1.connect(gain1);
       gain1.connect(ctx.destination);
-      osc1.start(ctx.currentTime);
-      osc1.stop(ctx.currentTime + 0.35);
+      osc1.start(now);
+      osc1.stop(now + 0.35);
 
-      // Second note (higher pitch)
+      // Note 2 (A5 = 880Hz)
       const osc2 = ctx.createOscillator();
       const gain2 = ctx.createGain();
       osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(880, ctx.currentTime + 0.12); // A5
-      gain2.gain.setValueAtTime(0.2, ctx.currentTime + 0.12);
-      gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.55);
+      osc2.frequency.setValueAtTime(880, now + 0.14);
+      gain2.gain.setValueAtTime(0.3, now + 0.14);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
       osc2.connect(gain2);
       gain2.connect(ctx.destination);
-      osc2.start(ctx.currentTime + 0.12);
-      osc2.stop(ctx.currentTime + 0.55);
+      osc2.start(now + 0.14);
+      osc2.stop(now + 0.6);
 
       // Mobile vibration
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate([150, 80, 150]);
+        navigator.vibrate([200, 100, 200]);
       }
-    } catch {
-      // AudioContext might be restricted until first user interaction
+    } catch (e) {
+      console.warn('Audio chime notice:', e);
     }
-  }, [soundEnabled]);
+  }, [soundEnabled, initOrResumeAudio]);
 
   // ── Initial Restore from LocalStorage ─────────────────────────────────────
   useEffect(() => {
@@ -191,8 +223,15 @@ export default function RiderPortalPage() {
   // ── Auto-poll: runs every 6s, pulls latest GoChow orders & listens for phone wake ──
   useEffect(() => {
     const triggerSyncAndFetch = async (background: boolean) => {
-      // Fire-and-forget fast batch sync to guarantee new GoChow orders enter the pool
-      fetch('/api/sync-orders', { method: 'POST' }).catch(() => {});
+      try {
+        const syncRes = await fetch('/api/sync-orders', { method: 'POST' });
+        const syncData = await syncRes.json();
+        if (syncData?.hasChanges && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('orders-synced', { detail: syncData }));
+        }
+      } catch {
+        // ignore
+      }
       await fetchPortalData(background);
     };
 
@@ -342,7 +381,19 @@ export default function RiderPortalPage() {
           <div className="flex items-center gap-2">
             {/* Sound Toggle */}
             <button
-              onClick={() => setSoundEnabled(!soundEnabled)}
+              onClick={() => {
+                const nextState = !soundEnabled;
+                setSoundEnabled(nextState);
+                if (nextState) {
+                  const ctx = initOrResumeAudio();
+                  if (ctx) {
+                    playAlertChime();
+                  }
+                  showToast('🔊 Alert chime enabled and tested!', 'success');
+                } else {
+                  showToast('🔇 Alert sound muted', 'success');
+                }
+              }}
               className={`p-2 rounded-xl border transition-all ${
                 soundEnabled
                   ? 'bg-slate-800/80 border-slate-700 text-amber-400'
