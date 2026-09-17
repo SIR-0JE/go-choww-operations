@@ -27,14 +27,16 @@ export const DAILY_NET_PROFIT_TARGET = 36842; // ₦36,842 net profit/day
 export const SPRINT_DEADLINE = new Date('2026-12-10T23:59:59Z');
 
 /**
- * Check if order is a verified settled order
- * Rule: orderStatus == "Completed" AND paymentStatus == "success"
+ * Check if order is a verified settled/delivered order
+ * Rule: orderStatus in ("Delivered", "Completed") AND paymentStatus == "success"
+ * Non-delivered orders (Confirmed, Preparing, Ready, Dispatched, Pending, Cancelled)
+ * do NOT enter financial calculations.
  */
 export function isSettledOrder(order: { orderStatus: string; paymentStatus: string }): boolean {
-  return (
-    order.orderStatus.toLowerCase() === 'completed' &&
-    order.paymentStatus.toLowerCase() === 'success'
-  );
+  const status = (order.orderStatus || '').trim().toLowerCase();
+  const isDelivered = status === 'delivered' || status === 'completed';
+  const isPaid = (order.paymentStatus || '').trim().toLowerCase() === 'success';
+  return isDelivered && isPaid;
 }
 
 /**

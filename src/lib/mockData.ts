@@ -22,7 +22,7 @@ export interface GeneratedOrder {
   foodTotal: number;
   totalAmountPaid: number;
   deliveryType: 'Same side' | 'Different side' | 'Pick up' | 'Other';
-  orderStatus: 'Completed' | 'Cancelled' | 'Pending';
+  orderStatus: 'Delivered' | 'Dispatched' | 'Ready' | 'Preparing' | 'Confirmed' | 'Completed' | 'Cancelled' | 'Pending' | string;
   paymentStatus: 'success' | 'failed' | 'pending';
   riderId?: string | null;
   rider?: GeneratedRider | null;

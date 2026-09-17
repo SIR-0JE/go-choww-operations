@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { Header } from '@/components/Header';
-import { formatNaira } from '@/lib/financials';
+import { formatNaira, isSettledOrder } from '@/lib/financials';
 import {
   CalendarRange,
   TrendingUp,
@@ -116,7 +116,7 @@ export default function MonthlySummaryPage() {
         m.totalOrders += 1;
         m.foodValueHandled += Number(ord.foodTotal) || 0;
 
-        const isSettled = ord.isSettled || (ord.orderStatus?.toLowerCase() === 'completed' && ord.paymentStatus?.toLowerCase() === 'success');
+        const isSettled = ord.isSettled || isSettledOrder(ord);
         if (isSettled) {
           m.completedOrders += 1;
           m.grossRevenue += Number(ord.deliveryFee) || 0;

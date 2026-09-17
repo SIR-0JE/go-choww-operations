@@ -21,6 +21,9 @@ import {
   Save,
   RefreshCw,
   X,
+  PackageCheck,
+  Utensils,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface RiderOption {
@@ -213,28 +216,60 @@ export default function RawDataOrdersPage() {
   };
 
   const getOrderStatusBadge = (status: string, payStatus: string) => {
-    const s = (status || '').toLowerCase();
-    const p = (payStatus || '').toLowerCase();
+    const s = (status || '').toLowerCase().trim();
+    const p = (payStatus || '').toLowerCase().trim();
 
-    if (s === 'completed' && p === 'success') {
+    if (s === 'delivered' || s === 'completed') {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-          Completed
+          Delivered
         </span>
       );
     }
-    if (s === 'pending') {
+    if (s === 'dispatched') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+          <Bike className="w-3 h-3 text-blue-600" />
+          Dispatched
+        </span>
+      );
+    }
+    if (s === 'ready') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
+          <PackageCheck className="w-3 h-3 text-teal-600" />
+          Ready
+        </span>
+      );
+    }
+    if (s === 'preparing') {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-          <Clock className="w-3 h-3 text-amber-600" />
-          Pending
+          <Utensils className="w-3 h-3 text-amber-600" />
+          Preparing
+        </span>
+      );
+    }
+    if (s === 'confirmed' || s === 'pending') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+          <ShieldCheck className="w-3 h-3 text-slate-500" />
+          Confirmed
+        </span>
+      );
+    }
+    if (s.includes('canc')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+          <XCircle className="w-3 h-3 text-rose-600" />
+          Cancelled
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-        <XCircle className="w-3 h-3 text-rose-600" />
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+        <Clock className="w-3 h-3 text-slate-500" />
         {status}
       </span>
     );
@@ -348,8 +383,11 @@ export default function RawDataOrdersPage() {
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white transition-all font-medium"
                 >
                   <option value="All">All Statuses</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Pending">Pending</option>
+                  <option value="Delivered">Delivered</option>
+                  <option value="Dispatched">Dispatched</option>
+                  <option value="Ready">Ready</option>
+                  <option value="Preparing">Preparing</option>
+                  <option value="Confirmed">Confirmed</option>
                   <option value="Cancelled">Cancelled</option>
                 </select>
               </div>

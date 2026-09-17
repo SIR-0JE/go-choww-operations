@@ -89,9 +89,14 @@ export async function GET(request: NextRequest) {
 
     // 3. Filter by Order Status
     if (orderStatus !== 'All') {
-      processed = processed.filter(
-        (o) => o.orderStatus.toLowerCase() === orderStatus.toLowerCase()
-      );
+      const target = orderStatus.toLowerCase();
+      processed = processed.filter((o) => {
+        const cur = (o.orderStatus || '').toLowerCase();
+        if (target === 'delivered' || target === 'completed') {
+          return cur === 'delivered' || cur === 'completed';
+        }
+        return cur === target;
+      });
     }
 
     // 4. Filter by Rider ID

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { Header } from '@/components/Header';
-import { formatNaira, MetricsSummary } from '@/lib/financials';
+import { formatNaira, MetricsSummary, isSettledOrder } from '@/lib/financials';
 import {
   Banknote,
   Receipt,
@@ -91,7 +91,7 @@ export default function ExecutiveDashboardPage() {
         const oStatus = (ord.orderStatus || '').toLowerCase();
         const pStatus = (ord.paymentStatus || '').toLowerCase();
 
-        if (oStatus === 'completed' && pStatus === 'success') {
+        if (isSettledOrder(ord)) {
           comp += 1;
         } else if (pStatus === 'failed' || oStatus.includes('refund')) {
           refFail += 1;
@@ -165,7 +165,7 @@ export default function ExecutiveDashboardPage() {
       const monthObj = getOrCreateMonth(mKey, mName);
 
       monthObj.totalOrders += 1;
-      const isSettled = ord.isSettled || (ord.orderStatus?.toLowerCase() === 'completed' && ord.paymentStatus?.toLowerCase() === 'success');
+      const isSettled = ord.isSettled || isSettledOrder(ord);
       const fee = Number(ord.deliveryFee) || 0;
       const payout = Number(ord.riderPayout) || 0;
 
