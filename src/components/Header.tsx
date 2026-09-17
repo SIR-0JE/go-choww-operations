@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { RefreshCw, CheckCircle2, Calendar, Menu } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { RefreshCw, CheckCircle2, AlertCircle, Calendar, Menu } from 'lucide-react';
 import { useSidebar } from './AppLayout';
 
 interface HeaderProps {
@@ -14,21 +15,26 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncToast, setSyncToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const { openSidebar } = useSidebar();
+  const router = useRouter();
 
   const handleSyncOrders = async () => {
     setIsSyncing(true);
     setSyncToast(null);
 
     try {
-      const res = await fetch('/api/sync', { method: 'POST' });
+      const res = await fetch('/api/sync-orders', { method: 'POST' });
       const data = await res.json();
 
-      if (data.success) {
+      if (res.ok && data.success) {
+        const count = data.newlySyncedCount ?? data.syncedCount ?? 0;
         setSyncToast({
-          message: data.message || `Imported ${data.syncedCount} new operational orders!`,
+          message: data.message || `Successfully synced ${count} new order${count === 1 ? '' : 's'}!`,
           type: 'success',
         });
-        if (onSyncComplete) onSyncComplete();
+        if (onSyncComplete) {
+          onSyncComplete();
+        }
+        router.refresh();
       } else {
         setSyncToast({
           message: data.error || 'Failed to sync orders',
@@ -122,7 +128,11 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
         >
           <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              {syncToast.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              )}
               <span>{syncToast.message}</span>
             </div>
             <button
