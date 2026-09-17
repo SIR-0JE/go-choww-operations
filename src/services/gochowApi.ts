@@ -2,30 +2,43 @@ import axios from 'axios';
 
 const BASE_URL = 'https://api.gochoww.com/api/v1';
 
-export async function fetchLiveGoChowOrders() {
+/**
+ * GoChow Live API Response Shape (verified from live response):
+ *
+ * order.orderNumber           — unique ID, e.g. "ORD-MU5FPEPS-JBB33"
+ * order._id                   — MongoDB internal ID
+ * order.user.name             — customer full name
+ * order.vendor.restaurantName — cafeteria/vendor name
+ * order.vendor.address        — "Permanent Side" | "Temporary Side"
+ * order.deliveryAddress       — e.g. "288 girls hostel"
+ * order.subtotal              — food cost (NGN)
+ * order.deliveryFee           — delivery fee (NGN)
+ * order.serviceCharge         — platform fee (NGN, not tracked in our DB)
+ * order.totalAmount           — total charged (NGN)
+ * order.orderStatus           — "delivered" | "dispatched" | "preparing" | "cancelled" | "pending"
+ * order.paymentStatus         — "success" | "pending" | "failed"
+ * order.createdAt             — ISO 8601 timestamp
+ */
+export async function fetchLiveGoChowOrders(): Promise<any[]> {
     try {
-        // 1. Log in automatically using your admin credentials from .env
         const loginResponse = await axios.post(`${BASE_URL}/admin/login`, {
             email: process.env.GOCHOW_ADMIN_EMAIL,
-            password: process.env.GOCHOW_ADMIN_PASSWORD
+            password: process.env.GOCHOW_ADMIN_PASSWORD,
         });
 
         const accessToken = loginResponse.data.token || loginResponse.data.accessToken;
 
         if (!accessToken) {
-            throw new Error("Login successful, but no access token was returned.");
+            throw new Error('Login succeeded but no access token was returned.');
         }
 
-        // 2. Fetch live orders using the token
         const ordersResponse = await axios.get(`${BASE_URL}/admin/orders?page=1&limit=10`, {
-            headers: { Authorization: `Bearer ${accessToken}` }
+            headers: { Authorization: `Bearer ${accessToken}` },
         });
 
-        console.log("Successfully fetched orders:", ordersResponse.data.orders);
-        return ordersResponse.data.orders;
-
+        return ordersResponse.data.orders ?? [];
     } catch (error: any) {
-        console.error("API Fetch Error:", error.response?.data || error.message);
+        console.error('[gochowApi] Fetch error:', error.response?.data || error.message);
         return [];
     }
 }

@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { RefreshCw, CheckCircle2, AlertCircle, Calendar, Menu } from 'lucide-react';
 import { useSidebar } from './AppLayout';
+
+const POLL_INTERVAL_MS = 10_000; // 10 seconds
 
 interface HeaderProps {
   onSyncComplete?: () => void;
@@ -12,51 +14,104 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
+  // Manual sync state
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncToast, setSyncToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  // Auto-poll state
+  const [isPolling, setIsPolling] = useState(false);
+  // Toast
+  const [syncToast, setSyncToast] = useState<{
+    message: string;
+    type: 'success' | 'error';
+  } | null>(null);
+
   const { openSidebar } = useSidebar();
   const router = useRouter();
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const handleSyncOrders = async () => {
-    setIsSyncing(true);
-    setSyncToast(null);
+  // ── Toast helper ────────────────────────────────────────────────────────────
+  const showToast = useCallback((message: string, type: 'success' | 'error') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setSyncToast({ message, type });
+    toastTimerRef.current = setTimeout(() => setSyncToast(null), 5000);
+  }, []);
 
-    try {
-      const res = await fetch('/api/sync-orders', { method: 'POST' });
-      const data = await res.json();
+  // ── Core sync function (shared by auto-poll and manual button) ─────────────
+  const runSync = useCallback(
+    async (options: { silent: boolean }) => {
+      try {
+        const res = await fetch('/api/sync-orders', { method: 'POST' });
+        const data = await res.json();
 
-      if (res.ok && data.success) {
-        const count = data.newlySyncedCount ?? data.syncedCount ?? 0;
-        setSyncToast({
-          message: data.message || `Successfully synced ${count} new order${count === 1 ? '' : 's'}!`,
-          type: 'success',
-        });
-        if (onSyncComplete) {
-          onSyncComplete();
+        if (res.ok && data.success) {
+          const hasChanges = data.hasChanges ?? (data.newlySyncedCount > 0 || data.statusUpdatedCount > 0);
+
+          if (!options.silent || hasChanges) {
+            // Auto-poll: only toast if something actually changed
+            // Manual: always toast so user gets confirmation
+            showToast(
+              data.message || `Sync complete — ${data.newlySyncedCount ?? 0} new order(s).`,
+              'success'
+            );
+          }
+
+          if (hasChanges) {
+            if (onSyncComplete) onSyncComplete();
+            router.refresh();
+          }
+        } else if (!options.silent) {
+          showToast(data.error || 'Failed to sync orders', 'error');
         }
-        router.refresh();
-      } else {
-        setSyncToast({
-          message: data.error || 'Failed to sync orders',
-          type: 'error',
-        });
+      } catch (err: any) {
+        if (!options.silent) {
+          showToast(err?.message || 'Network error while syncing', 'error');
+        }
       }
-    } catch (err: any) {
-      setSyncToast({
-        message: err?.message || 'Network error while syncing orders',
-        type: 'error',
-      });
-    } finally {
-      setIsSyncing(false);
-      setTimeout(() => setSyncToast(null), 5000);
-    }
+    },
+    [onSyncComplete, router, showToast]
+  );
+
+  // ── Auto-poll: runs every 10 seconds on every page ─────────────────────────
+  useEffect(() => {
+    const poll = async () => {
+      setIsPolling(true);
+      await runSync({ silent: true });
+      setIsPolling(false);
+    };
+
+    // Run immediately on mount to fix any stale statuses right away
+    poll();
+
+    pollIntervalRef.current = setInterval(poll, POLL_INTERVAL_MS);
+
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, [runSync]);
+
+  // ── Manual sync button handler ──────────────────────────────────────────────
+  const handleSyncOrders = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    await runSync({ silent: false });
+    setIsSyncing(false);
   };
+
+  // ── Live badge state ────────────────────────────────────────────────────────
+  const badgeText = isPolling ? 'Syncing…' : 'Live';
+  const badgeDotClass = isPolling
+    ? 'bg-blue-500 animate-pulse'
+    : 'bg-emerald-500 animate-pulse';
+  const badgeClass = isPolling
+    ? 'bg-blue-50 text-blue-700 border-blue-200/80'
+    : 'bg-emerald-50 text-emerald-700 border-emerald-200/80';
 
   return (
     <header className="border-b border-slate-200/80 bg-white/95 backdrop-blur-sm sticky top-0 z-30">
       {/* Top Header Bar */}
       <div className="px-4 sm:px-8 py-3.5 max-w-7xl mx-auto flex items-center justify-between gap-4">
-        {/* Left: Hamburger (on mobile) + Greeting & Live System Status */}
+        {/* Left: Hamburger (mobile) + Greeting & Live System Status */}
         <div className="flex items-center gap-3">
           <button
             onClick={openSidebar}
@@ -71,9 +126,12 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
               <h2 className="text-sm font-semibold text-slate-900 tracking-tight">
                 Welcome back, Admin
               </h2>
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/80">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Live Systems
+              {/* Live / Syncing badge */}
+              <span
+                className={`hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors duration-300 ${badgeClass}`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${badgeDotClass}`} />
+                {badgeText}
               </span>
             </div>
             <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
@@ -87,11 +145,12 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
           {/* Live Date Badge */}
           <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs font-medium text-slate-600">
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
-            <span>Tuesday, Sep 1, 2026</span>
+            <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</span>
           </div>
 
-          {/* Sync Orders Button */}
+          {/* Manual Sync Button */}
           <button
+            id="sync-orders-btn"
             onClick={handleSyncOrders}
             disabled={isSyncing}
             className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-tight text-white transition-all shadow-sm ${
@@ -117,7 +176,7 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
         </div>
       </div>
 
-      {/* Toast alert if triggered */}
+      {/* Toast notification */}
       {syncToast && (
         <div
           className={`px-4 sm:px-8 py-2.5 text-xs font-medium flex items-center justify-between border-t transition-all ${
