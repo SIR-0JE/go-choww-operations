@@ -105,15 +105,39 @@ export default function RiderPortalPage() {
     }
   }, [soundEnabled]);
 
+  // ── Initial Restore from LocalStorage ─────────────────────────────────────
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('rider_session');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setRider(parsed);
+          setIsOnline(Boolean(parsed.isOnline));
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, []);
+
   // ── Fetch Rider Profile & Orders ────────────────────────────────────────────
   const fetchPortalData = useCallback(
     async (isBackground = false) => {
       if (!isBackground) setIsRefreshing(true);
 
+      const localRiderId = typeof window !== 'undefined' ? localStorage.getItem('rider_id') : null;
+
       try {
-        const res = await fetch('/api/rider/orders');
+        const headers: Record<string, string> = {};
+        if (localRiderId) headers['x-rider-id'] = localRiderId;
+
+        const res = await fetch('/api/rider/orders', { headers });
         if (res.status === 401) {
-          router.push('/rider/login');
+          // Never violently kick out on background poll hiccups
+          if (!isBackground && !localRiderId) {
+            router.push('/rider/login');
+          }
           return;
         }
 
@@ -123,6 +147,10 @@ export default function RiderPortalPage() {
           if (data.rider) {
             setRider(data.rider);
             setIsOnline(Boolean(data.rider.isOnline));
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('rider_session', JSON.stringify(data.rider));
+              localStorage.setItem('rider_id', data.rider.id);
+            }
           }
 
           const newAvailable: RiderOrder[] = data.available || [];
@@ -193,16 +221,24 @@ export default function RiderPortalPage() {
   const toggleOnlineStatus = async () => {
     const newStatus = !isOnline;
     setIsOnline(newStatus);
+    const localRiderId = typeof window !== 'undefined' ? localStorage.getItem('rider_id') : null;
 
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (localRiderId) headers['x-rider-id'] = localRiderId;
+
       const res = await fetch('/api/rider/status', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ isOnline: newStatus }),
       });
       const data = await res.json();
       if (data.success) {
         showToast(data.message, 'success');
+        if (typeof window !== 'undefined' && rider) {
+          const updated = { ...rider, isOnline: newStatus };
+          localStorage.setItem('rider_session', JSON.stringify(updated));
+        }
       }
     } catch {
       setIsOnline(!newStatus); // revert on error
@@ -216,18 +252,27 @@ export default function RiderPortalPage() {
       await fetch('/api/rider/auth', { method: 'DELETE' });
     } catch {
       // ignore
+    } finally {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('rider_session');
+        localStorage.removeItem('rider_id');
+      }
+      router.push('/rider/login');
     }
-    router.push('/rider/login');
   };
 
   // ── Order Actions: Claim, Pick Up, Deliver ───────────────────────────────────
   const handleOrderAction = async (orderId: string, action: 'claim' | 'pickup' | 'deliver') => {
     setActionLoadingId(orderId);
+    const localRiderId = typeof window !== 'undefined' ? localStorage.getItem('rider_id') : null;
 
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (localRiderId) headers['x-rider-id'] = localRiderId;
+
       const res = await fetch('/api/rider/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ orderId, action }),
       });
 

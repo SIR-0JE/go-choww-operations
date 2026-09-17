@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bike, ShieldCheck, KeyRound, Phone, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
 
@@ -10,6 +10,16 @@ export default function RiderLoginPage() {
   const [pin, setPin] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Auto-redirect if already logged in persistently
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedId = localStorage.getItem('rider_id');
+      if (storedId) {
+        router.replace('/rider/portal');
+      }
+    }
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +49,11 @@ export default function RiderLoginPage() {
       const data = await res.json();
 
       if (data.success) {
+        // Save persistent session in phone localStorage
+        if (typeof window !== 'undefined' && data.rider) {
+          localStorage.setItem('rider_session', JSON.stringify(data.rider));
+          localStorage.setItem('rider_id', data.rider.id);
+        }
         // Redirect to live rider portal
         router.push('/rider/portal');
       } else {
