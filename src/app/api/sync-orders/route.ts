@@ -229,38 +229,43 @@ async function performSync(force: boolean = false) {
         }
       }
 
-      // Concurrently insert new orders
+      // Batch insert new orders in a single query (prevents connection pool starvation)
       if (toCreate.length > 0) {
-        await Promise.all(
-          toCreate.map(async (c) => {
+        try {
+          const result = await prisma.deliveryOrder.createMany({
+            data: toCreate,
+            skipDuplicates: true,
+          });
+          newlySyncedCount = result.count;
+        } catch (insertErr) {
+          console.error('[sync-orders] Batch createMany error, falling back to sequential inserts:', insertErr);
+          for (const c of toCreate) {
             try {
               await prisma.deliveryOrder.create({ data: c });
               newlySyncedCount++;
-            } catch {
-              // Ignore duplicate race condition
+            } catch (err: any) {
+              console.warn(`[sync-orders] Failed inserting order ${c.orderId}:`, err?.message);
             }
-          })
-        );
+          }
+        }
       }
 
-      // Concurrently update orders with changed status
+      // Update orders with changed status sequentially to prevent connection pool exhaustion
       if (toUpdate.length > 0) {
-        await Promise.all(
-          toUpdate.map(async (u) => {
-            try {
-              await prisma.deliveryOrder.update({
-                where: { id: u.id },
-                data: {
-                  orderStatus: u.status,
-                  paymentStatus: u.pay,
-                },
-              });
-              statusUpdatedCount++;
-            } catch {
-              // Ignore update error
-            }
-          })
-        );
+        for (const u of toUpdate) {
+          try {
+            await prisma.deliveryOrder.update({
+              where: { id: u.id },
+              data: {
+                orderStatus: u.status,
+                paymentStatus: u.pay,
+              },
+            });
+            statusUpdatedCount++;
+          } catch (updateErr: any) {
+            console.warn(`[sync-orders] Failed updating order ID ${u.id}:`, updateErr?.message);
+          }
+        }
       }
     } catch (dbErr) {
       console.error('[sync-orders] Database error, falling back to memory:', dbErr);
