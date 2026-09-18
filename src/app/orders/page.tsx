@@ -232,7 +232,7 @@ export default function RawDataOrdersPage() {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-          Delivered
+          Completed
         </span>
       );
     }
@@ -392,7 +392,7 @@ export default function RawDataOrdersPage() {
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white transition-all font-medium"
                 >
                   <option value="All">All Statuses</option>
-                  <option value="Delivered">Delivered</option>
+                  <option value="Completed">Completed</option>
                   <option value="Dispatched">Dispatched</option>
                   <option value="Ready">Ready</option>
                   <option value="Preparing">Preparing</option>

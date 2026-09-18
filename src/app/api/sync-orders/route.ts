@@ -22,7 +22,7 @@ export const dynamic = 'force-dynamic';
  */
 function mapOrderStatus(raw: string): string {
   const s = (raw || '').toLowerCase().trim();
-  if (s === 'delivered' || s === 'completed') return 'Delivered';
+  if (s === 'delivered' || s === 'completed') return 'Completed';
   if (s === 'dispatched') return 'Dispatched';
   if (s === 'ready') return 'Ready';
   if (s === 'preparing') return 'Preparing';
@@ -50,8 +50,11 @@ const STATUS_RANK: Record<string, number> = {
 };
 
 /**
- * Enforces one-way forward status progression during external sync.
- * Prevents remote GoChow sync from reverting/demoting locally dispatched or delivered orders.
+ * Enforces order status progression rules during external GoChow sync:
+ * 1. Terminal Completed: Once marked Completed/Delivered, never alter or demote.
+ * 2. Remote Cancellation: GoChow cancellations apply to any active uncompleted order.
+ * 3. Transit Protection: Dispatched orders cannot be demoted back to Ready/Preparing.
+ * 4. Kitchen Progression: GoChow updates Confirmed -> Preparing -> Ready.
  */
 function shouldSyncUpdateOrderStatus(currentDbStatus: string, incomingLiveStatus: string): boolean {
   const current = (currentDbStatus || '').trim().toLowerCase();
@@ -59,25 +62,24 @@ function shouldSyncUpdateOrderStatus(currentDbStatus: string, incomingLiveStatus
 
   if (!incoming || current === incoming) return false;
 
-  // 1. Terminal Delivered / Completed: Never demote or cancel once delivered to customer
-  if (current === 'delivered' || current === 'completed') {
+  // 1. Terminal lock: Never demote or alter once completed
+  if (current === 'completed' || current === 'delivered') {
     return false;
   }
 
-  // 2. Cancellation handling
+  // 2. Cancellation handling: GoChow remote cancellation takes effect on uncompleted orders
   if (incoming === 'cancelled' || incoming === 'canceled') {
-    // Only cancel if not already delivered
-    return current !== 'delivered' && current !== 'completed';
+    return true;
   }
 
-  // 3. If locally cancelled, do not resurrect unless remote explicitly marks delivered
+  // 3. If locally cancelled, do not resurrect unless GoChow explicitly marks completed
   if (current === 'cancelled' || current === 'canceled') {
-    return incoming === 'delivered' || incoming === 'completed';
+    return incoming === 'completed' || incoming === 'delivered';
   }
 
-  // 4. If currently Dispatched (rider is physically en route), never demote back to Ready, Preparing, or Confirmed
+  // 4. Transit protection: Dispatched orders cannot be demoted back to Ready, Preparing, or Confirmed
   if (current === 'dispatched') {
-    return incoming === 'delivered' || incoming === 'completed';
+    return incoming === 'completed' || incoming === 'delivered';
   }
 
   // 5. Forward progression rule: incoming rank must be strictly higher than current

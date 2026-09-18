@@ -390,18 +390,18 @@ export async function POST(request: NextRequest) {
         updated = await prisma.deliveryOrder.update({
           where: { id: order.id },
           data: {
-            orderStatus: 'Delivered',
+            orderStatus: 'Completed',
           },
         });
       } catch {
         updated = updateInMemoryOrder(order.orderId || order.id, {
-          orderStatus: 'Delivered',
+          orderStatus: 'Completed',
         });
       }
 
       return NextResponse.json({
         success: true,
-        message: 'Order confirmed as Delivered to customer!',
+        message: 'Order confirmed as Completed!',
         order: {
           id: updated.id,
           orderId: updated.orderId,

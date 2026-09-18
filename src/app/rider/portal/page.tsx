@@ -801,7 +801,7 @@ export default function RiderPortalPage() {
                           {isLoadingAction
                             ? <RefreshCw className="w-4 h-4 animate-spin" />
                             : <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />}
-                          <span>2. Confirm Delivered to Customer</span>
+                          <span>2. Confirm Completed</span>
                         </button>
                       )}
 
@@ -831,7 +831,7 @@ export default function RiderPortalPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Delivered Today ({completedToday.length} runs)
+                Completed Today ({completedToday.length} runs)
               </p>
               <button
                 onClick={() => fetchPortalData(false)}
@@ -847,7 +847,7 @@ export default function RiderPortalPage() {
               <div className="py-16 text-center border border-dashed border-slate-300 rounded-2xl bg-white p-6">
                 <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-slate-300 stroke-[1.5]" />
                 <h3 className="text-sm font-semibold text-slate-700">No Completed Trips Yet</h3>
-                <p className="text-xs text-slate-400 mt-1">Orders you deliver today will appear here.</p>
+                <p className="text-xs text-slate-400 mt-1">Orders you complete today will appear here.</p>
               </div>
             ) : (
               completedToday.map((ord) => (
@@ -861,7 +861,7 @@ export default function RiderPortalPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-slate-900">{ord.orderId}</span>
-                      <span className="text-[10px] font-semibold text-emerald-600">• Delivered</span>
+                      <span className="text-[10px] font-semibold text-emerald-600">• Completed</span>
                     </div>
                     <p className="text-[11px] text-slate-500 mt-0.5 truncate">
                       {ord.cafeteriaName} → {ord.deliveryAddress}
