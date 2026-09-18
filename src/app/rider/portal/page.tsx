@@ -248,12 +248,26 @@ export default function RiderPortalPage() {
     [router, playAlertChime, activeTasks.length]
   );
 
-  // ── Auto-poll ─────────────────────────────────────────────────────────────────
+  // ── High-Speed Real-Time Synchronization (3.5s cycle + BroadcastChannel) ────
   useEffect(() => {
     let isOffHours = false;
-    const triggerSyncAndFetch = async (background: boolean) => {
+    let inFlightFetch = false;
+
+    // 1. Fast local portal data fetch (Direct database, sub-30ms)
+    const fetchFast = async () => {
+      if (inFlightFetch) return;
+      inFlightFetch = true;
       try {
-        if (!isOffHours || !background) {
+        await fetchPortalData(true);
+      } finally {
+        inFlightFetch = false;
+      }
+    };
+
+    // 2. Periodic external GoChow order sync (every 10s during operating hours)
+    const triggerExternalSync = async () => {
+      try {
+        if (!isOffHours) {
           const syncRes = await fetch('/api/sync-orders', { method: 'POST' });
           const syncData = await syncRes.json();
           if (syncData && syncData.inOperatingWindow === false) {
@@ -261,17 +275,68 @@ export default function RiderPortalPage() {
           } else {
             isOffHours = false;
           }
-          if (syncData?.hasChanges && typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('orders-synced', { detail: syncData }));
+          if (syncData?.hasChanges) {
+            await fetchPortalData(true);
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('orders-synced', { detail: syncData }));
+            }
           }
         }
-      } catch { /* ignore */ }
-      await fetchPortalData(background);
+      } catch {
+        // ignore
+      }
     };
 
-    triggerSyncAndFetch(false);
-    const interval = setInterval(() => triggerSyncAndFetch(true), 30000);
-    return () => clearInterval(interval);
+    // Initial load
+    fetchPortalData(false);
+    triggerExternalSync();
+
+    // Fast 3.5s poll for instant state transitions across riders
+    const fastInterval = setInterval(fetchFast, 3500);
+
+    // 10s background sync from external GoChow platform
+    const syncInterval = setInterval(triggerExternalSync, 10000);
+
+    // Instant sync on screen unlock / tab focus
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        fetchFast();
+        triggerExternalSync();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    // Cross-tab / Cross-window Real-Time BroadcastChannel listener
+    let channel: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        channel = new BroadcastChannel('gochow_rider_sync');
+        channel.onmessage = (event) => {
+          if (event.data?.type === 'rider_action_update' || event.data?.type === 'orders_synced') {
+            fetchFast();
+          }
+        };
+      }
+    } catch {
+      // ignore
+    }
+
+    const handleCustomRiderActivity = () => {
+      fetchFast();
+    };
+    window.addEventListener('rider-activity', handleCustomRiderActivity);
+    window.addEventListener('orders-synced', handleCustomRiderActivity);
+
+    return () => {
+      clearInterval(fastInterval);
+      clearInterval(syncInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      window.removeEventListener('rider-activity', handleCustomRiderActivity);
+      window.removeEventListener('orders-synced', handleCustomRiderActivity);
+      if (channel) channel.close();
+    };
   }, [fetchPortalData]);
 
   // ── Toggle Online Status ────────────────────────────────────────────────────
@@ -313,6 +378,31 @@ export default function RiderPortalPage() {
     }
   };
 
+  // ── Real-Time Broadcast Helper ──────────────────────────────────────────────
+  const broadcastRiderUpdate = (action: string, orderId: string, orderDetails?: any) => {
+    if (typeof window !== 'undefined') {
+      try {
+        if ('BroadcastChannel' in window) {
+          const ch = new BroadcastChannel('gochow_rider_sync');
+          ch.postMessage({ type: 'rider_action_update', action, orderId });
+          ch.close();
+        }
+        window.dispatchEvent(
+          new CustomEvent('rider-activity', {
+            detail: {
+              action,
+              riderName: rider?.name || 'A rider',
+              orderId,
+              orderDetails: orderDetails || null,
+            },
+          })
+        );
+      } catch {
+        // ignore
+      }
+    }
+  };
+
   // ── Order Actions ─────────────────────────────────────────────────────────────
   const handleOrderAction = async (orderId: string, action: 'claim' | 'pickup' | 'deliver') => {
     // Client-side 5-order cap guard
@@ -337,19 +427,10 @@ export default function RiderPortalPage() {
         await fetchPortalData(false);
         if (action === 'claim') setActiveTab('active');
         else if (action === 'deliver') setActiveTab('completed');
-        // Notify admin dashboard in real time about this rider action
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(
-            new CustomEvent('rider-activity', {
-              detail: {
-                action,
-                riderName: rider?.name || 'A rider',
-                orderId: orderId,
-                orderDetails: data.order || null,
-              },
-            })
-          );
-        }
+        
+        // Broadcast to all other tabs/windows in real time
+        broadcastRiderUpdate(action, orderId, data.order);
+
         // Persist notification to localStorage for the Notifications page
         pushNotification(
           buildRiderNotification(
@@ -393,6 +474,7 @@ export default function RiderPortalPage() {
       const data = await res.json();
       if (data.success) {
         showToast(data.message || 'Order successfully handed over!', 'success');
+        broadcastRiderUpdate('transfer', transferModalOrder.orderId, data.order);
         setTransferModalOrder(null);
         setSelectedTargetRiderId('');
         await fetchPortalData(false);
@@ -431,21 +513,10 @@ export default function RiderPortalPage() {
       const data = await res.json();
       if (data.success) {
         showToast(data.message || 'Order picked up at cafeteria & assigned to you!', 'success');
+        broadcastRiderUpdate('takeover', takeoverModalOrder.orderId, data.order);
         setTakeoverModalOrder(null);
         await fetchPortalData(false);
         setActiveTab('active');
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(
-            new CustomEvent('rider-activity', {
-              detail: {
-                action: 'takeover',
-                riderName: rider?.name || 'A rider',
-                orderId: takeoverModalOrder.orderId,
-                orderDetails: data.order || null,
-              },
-            })
-          );
-        }
       } else {
         showToast(data.error || 'Could not pick up order.', 'error');
       }
