@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { AppLayout } from '@/components/AppLayout';
 import { Header } from '@/components/Header';
-import { formatNaira, MetricsSummary, isSettledOrder } from '@/lib/financials';
+import { formatNaira, MetricsSummary, isSettledOrder, isRevenueOrder } from '@/lib/financials';
 import {
   Banknote,
   Receipt,
@@ -188,21 +188,27 @@ export default function ExecutiveDashboardPage() {
 
       monthObj.totalOrders += 1;
       const isSettled = ord.isSettled || isSettledOrder(ord);
+      const isRev = isRevenueOrder(ord);
       const fee = Number(ord.deliveryFee) || 0;
       const payout = Number(ord.riderPayout) || 0;
 
+      if (isRev) {
+        monthObj.grossRevenue += fee;
+      }
+
       if (isSettled) {
         monthObj.completedOrders += 1;
-        monthObj.grossRevenue += fee;
         monthObj.riderPayout += payout;
       }
 
       const weekInfo = getWeekInfo(d);
       const weekObj = monthObj.weeks.find((w) => w.weekLabel === weekInfo.key)!;
       weekObj.totalOrders += 1;
+      if (isRev) {
+        weekObj.grossRevenue += fee;
+      }
       if (isSettled) {
         weekObj.completedOrders += 1;
-        weekObj.grossRevenue += fee;
         weekObj.riderPayout += payout;
       }
     }
