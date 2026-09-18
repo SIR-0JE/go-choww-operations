@@ -205,6 +205,17 @@ export async function GET(request: NextRequest) {
         console.warn('[Rider otherRiders fetch warning]:', err);
       }
 
+      // Sort accepted/claimed orders awaiting pickup to the top of the pool list
+      const sortedAvailableOrders = availableOrders.sort((a, b) => {
+        const aIsClaimed = Boolean(a.riderId || a.rider);
+        const bIsClaimed = Boolean(b.riderId || b.rider);
+
+        if (aIsClaimed && !bIsClaimed) return -1;
+        if (!aIsClaimed && bIsClaimed) return 1;
+
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
       return NextResponse.json({
         success: true,
         rider: {
@@ -213,12 +224,12 @@ export async function GET(request: NextRequest) {
           phone: rider.phone,
           isOnline: rider.isOnline,
         },
-        available: availableOrders,
+        available: sortedAvailableOrders,
         active: activeTasks,
         completedToday,
         otherRiders: otherRidersWithCounts,
         counts: {
-          available: availableOrders.length,
+          available: sortedAvailableOrders.length,
           active: activeTasks.length,
           completedToday: completedToday.length,
         },
