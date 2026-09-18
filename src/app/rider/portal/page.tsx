@@ -467,10 +467,23 @@ export default function RiderPortalPage() {
   }, [availableOrders]);
 
   const filteredAvailableOrders = React.useMemo(() => {
-    if (selectedCafeteria === 'all') return availableOrders;
-    return availableOrders.filter(
-      (o) => (o.cafeteriaName || '').trim().toLowerCase() === selectedCafeteria.toLowerCase()
-    );
+    const list =
+      selectedCafeteria === 'all'
+        ? [...availableOrders]
+        : availableOrders.filter(
+            (o) => (o.cafeteriaName || '').trim().toLowerCase() === selectedCafeteria.toLowerCase()
+          );
+
+    // Prioritize accepted/claimed orders awaiting pickup to the very top of the list
+    return list.sort((a, b) => {
+      const aIsClaimed = Boolean(a.riderId || a.rider);
+      const bIsClaimed = Boolean(b.riderId || b.rider);
+
+      if (aIsClaimed && !bIsClaimed) return -1;
+      if (!aIsClaimed && bIsClaimed) return 1;
+
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
   }, [availableOrders, selectedCafeteria]);
 
   // ── Pickup code: last 4 chars of orderId ─────────────────────────────────────
