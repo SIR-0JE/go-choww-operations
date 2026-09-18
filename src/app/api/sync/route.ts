@@ -1,19 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { POST as syncOrdersPost, GET as syncOrdersGet } from '@/app/api/sync-orders/route';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST() {
-  try {
-    return NextResponse.json({
-      success: true,
-      message: 'Ready for CSV sheet upload via the Raw Data page.',
-      syncedCount: 0,
-    });
-  } catch (error: any) {
-    console.error('Sync API error:', error);
-    return NextResponse.json(
-      { success: false, error: error?.message || 'Failed to sync data' },
-      { status: 500 }
-    );
-  }
+export async function POST(request: NextRequest) {
+  return syncOrdersPost(request);
+}
+
+export async function GET(request: NextRequest) {
+  return syncOrdersGet(request);
 }

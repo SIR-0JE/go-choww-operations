@@ -59,11 +59,14 @@ async function getAdminToken(): Promise<string> {
   }
 
   return withRetry('getAdminToken', async () => {
+    const email = (process.env.GOCHOW_ADMIN_EMAIL || '').trim();
+    const password = (process.env.GOCHOW_ADMIN_PASSWORD || '').trim();
+
     const loginResponse = await axios.post(
       `${BASE_URL}/admin/login`,
       {
-        email: process.env.GOCHOW_ADMIN_EMAIL,
-        password: process.env.GOCHOW_ADMIN_PASSWORD,
+        email,
+        password,
       },
       { timeout: 10000 }
     );
