@@ -67,16 +67,28 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      // 1. Available Unassigned Pool (Active orders not yet delivered, completed, or cancelled)
+      // 1. Available Pool:
+      // A) Unassigned orders (riderId: null)
+      // B) Orders claimed by other riders that are still awaiting pickup at cafeteria (not yet Dispatched/In Transit)
       const availableOrders = await prisma.deliveryOrder.findMany({
         where: {
-          riderId: null,
-          orderStatus: {
-            notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
-          },
+          OR: [
+            {
+              riderId: null,
+              orderStatus: {
+                notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
+              },
+            },
+            {
+              riderId: { not: null, notIn: [rider.id] },
+              orderStatus: {
+                notIn: ['Dispatched', 'dispatched', 'Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
+              },
+            },
+          ],
         },
         orderBy: { createdAt: 'desc' },
-        take: 50,
+        take: 60,
         select: {
           id: true,
           orderId: true,
@@ -87,6 +99,14 @@ export async function GET(request: NextRequest) {
           orderStatus: true,
           createdAt: true,
           time: true,
+          riderId: true,
+          rider: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+            },
+          },
         },
       });
 
@@ -206,9 +226,13 @@ export async function GET(request: NextRequest) {
     } catch (dbErr) {
       console.warn('[Rider Orders Fetch] DB fallback to memory:', dbErr);
       const mem = getInMemoryOrders();
-      const availableOrders = mem.filter(
-        (o) => !o.riderId && !['delivered', 'completed', 'cancelled'].includes((o.orderStatus || '').toLowerCase())
-      );
+      const availableOrders = mem.filter((o) => {
+        const s = (o.orderStatus || '').toLowerCase();
+        if (['delivered', 'completed', 'cancelled', 'dispatched'].includes(s)) return false;
+        if (!o.riderId) return true;
+        if (o.riderId !== rider.id) return true;
+        return false;
+      });
       const activeTasks = mem.filter(
         (o) => o.riderId === rider.id && !['delivered', 'completed', 'cancelled'].includes((o.orderStatus || '').toLowerCase())
       );
@@ -344,6 +368,81 @@ export async function POST(request: NextRequest) {
           id: updated.id,
           orderId: updated.orderId,
           orderStatus: updated.orderStatus,
+        },
+      });
+    }
+
+    // ── ACTION: TAKEOVER (CAFETERIA PICKUP OVERRIDE) ──────────────────────────
+    if (action === 'takeover') {
+      const lowerStatus = (order.orderStatus || '').toLowerCase();
+      if (['delivered', 'completed', 'cancelled'].includes(lowerStatus)) {
+        return NextResponse.json(
+          { success: false, error: `Cannot pick up an order that is already ${order.orderStatus}` },
+          { status: 400 }
+        );
+      }
+
+      if (['dispatched', 'in transit'].includes(lowerStatus)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'This order was already picked up and is in transit by another rider.',
+          },
+          { status: 409 }
+        );
+      }
+
+      // Check 5-order cap on the acquiring rider
+      try {
+        const activeCount = await prisma.deliveryOrder.count({
+          where: {
+            riderId: rider.id,
+            orderStatus: {
+              notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
+            },
+          },
+        });
+        if (activeCount >= 5) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'You already have 5 active orders. Deliver one before accepting more.',
+            },
+            { status: 409 }
+          );
+        }
+      } catch {
+        // Proceed if DB check fails
+      }
+
+      const previousRiderId = order.riderId;
+
+      // Assign to this rider and mark as Dispatched immediately
+      let updated: any;
+      try {
+        updated = await prisma.deliveryOrder.update({
+          where: { id: order.id },
+          data: {
+            riderId: rider.id,
+            orderStatus: 'Dispatched',
+          },
+        });
+      } catch {
+        updateInMemoryOrderRider(order.orderId || order.id, rider.id);
+        updated = updateInMemoryOrder(order.orderId || order.id, {
+          orderStatus: 'Dispatched',
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Order #${order.orderId} picked up at cafeteria and assigned to you!`,
+        previousRiderId,
+        order: {
+          id: updated.id,
+          orderId: updated.orderId,
+          orderStatus: updated.orderStatus,
+          riderId: rider.id,
         },
       });
     }
