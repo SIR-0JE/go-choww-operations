@@ -5,8 +5,52 @@ const BASE_URL = 'https://api.gochoww.com/api/v1';
 let cachedToken: string | null = null;
 let tokenExpiresAt = 0;
 
+function isTransientError(error: any): boolean {
+  const code = error?.code;
+  if (
+    code === 'EAI_AGAIN' ||
+    code === 'ENOTFOUND' ||
+    code === 'ETIMEDOUT' ||
+    code === 'ECONNRESET' ||
+    code === 'ECONNABORTED' ||
+    code === 'ERR_NETWORK'
+  ) {
+    return true;
+  }
+  const status = error?.response?.status;
+  if (status && (status >= 500 || status === 429)) {
+    return true;
+  }
+  return false;
+}
+
+async function withRetry<T>(operationName: string, fn: () => Promise<T>, maxRetries = 2, delayMs = 1200): Promise<T> {
+  let lastError: any;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastError = err;
+      if (err?.response?.status === 401) {
+        cachedToken = null;
+        tokenExpiresAt = 0;
+      }
+      if (isTransientError(err) && attempt < maxRetries) {
+        console.warn(
+          `[gochowApi] ${operationName}: Transient network notice (${err.code || err.message}). Retrying in ${delayMs}ms (Attempt ${attempt + 1}/${maxRetries})...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
+}
+
 /**
- * Obtain a valid admin JWT token, caching it in memory for 10 minutes
+ * Obtain a valid admin JWT token, caching it in memory for 10 minutes.
+ * Uses automatic retry on transient DNS/network reconnection drops.
  */
 async function getAdminToken(): Promise<string> {
   const now = Date.now();
@@ -14,46 +58,69 @@ async function getAdminToken(): Promise<string> {
     return cachedToken;
   }
 
-  const loginResponse = await axios.post(
-    `${BASE_URL}/admin/login`,
-    {
-      email: process.env.GOCHOW_ADMIN_EMAIL,
-      password: process.env.GOCHOW_ADMIN_PASSWORD,
-    },
-    { timeout: 8000 }
-  );
+  return withRetry('getAdminToken', async () => {
+    const loginResponse = await axios.post(
+      `${BASE_URL}/admin/login`,
+      {
+        email: process.env.GOCHOW_ADMIN_EMAIL,
+        password: process.env.GOCHOW_ADMIN_PASSWORD,
+      },
+      { timeout: 10000 }
+    );
 
-  const token = loginResponse.data.token || loginResponse.data.accessToken;
-  if (!token) {
-    throw new Error('Login succeeded but no access token was returned.');
+    const token = loginResponse.data.token || loginResponse.data.accessToken;
+    if (!token) {
+      throw new Error('Login succeeded but no access token was returned.');
+    }
+
+    cachedToken = token;
+    tokenExpiresAt = Date.now() + 10 * 60 * 1000; // cache for 10 minutes
+    return token;
+  }, 2, 1000);
+}
+
+export interface FetchLiveOrdersResult {
+  success: boolean;
+  orders: any[];
+  error?: string;
+  isNetworkError?: boolean;
+}
+
+/**
+ * Fetch the latest live orders with full status and transient retry protection.
+ */
+export async function fetchLiveGoChowOrdersWithStatus(limit: number = 30): Promise<FetchLiveOrdersResult> {
+  try {
+    const orders = await withRetry('fetchLiveOrders', async () => {
+      const token = await getAdminToken();
+      const ordersResponse = await axios.get(`${BASE_URL}/admin/orders?page=1&limit=${limit}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      });
+
+      return ordersResponse.data.orders ?? [];
+    }, 2, 1200);
+
+    return { success: true, orders };
+  } catch (error: any) {
+    const isNet = isTransientError(error);
+    const errorMsg = error.response?.data?.message || error.message || 'Failed to connect to GoChow API';
+    console.error('[gochowApi] fetchLiveGoChowOrdersWithStatus error:', errorMsg);
+    return {
+      success: false,
+      orders: [],
+      error: errorMsg,
+      isNetworkError: isNet,
+    };
   }
-
-  cachedToken = token;
-  tokenExpiresAt = now + 10 * 60 * 1000; // cache for 10 minutes
-  return token;
 }
 
 /**
  * Fetch the latest live orders from GoChow (defaults to top 30)
  */
 export async function fetchLiveGoChowOrders(limit: number = 30): Promise<any[]> {
-  try {
-    const token = await getAdminToken();
-    const ordersResponse = await axios.get(`${BASE_URL}/admin/orders?page=1&limit=${limit}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      timeout: 8000,
-    });
-
-    return ordersResponse.data.orders ?? [];
-  } catch (error: any) {
-    // If 401, invalidate cached token for next retry
-    if (error.response?.status === 401) {
-      cachedToken = null;
-      tokenExpiresAt = 0;
-    }
-    console.error('[gochowApi] fetchLiveGoChowOrders error:', error.response?.data || error.message);
-    return [];
-  }
+  const result = await fetchLiveGoChowOrdersWithStatus(limit);
+  return result.orders;
 }
 
 /**

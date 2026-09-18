@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, getInMemoryOrders, appendMockOrder, updateInMemoryOrder } from '@/lib/prisma';
-import { fetchLiveGoChowOrders } from '@/services/gochowApi';
+import { fetchLiveGoChowOrders, fetchLiveGoChowOrdersWithStatus } from '@/services/gochowApi';
 import { classifyDeliveryType } from '@/lib/locations';
 import { getSyncSettings, isWithinOperatingWindow, getOperationalStatus } from '@/lib/settings';
 
@@ -114,8 +114,29 @@ async function performSync(force: boolean = false) {
     };
   }
 
-  // ── 1. Fetch the latest 30 live orders from GoChow in a single fast call ────
-  const liveOrders: any[] = await fetchLiveGoChowOrders(30);
+  // ── 1. Fetch the latest 30 live orders from GoChow with retry & connection status ────
+  const fetchResult = await fetchLiveGoChowOrdersWithStatus(30);
+
+  if (!fetchResult.success) {
+    const status = getOperationalStatus(settings);
+    return {
+      success: false,
+      hasChanges: false,
+      isNetworkError: fetchResult.isNetworkError,
+      inOperatingWindow: true,
+      operatingStatus: status,
+      newlySyncedCount: 0,
+      syncedCount: 0,
+      statusUpdatedCount: 0,
+      totalFetched: 0,
+      error: fetchResult.error,
+      message: fetchResult.isNetworkError
+        ? 'Reconnecting to GoChow API... Retrying automatically on next poll.'
+        : `GoChow API notice: ${fetchResult.error}`,
+    };
+  }
+
+  const liveOrders: any[] = fetchResult.orders;
 
   const orderNumbers: string[] = [];
   const validLiveOrders: any[] = [];
