@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma, getInMemoryOrders, getInMemoryExpenses } from '@/lib/prisma';
-import { calculateMetrics, calculateRiderPayout, isSettledOrder } from '@/lib/financials';
+import { calculateMetrics, calculateRiderPayout, isSettledOrder, isRevenueOrder } from '@/lib/financials';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,12 +58,12 @@ export async function GET() {
       }
     >();
 
-    // 1. Process settled orders
-    const sortedSettled = normalizedOrders
-      .filter((o) => isSettledOrder(o))
+    // 1. Process valid orders for revenue and settled orders for rider payouts
+    const sortedValidOrders = normalizedOrders
+      .filter((o) => isRevenueOrder(o) || isSettledOrder(o))
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
-    for (const order of sortedSettled) {
+    for (const order of sortedValidOrders) {
       const dateKey = order.createdAt.toISOString().split('T')[0];
       const displayDate = new Date(order.createdAt).toLocaleDateString('en-US', {
         month: 'short',
@@ -87,9 +87,13 @@ export async function GET() {
       const fee = order.deliveryFee;
       const payout = calculateRiderPayout(order.deliveryType);
 
-      dayData.settledOrders += 1;
-      dayData.grossRevenue += fee;
-      dayData.riderPayout += payout;
+      if (isRevenueOrder(order)) {
+        dayData.grossRevenue += fee;
+      }
+      if (isSettledOrder(order)) {
+        dayData.settledOrders += 1;
+        dayData.riderPayout += payout;
+      }
     }
 
     // 2. Process daily expenses

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma, getInMemoryOrders, getInMemoryExpenses } from '@/lib/prisma';
-import { calculateRiderPayout, isSettledOrder } from '@/lib/financials';
+import { calculateRiderPayout, isSettledOrder, isRevenueOrder } from '@/lib/financials';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,9 +79,11 @@ export async function GET() {
       const day = dailyMap.get(dateKey)!;
       day.totalOrders += 1;
 
+      if (isRevenueOrder(order)) {
+        day.grossRevenue += order.deliveryFee;
+      }
       if (isSettledOrder(order)) {
         day.completedOrders += 1;
-        day.grossRevenue += order.deliveryFee;
         day.riderFees += calculateRiderPayout(order.deliveryType);
       }
     }
@@ -162,9 +164,11 @@ export async function GET() {
       const m = monthlyMap.get(monthKey)!;
       m.totalOrders += 1;
 
+      if (isRevenueOrder(order)) {
+        m.grossRevenue += order.deliveryFee;
+      }
       if (isSettledOrder(order)) {
         m.completedOrders += 1;
-        m.grossRevenue += order.deliveryFee;
         m.riderPayout += calculateRiderPayout(order.deliveryType);
       }
     }
@@ -225,7 +229,7 @@ export async function GET() {
       const cat = cafeteriaMap.get(name)!;
       cat.orderCount += 1;
       cat.totalFoodValue += order.foodTotal;
-      if (isSettledOrder(order)) {
+      if (isRevenueOrder(order)) {
         cat.totalDeliveryFees += order.deliveryFee;
       }
     }

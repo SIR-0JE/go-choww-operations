@@ -32,7 +32,7 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ metrics, isLoading }) => {
       iconColor: 'bg-brand-50 text-brand-600 border-brand-200/60',
       badge: 'Delivery Fees',
       badgeColor: 'bg-brand-50 text-brand-700 border-brand-200/80',
-      tooltip: 'Sum of delivery fees across verified completed orders',
+      tooltip: 'Sum of delivery fees across paid customer orders',
     },
     {
       title: 'Total Rider Pay',

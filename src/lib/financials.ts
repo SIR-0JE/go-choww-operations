@@ -30,13 +30,28 @@ export const SPRINT_DEADLINE = new Date('2026-12-10T23:59:59Z');
  * Check if order is a verified settled/delivered order
  * Rule: orderStatus in ("Delivered", "Completed") AND paymentStatus == "success"
  * Non-delivered orders (Confirmed, Preparing, Ready, Dispatched, Pending, Cancelled)
- * do NOT enter financial calculations.
+ * do NOT enter rider settlement calculations.
  */
 export function isSettledOrder(order: { orderStatus: string; paymentStatus: string }): boolean {
   const status = (order.orderStatus || '').trim().toLowerCase();
   const isDelivered = status === 'delivered' || status === 'completed';
   const isPaid = (order.paymentStatus || '').trim().toLowerCase() === 'success';
   return isDelivered && isPaid;
+}
+
+/**
+ * Check if an order is a valid paid order that generates delivery fee revenue.
+ * Delivery fees are paid upfront by customers at checkout upon placing the order.
+ * All paid orders (paymentStatus === 'success' or 'paid') that are not cancelled or refunded
+ * count towards gross delivery revenue.
+ */
+export function isRevenueOrder(order: { orderStatus?: string; paymentStatus?: string }): boolean {
+  const oStatus = (order.orderStatus || '').trim().toLowerCase();
+  const pStatus = (order.paymentStatus || '').trim().toLowerCase();
+  if (pStatus === 'failed' || oStatus.includes('canc') || oStatus.includes('refund')) {
+    return false;
+  }
+  return pStatus === 'success' || pStatus === 'paid' || pStatus === '';
 }
 
 /**
@@ -131,12 +146,15 @@ export function calculateMetrics(
 
   for (const order of orders) {
     const isSettled = isSettledOrder(order);
+    const isRev = isRevenueOrder(order);
+
+    if (isRev) {
+      const fee = Number(order.deliveryFee) || 0;
+      grossDeliveryRevenue += fee;
+    }
 
     if (isSettled) {
       settledOrdersCount++;
-      const fee = Number(order.deliveryFee) || 0;
-      grossDeliveryRevenue += fee;
-
       const riderPayout = calculateRiderPayout(order.deliveryType);
       totalRiderPayout += riderPayout;
 
@@ -152,11 +170,11 @@ export function calculateMetrics(
       } else {
         typeCounts.otherCount++;
       }
+    }
 
-      if (order.createdAt) {
-        const dateStr = new Date(order.createdAt).toISOString().split('T')[0];
-        datesSeen.add(dateStr);
-      }
+    if ((isSettled || isRev) && order.createdAt) {
+      const dateStr = new Date(order.createdAt).toISOString().split('T')[0];
+      datesSeen.add(dateStr);
     }
   }
 

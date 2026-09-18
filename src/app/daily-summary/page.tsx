@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { Header } from '@/components/Header';
-import { formatNaira, isSettledOrder } from '@/lib/financials';
+import { formatNaira, isSettledOrder, isRevenueOrder } from '@/lib/financials';
 import {
   CalendarDays,
   TrendingUp,
@@ -114,6 +114,10 @@ export default function DailySummaryPage() {
         const isSettled = ord.isSettled || isSettledOrder(ord);
         if (isSettled) {
           row.completedOrders += 1;
+        }
+
+        const isRev = isRevenueOrder(ord);
+        if (isRev) {
           row.grossRevenue += Number(ord.deliveryFee) || 0;
         }
 
