@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { RefreshCw, CheckCircle2, AlertCircle, Calendar, Menu } from 'lucide-react';
 import { useSidebar } from './AppLayout';
+import { pushNotification } from '@/lib/notifications';
 
 const DEFAULT_POLL_INTERVAL_MS = 15_000; // 15 seconds
 
@@ -124,6 +125,15 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
               data.message || `Sync complete — ${data.newlySyncedCount ?? 0} new order(s).`,
               'success'
             );
+          }
+
+          // Persist new order arrival to notification store
+          if (data.newlySyncedCount && data.newlySyncedCount > 0) {
+            pushNotification({
+              type: 'new_order',
+              title: 'New Orders Synced',
+              body: `${data.newlySyncedCount} new order${data.newlySyncedCount > 1 ? 's' : ''} arrived from GoChoww`,
+            });
           }
 
           // Only notify listening components if there were genuine new orders or status updates

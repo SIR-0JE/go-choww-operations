@@ -25,6 +25,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { pushNotification, buildRiderNotification } from '@/lib/notifications';
 
 interface RiderOrder {
   id: string;
@@ -319,6 +320,14 @@ export default function RiderPortalPage() {
             })
           );
         }
+        // Persist notification to localStorage for the Notifications page
+        pushNotification(
+          buildRiderNotification(
+            action,
+            rider?.name || 'A rider',
+            data.order?.orderId || orderId
+          )
+        );
       } else {
         showToast(data.error || 'Action could not be completed.', 'error');
         await fetchPortalData(false);

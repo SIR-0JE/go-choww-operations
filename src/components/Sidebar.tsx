@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -15,7 +15,9 @@ import {
   Target,
   Bike,
   Settings,
+  Bell,
 } from 'lucide-react';
+import { countUnread } from '@/lib/notifications';
 
 interface SidebarProps {
   isMobileOpen?: boolean;
@@ -24,6 +26,18 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile }) => {
   const pathname = usePathname();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => setUnreadCount(countUnread());
+    refresh();
+    window.addEventListener('notifications-updated', refresh);
+    window.addEventListener('rider-activity', refresh);
+    return () => {
+      window.removeEventListener('notifications-updated', refresh);
+      window.removeEventListener('rider-activity', refresh);
+    };
+  }, []);
 
   // Exactly mapped to the operational Excel model tabs
   const navItems = [
@@ -71,6 +85,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
       icon: Target,
       active: pathname === '/target',
       badge: 'Sprint',
+    },
+    {
+      label: 'Notifications',
+      href: '/notifications',
+      icon: Bell,
+      active: pathname === '/notifications',
+      unreadCount,
     },
     {
       label: 'Settings',
@@ -140,6 +161,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
 
           {navItems.map((item) => {
             const Icon = item.icon;
+            const hasUnread = 'unreadCount' in item && (item as any).unreadCount > 0;
             return (
               <Link
                 key={item.href}
@@ -152,16 +174,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Icon
-                    className={`w-4 h-4 transition-colors ${
-                      item.active ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-600'
-                    }`}
-                  />
+                  <div className="relative">
+                    <Icon
+                      className={`w-4 h-4 transition-colors ${
+                        item.active ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-600'
+                      }`}
+                    />
+                    {hasUnread && (
+                      <span className="absolute -top-1.5 -right-1.5 w-2 h-2 rounded-full bg-rose-500" />
+                    )}
+                  </div>
                   <span className={item.active ? 'font-semibold' : ''}>{item.label}</span>
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  {item.badge && (
+                  {hasUnread ? (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500 text-white min-w-[18px] text-center">
+                      {(item as any).unreadCount}
+                    </span>
+                  ) : item.badge ? (
                     <span
                       className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
                         item.active
@@ -171,7 +202,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
                     >
                       {item.badge}
                     </span>
-                  )}
+                  ) : null}
                   <ChevronRight
                     className={`w-3.5 h-3.5 transition-transform ${
                       item.active
