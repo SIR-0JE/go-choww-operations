@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { AppLayout } from '@/components/AppLayout';
 import { Header } from '@/components/Header';
@@ -20,6 +20,9 @@ import {
   Target,
   Layers,
   Clock,
+  Bell,
+  Package,
+  Truck,
 } from 'lucide-react';
 
 interface MonthlyWeeklyBreakdown {
@@ -50,6 +53,12 @@ export default function ExecutiveDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [activeOrdersCount, setActiveOrdersCount] = useState<number>(0);
+
+  // Live rider activity notifications (accept / pickup / deliver)
+  const [riderNotifications, setRiderNotifications] = useState<
+    { id: number; riderName: string; action: string; orderId: string; timestamp: Date }[]
+  >([]);
+  const notifIdRef = useRef(0);
 
   // Operational Volume Breakdown stats
   const [volumeStats, setVolumeStats] = useState({
@@ -243,6 +252,41 @@ export default function ExecutiveDashboardPage() {
     };
   }, [fetchData]);
 
+  // ── Rider Activity Notifications ────────────────────────────────────────────
+  useEffect(() => {
+    const handleRiderActivity = (e: Event) => {
+      const detail = (e as CustomEvent).detail as {
+        action: string;
+        riderName: string;
+        orderId: string;
+      };
+      if (!detail) return;
+
+      const id = ++notifIdRef.current;
+      setRiderNotifications((prev) => [
+        { id, riderName: detail.riderName, action: detail.action, orderId: detail.orderId, timestamp: new Date() },
+        ...prev.slice(0, 9), // keep last 10
+      ]);
+
+      // Auto-dismiss notification after 8 seconds
+      setTimeout(() => {
+        setRiderNotifications((prev) => prev.filter((n) => n.id !== id));
+      }, 8000);
+
+      // Refresh dashboard data immediately
+      fetchData(false);
+    };
+
+    window.addEventListener('rider-activity', handleRiderActivity);
+    return () => window.removeEventListener('rider-activity', handleRiderActivity);
+  }, [fetchData]);
+
+  // ── Periodic background poll every 30s so dashboard stays fresh ─────────────
+  useEffect(() => {
+    const interval = setInterval(() => fetchData(false), 30000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
   const toggleMonth = (mKey: string) => {
     setExpandedMonths((prev) => ({
       ...prev,
@@ -420,6 +464,52 @@ export default function ExecutiveDashboardPage() {
             </div>
           </div>
         </section>
+
+        {/* ─────────────────────────────────────────────────────────────
+            LIVE RIDER ACTIVITY NOTIFICATIONS
+        ───────────────────────────────────────────────────────────── */}
+        {riderNotifications.length > 0 && (
+          <div className="space-y-2" aria-live="polite" aria-label="Rider activity notifications">
+            {riderNotifications.map((notif) => {
+              const isAccept = notif.action === 'claim';
+              const isPickup = notif.action === 'pickup';
+              const isDeliver = notif.action === 'deliver';
+              const icon = isAccept ? (
+                <Package className="w-4 h-4 text-amber-600 shrink-0" />
+              ) : isPickup ? (
+                <Truck className="w-4 h-4 text-blue-600 shrink-0" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              );
+              const label = isAccept
+                ? 'accepted an order'
+                : isPickup
+                ? 'picked up an order'
+                : 'marked an order as delivered';
+              const bg = isAccept
+                ? 'bg-amber-50 border-amber-200 text-amber-900'
+                : isPickup
+                ? 'bg-blue-50 border-blue-200 text-blue-900'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-900';
+              return (
+                <div
+                  key={notif.id}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium shadow-sm animate-pulse-once ${bg}`}
+                >
+                  <Bell className="w-3.5 h-3.5 opacity-60 shrink-0" />
+                  {icon}
+                  <span>
+                    <strong>{notif.riderName}</strong> just {label}
+                    <span className="font-mono text-[11px] ml-2 opacity-70">#{notif.orderId?.slice(-8)}</span>
+                  </span>
+                  <span className="ml-auto text-[11px] opacity-60 tabular-nums">
+                    {notif.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* ─────────────────────────────────────────────────────────────
             LIVE INCOMING ORDERS & DISPATCHES (REAL-TIME FEED)

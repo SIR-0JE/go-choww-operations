@@ -306,6 +306,19 @@ export default function RiderPortalPage() {
         await fetchPortalData(false);
         if (action === 'claim') setActiveTab('active');
         else if (action === 'deliver') setActiveTab('completed');
+        // Notify admin dashboard in real time about this rider action
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('rider-activity', {
+              detail: {
+                action,
+                riderName: rider?.name || 'A rider',
+                orderId: orderId,
+                orderDetails: data.order || null,
+              },
+            })
+          );
+        }
       } else {
         showToast(data.error || 'Action could not be completed.', 'error');
         await fetchPortalData(false);
