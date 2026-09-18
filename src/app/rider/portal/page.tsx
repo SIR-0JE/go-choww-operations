@@ -24,6 +24,8 @@ import {
   ArrowRightLeft,
   Users,
   X,
+  Zap,
+  Filter,
 } from 'lucide-react';
 import { pushNotification, buildRiderNotification } from '@/lib/notifications';
 
@@ -38,6 +40,12 @@ interface RiderOrder {
   createdAt: string;
   time: string;
   customerPhone?: string | null;
+  riderId?: string | null;
+  rider?: {
+    id: string;
+    name: string;
+    phone?: string;
+  } | null;
 }
 
 interface RiderProfile {
@@ -80,7 +88,13 @@ export default function RiderPortalPage() {
   const [selectedTargetRiderId, setSelectedTargetRiderId] = useState<string>('');
   const [isTransferring, setIsTransferring] = useState(false);
 
+  // Cafeteria Filter & Takeover States
+  const [selectedCafeteria, setSelectedCafeteria] = useState<string>('all');
+  const [takeoverModalOrder, setTakeoverModalOrder] = useState<RiderOrder | null>(null);
+  const [isTakingOver, setIsTakingOver] = useState(false);
+
   const prevAvailableIdsRef = useRef<Set<string>>(new Set());
+  const prevActiveIdsRef = useRef<Set<string>>(new Set());
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
@@ -198,6 +212,22 @@ export default function RiderPortalPage() {
             }
           }
           prevAvailableIdsRef.current = new Set(newAvailable.map((o) => o.orderId));
+
+          // Real-time eviction detection: if an order was taken over from this rider by another rider at the cafeteria
+          if (isBackground && prevActiveIdsRef.current.size > 0) {
+            const currentActiveIds = new Set(newActive.map((o) => o.orderId || o.id));
+            for (const prevId of prevActiveIdsRef.current) {
+              if (!currentActiveIds.has(prevId)) {
+                const wasDelivered = newCompleted.some((c) => (c.orderId || c.id) === prevId);
+                if (!wasDelivered) {
+                  playAlertChime();
+                  showToast('🔔 An active delivery was picked up at the cafeteria by another rider.', 'success');
+                }
+              }
+            }
+          }
+          prevActiveIdsRef.current = new Set(newActive.map((o) => o.orderId || o.id));
+
           setAvailableOrders(newAvailable);
           setActiveTasks(newActive);
           setCompletedToday(newCompleted);
@@ -375,6 +405,73 @@ export default function RiderPortalPage() {
       setIsTransferring(false);
     }
   };
+
+  // ── Cafeteria Order Takeover Action ──────────────────────────────────────────
+  const handleTakeoverOrder = async () => {
+    if (!takeoverModalOrder) return;
+    if (activeTasks.length >= MAX_ACTIVE_ORDERS) {
+      showToast(`You already have ${MAX_ACTIVE_ORDERS} active orders. Deliver one before picking up more.`, 'error');
+      setTakeoverModalOrder(null);
+      return;
+    }
+
+    setIsTakingOver(true);
+    const localRiderId = typeof window !== 'undefined' ? localStorage.getItem('rider_id') : null;
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (localRiderId) headers['x-rider-id'] = localRiderId;
+      const res = await fetch('/api/rider/orders', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          orderId: takeoverModalOrder.id || takeoverModalOrder.orderId,
+          action: 'takeover',
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message || 'Order picked up at cafeteria & assigned to you!', 'success');
+        setTakeoverModalOrder(null);
+        await fetchPortalData(false);
+        setActiveTab('active');
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('rider-activity', {
+              detail: {
+                action: 'takeover',
+                riderName: rider?.name || 'A rider',
+                orderId: takeoverModalOrder.orderId,
+                orderDetails: data.order || null,
+              },
+            })
+          );
+        }
+      } else {
+        showToast(data.error || 'Could not pick up order.', 'error');
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Network error.', 'error');
+    } finally {
+      setIsTakingOver(false);
+    }
+  };
+
+  // ── Cafeteria Filtering Logic ────────────────────────────────────────────────
+  const uniqueCafeterias = React.useMemo(() => {
+    const map = new Map<string, number>();
+    availableOrders.forEach((o) => {
+      const name = (o.cafeteriaName || 'Campus Cafeteria').trim();
+      map.set(name, (map.get(name) || 0) + 1);
+    });
+    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
+  }, [availableOrders]);
+
+  const filteredAvailableOrders = React.useMemo(() => {
+    if (selectedCafeteria === 'all') return availableOrders;
+    return availableOrders.filter(
+      (o) => (o.cafeteriaName || '').trim().toLowerCase() === selectedCafeteria.toLowerCase()
+    );
+  }, [availableOrders, selectedCafeteria]);
 
   // ── Pickup code: last 4 chars of orderId ─────────────────────────────────────
   const getPickupCode = (orderId: string) => {
@@ -586,9 +683,19 @@ export default function RiderPortalPage() {
         {activeTab === 'available' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Unassigned Orders ({availableOrders.length})
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Dispatch Pool ({filteredAvailableOrders.length})
+                </p>
+                {selectedCafeteria !== 'all' && (
+                  <button
+                    onClick={() => setSelectedCafeteria('all')}
+                    className="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200"
+                  >
+                    Clear Filter ✕
+                  </button>
+                )}
+              </div>
               <button
                 onClick={() => fetchPortalData(false)}
                 disabled={isRefreshing}
@@ -599,89 +706,195 @@ export default function RiderPortalPage() {
               </button>
             </div>
 
-            {availableOrders.length === 0 ? (
+            {/* ── Cafeteria Filter Pills ── */}
+            {uniqueCafeterias.length > 0 && (
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCafeteria('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 border ${
+                    selectedCafeteria === 'all'
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <Filter className="w-3 h-3" />
+                  <span>All Cafeterias</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                    selectedCafeteria === 'all' ? 'bg-slate-700 text-slate-100' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {availableOrders.length}
+                  </span>
+                </button>
+
+                {uniqueCafeterias.map((caf) => {
+                  const isSelected = selectedCafeteria.toLowerCase() === caf.name.toLowerCase();
+                  return (
+                    <button
+                      key={caf.name}
+                      type="button"
+                      onClick={() => setSelectedCafeteria(isSelected ? 'all' : caf.name)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 border ${
+                        isSelected
+                          ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-amber-300 hover:bg-amber-50/50'
+                      }`}
+                    >
+                      <Store className="w-3 h-3" />
+                      <span>{caf.name}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                        isSelected ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {caf.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {filteredAvailableOrders.length === 0 ? (
               <div className="py-16 text-center border border-dashed border-slate-300 rounded-2xl bg-white p-6">
                 <Bike className="w-10 h-10 mx-auto mb-3 text-slate-300 stroke-[1.5]" />
-                <h3 className="text-sm font-semibold text-slate-700">No Orders in the Pool</h3>
+                <h3 className="text-sm font-semibold text-slate-700">
+                  {selectedCafeteria === 'all' ? 'No Orders in the Pool' : `No Orders at ${selectedCafeteria}`}
+                </h3>
                 <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                  New orders will appear here with a sound alert once customers pay.
+                  {selectedCafeteria === 'all'
+                    ? 'New orders will appear here with a sound alert once customers pay.'
+                    : 'Try selecting "All Cafeterias" or checking other cafeteria locations.'}
                 </p>
+                {selectedCafeteria !== 'all' && (
+                  <button
+                    onClick={() => setSelectedCafeteria('all')}
+                    className="mt-3 px-3.5 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold"
+                  >
+                    View All Cafeterias ({availableOrders.length})
+                  </button>
+                )}
               </div>
             ) : (
-              availableOrders.map((ord) => {
+              filteredAvailableOrders.map((ord) => {
                 const isLoadingAction = actionLoadingId === ord.id || actionLoadingId === ord.orderId;
                 const isAtCap = atCapacity;
+                const isPeerClaimed = Boolean(ord.rider && ord.rider.id !== rider?.id);
 
                 return (
                   <div
                     key={ord.id || ord.orderId}
-                    className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3"
+                    className={`bg-white rounded-2xl border shadow-sm overflow-hidden space-y-0 transition-all ${
+                      isPeerClaimed
+                        ? 'border-indigo-200 ring-1 ring-indigo-100'
+                        : 'border-slate-200'
+                    }`}
                   >
-                    {/* Cafeteria */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0">
-                        <Store className="w-4 h-4 text-orange-500" />
+                    {/* Peer Claimed Header Tag */}
+                    {isPeerClaimed && (
+                      <div className="bg-indigo-50/90 border-b border-indigo-100 px-4 py-2 flex items-center justify-between text-indigo-900">
+                        <div className="flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-indigo-600" />
+                          <span className="text-xs font-bold">
+                            Accepted by <span className="underline decoration-indigo-300">{ord.rider?.name}</span>
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                          Awaiting Pickup
+                        </span>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Cafeteria</p>
-                        <p className="text-sm font-bold text-slate-900 truncate">{ord.cafeteriaName || 'Campus Cafeteria'}</p>
-                      </div>
-                    </div>
+                    )}
 
-                    <div className="border-t border-slate-100" />
-
-                    {/* Location */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
-                        <MapPin className="w-4 h-4 text-blue-500" />
+                    <div className="p-4 space-y-3">
+                      {/* Cafeteria */}
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0">
+                          <Store className="w-4 h-4 text-orange-500" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Cafeteria</p>
+                          <p className="text-sm font-bold text-slate-900 truncate">{ord.cafeteriaName || 'Campus Cafeteria'}</p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Location</p>
-                        <p className="text-sm font-semibold text-slate-800 truncate">{ord.deliveryAddress || 'Campus Hostel'}</p>
-                      </div>
-                    </div>
 
-                    <div className="border-t border-slate-100" />
+                      <div className="border-t border-slate-100" />
 
-                    {/* Customer Name */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-                        <User className="w-4 h-4 text-slate-500" />
+                      {/* Location */}
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                          <MapPin className="w-4 h-4 text-blue-500" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Location</p>
+                          <p className="text-sm font-semibold text-slate-800 truncate">{ord.deliveryAddress || 'Campus Hostel'}</p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Customer</p>
-                        <p className="text-sm font-medium text-slate-700 truncate">{ord.customerName}</p>
-                      </div>
-                    </div>
 
-                    {/* Accept Button */}
-                    <button
-                      onClick={() => handleOrderAction(ord.id || ord.orderId, 'claim')}
-                      disabled={isLoadingAction || !isOnline || isAtCap}
-                      title={isAtCap ? 'You have reached the 5-order limit' : undefined}
-                      className={`w-full font-bold py-3 px-4 rounded-xl text-sm transition-all flex items-center justify-center gap-2 mt-1 ${
-                        isAtCap || !isOnline
-                          ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
-                          : 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm active:scale-[0.98]'
-                      }`}
-                    >
-                      {isLoadingAction ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>Accepting...</span>
-                        </>
-                      ) : isAtCap ? (
-                        <>
-                          <ShieldAlert className="w-4 h-4" />
-                          <span>Limit Reached (5/5)</span>
-                        </>
+                      <div className="border-t border-slate-100" />
+
+                      {/* Customer Name */}
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                          <User className="w-4 h-4 text-slate-500" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Customer</p>
+                          <p className="text-sm font-medium text-slate-700 truncate">{ord.customerName}</p>
+                        </div>
+                      </div>
+
+                      {/* Action Button: Peer Takeover vs Normal Claim */}
+                      {isPeerClaimed ? (
+                        <button
+                          onClick={() => setTakeoverModalOrder(ord)}
+                          disabled={!isOnline || isAtCap}
+                          title={isAtCap ? 'You have reached the 5-order limit' : undefined}
+                          className={`w-full font-bold py-3 px-4 rounded-xl text-sm transition-all flex items-center justify-center gap-2 mt-1 ${
+                            isAtCap || !isOnline
+                              ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
+                              : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 active:scale-[0.98]'
+                          }`}
+                        >
+                          {isAtCap ? (
+                            <>
+                              <ShieldAlert className="w-4 h-4" />
+                              <span>Limit Reached (5/5)</span>
+                            </>
+                          ) : (
+                            <>
+                              <Zap className="w-4 h-4 fill-current" />
+                              <span>I'm at Cafeteria — Pick Up Now</span>
+                            </>
+                          )}
+                        </button>
                       ) : (
-                        <>
-                          <Sparkles className="w-4 h-4" />
-                          <span>Accept Delivery</span>
-                        </>
+                        <button
+                          onClick={() => handleOrderAction(ord.id || ord.orderId, 'claim')}
+                          disabled={isLoadingAction || !isOnline || isAtCap}
+                          title={isAtCap ? 'You have reached the 5-order limit' : undefined}
+                          className={`w-full font-bold py-3 px-4 rounded-xl text-sm transition-all flex items-center justify-center gap-2 mt-1 ${
+                            isAtCap || !isOnline
+                              ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
+                              : 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm active:scale-[0.98]'
+                          }`}
+                        >
+                          {isLoadingAction ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              <span>Accepting...</span>
+                            </>
+                          ) : isAtCap ? (
+                            <>
+                              <ShieldAlert className="w-4 h-4" />
+                              <span>Limit Reached (5/5)</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-4 h-4" />
+                              <span>Accept Delivery</span>
+                            </>
+                          )}
+                        </button>
                       )}
-                    </button>
+                    </div>
                   </div>
                 );
               })
@@ -1052,6 +1265,96 @@ export default function RiderPortalPage() {
                   <>
                     <ArrowRightLeft className="w-3.5 h-3.5" />
                     <span>Confirm Handover</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          CAFETERIA ORDER TAKEOVER CONFIRMATION MODAL
+      ───────────────────────────────────────────────────────────── */}
+      {takeoverModalOrder && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl border border-slate-200 w-full max-w-lg overflow-hidden shadow-2xl p-5 space-y-4 animate-in fade-in slide-in-from-bottom sm:zoom-in-95 duration-150 flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700">
+                  <Zap className="w-5 h-5 fill-current" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Pick Up from Cafeteria</h3>
+                  <p className="text-xs text-slate-500 font-mono">Order #{takeoverModalOrder.orderId}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setTakeoverModalOrder(null)}
+                className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Order summary */}
+            <div className="p-3.5 bg-indigo-50/50 rounded-xl border border-indigo-100 text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Currently Claimed By:</span>
+                <span className="font-extrabold text-indigo-900">{takeoverModalOrder.rider?.name || 'Another Rider'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Cafeteria:</span>
+                <span className="font-bold text-slate-800 truncate max-w-[220px]">{takeoverModalOrder.cafeteriaName}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Delivery Destination:</span>
+                <span className="font-bold text-slate-800 truncate max-w-[220px]">{takeoverModalOrder.deliveryAddress}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Customer:</span>
+                <span className="font-bold text-slate-800">{takeoverModalOrder.customerName}</span>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-indigo-100">
+                <span className="text-slate-500 font-medium">Pickup Code:</span>
+                <span className="font-black text-indigo-800 tracking-widest text-sm">{getPickupCode(takeoverModalOrder.orderId)}</span>
+              </div>
+            </div>
+
+            {/* Explanatory notice */}
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 flex items-start gap-2">
+              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <p>
+                Are you physically present at <strong>{takeoverModalOrder.cafeteriaName}</strong>? Confirming will mark this order as <strong>In Transit</strong> and reassign the delivery &amp; payout to you.
+              </p>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                disabled={isTakingOver}
+                onClick={() => setTakeoverModalOrder(null)}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isTakingOver}
+                onClick={handleTakeoverOrder}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all disabled:opacity-50 flex items-center gap-2"
+              >
+                {isTakingOver ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Picking up...</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-3.5 h-3.5 fill-current" />
+                    <span>Confirm Cafeteria Pickup</span>
                   </>
                 )}
               </button>
