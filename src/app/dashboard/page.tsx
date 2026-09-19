@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { AppLayout } from '@/components/AppLayout';
 import { Header } from '@/components/Header';
+import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner';
 import { formatNaira, MetricsSummary, isSettledOrder, isRevenueOrder } from '@/lib/financials';
 import {
   Banknote,
@@ -387,6 +388,9 @@ export default function ExecutiveDashboardPage() {
             </span>
           </div>
         </div>
+
+        {/* Mobile Phone Push Notification Enablement Banner */}
+        <NotificationPermissionBanner userType="admin" />
 
         {/* ─────────────────────────────────────────────────────────────
             SECTION 1: FINANCIAL OVERVIEW (3 MINIMALIST FINTECH CARDS)

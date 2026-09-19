@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, getInMemoryOrders, updateInMemoryOrder, updateInMemoryOrderRider } from '@/lib/prisma';
 import { cookies } from 'next/headers';
+import { sendPushNotification } from '@/lib/pushService';
 
 export const dynamic = 'force-dynamic';
 
@@ -372,6 +373,17 @@ export async function POST(request: NextRequest) {
         };
       }
 
+      // Dispatch mobile push notification to Dashboard
+      sendPushNotification(
+        {
+          title: '🛵 Order Claimed',
+          body: `${rider.name} accepted Order #${order.orderId || order.id}`,
+          url: '/dashboard',
+          tag: `claim-${order.orderId || order.id}`,
+        },
+        { userType: 'admin' }
+      ).catch(() => {});
+
       return NextResponse.json({
         success: true,
         message: 'Order accepted successfully!',
@@ -445,6 +457,17 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // Dispatch mobile push notification
+      sendPushNotification(
+        {
+          title: '⚡ Cafeteria Pickup Takeover',
+          body: `${rider.name} picked up Order #${order.orderId || order.id} at the cafeteria`,
+          url: '/dashboard',
+          tag: `takeover-${order.orderId || order.id}`,
+        },
+        { userType: 'admin' }
+      ).catch(() => {});
+
       return NextResponse.json({
         success: true,
         message: `Order #${order.orderId} picked up at cafeteria and assigned to you!`,
@@ -478,6 +501,17 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // Dispatch mobile push notification
+      sendPushNotification(
+        {
+          title: '📦 Order Dispatched',
+          body: `${rider.name} picked up Order #${order.orderId || order.id} — now in transit`,
+          url: '/dashboard',
+          tag: `pickup-${order.orderId || order.id}`,
+        },
+        { userType: 'admin' }
+      ).catch(() => {});
+
       return NextResponse.json({
         success: true,
         message: 'Order marked as Picked Up / In Transit!',
@@ -508,6 +542,17 @@ export async function POST(request: NextRequest) {
           orderStatus: 'Completed',
         });
       }
+
+      // Dispatch mobile push notification
+      sendPushNotification(
+        {
+          title: '✅ Order Delivered',
+          body: `${rider.name} completed delivery of Order #${order.orderId || order.id}`,
+          url: '/dashboard',
+          tag: `deliver-${order.orderId || order.id}`,
+        },
+        { userType: 'admin' }
+      ).catch(() => {});
 
       return NextResponse.json({
         success: true,

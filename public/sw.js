@@ -1,73 +1,79 @@
-// Go Choww Operations PWA Service Worker
-const CACHE_NAME = 'go-choww-pwa-v1';
-
-const STATIC_ASSETS = [
-  '/',
-  '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
-  '/icons/icon.svg',
-  '/icons/apple-touch-icon.png'
-];
+// GoChoww Operations Service Worker for Web Push & PWA Notifications
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
-    })
-  );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    })
-  );
-  self.clients.claim();
+  event.waitUntil(self.clients.claim());
 });
 
-self.addEventListener('fetch', (event) => {
-  // Only intercept GET requests for same-origin assets, bypass API calls to allow live DB sync
-  if (event.request.method !== 'GET' || event.request.url.includes('/api/')) {
-    return;
+// Handle incoming push event from server
+self.addEventListener('push', (event) => {
+  let data = {
+    title: '🛵 GoChoww Update',
+    body: 'You have a new update on GoChoww operations.',
+    url: '/dashboard',
+    tag: `gochow-${Date.now()}`,
+  };
+
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch {
+      data.body = event.data.text();
+    }
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Return cached asset and update cache in background (Stale-While-Revalidate)
-        fetch(event.request)
-          .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(event.request, networkResponse.clone());
-              });
+  const title = data.title || '🛵 GoChoww Notification';
+  const options = {
+    body: data.body || '',
+    icon: data.icon || '/favicon.ico',
+    badge: data.badge || '/favicon.ico',
+    tag: data.tag || 'gochow-alert',
+    renotify: true,
+    requireInteraction: true,
+    vibrate: data.vibrate || [200, 100, 200, 100, 200],
+    data: {
+      url: data.url || '/dashboard',
+      timestamp: Date.now(),
+      extra: data.data || {},
+    },
+    actions: [
+      {
+        action: 'open',
+        title: 'Open View ➔',
+      },
+    ],
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Handle notification tap / click
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const targetUrl = event.notification.data?.url || '/dashboard';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // If a window is already open, focus it and navigate
+      for (const client of clientList) {
+        if ('focus' in client) {
+          if (client.url.includes(self.location.origin)) {
+            client.focus();
+            if ('navigate' in client && targetUrl) {
+              client.navigate(targetUrl);
             }
-          })
-          .catch(() => {});
-        return cachedResponse;
-      }
-
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
+            return;
+          }
         }
-
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
-
-        return networkResponse;
-      });
+      }
+      // Otherwise open a new window
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
     })
   );
 });
