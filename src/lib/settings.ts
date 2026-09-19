@@ -228,3 +228,97 @@ export async function saveSyncSettings(newSettings: Partial<SyncScheduleSettings
 
   return merged;
 }
+
+// ─────────────────────────────────────────────────────────────
+// GEOFENCE & CAMPUS CAFETERIA COORDINATES CONFIGURATION
+// ─────────────────────────────────────────────────────────────
+
+export interface CafeteriaLocationItem {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  campus?: string;
+  description?: string;
+}
+
+export interface GeofenceSettings {
+  enabled: boolean;
+  radiusMeters: number;
+  cafeterias: CafeteriaLocationItem[];
+  lastUpdated?: string;
+}
+
+export const DEFAULT_GEOFENCE_SETTINGS: GeofenceSettings = {
+  enabled: true,
+  radiusMeters: 200,
+  cafeterias: [
+    { id: 'jubilee', name: 'Jubilee Cafeteria', lat: 7.6322, lng: 4.1825, campus: 'Permanent Site' },
+    { id: 'bbsf', name: 'BBSF Cafeteria', lat: 7.6330, lng: 4.1818, campus: 'Permanent Site' },
+    { id: 'ebunoluwa', name: 'Ebunoluwa (Ebunoluwagrills)', lat: 7.6318, lng: 4.1835, campus: 'Permanent Site' },
+    { id: 'aj_shawarma', name: 'A.J Shawarma & Fast Food', lat: 7.6340, lng: 4.1810, campus: 'Permanent Site' },
+    { id: 'divine', name: 'Divine Cafeteria', lat: 7.6282, lng: 4.1895, campus: 'Temporary Site' },
+    { id: 'kemi_bee', name: 'Kemi Bee Cafeteria', lat: 7.6275, lng: 4.1888, campus: 'Temporary Site' },
+    { id: 'vdi_crunchies', name: 'VDI Crunchies', lat: 7.6320, lng: 4.1820, campus: 'Permanent Site' },
+    { id: 'fruitjaar', name: 'Fruitjaar', lat: 7.6285, lng: 4.1892, campus: 'Temporary Site' },
+  ],
+  lastUpdated: new Date().toISOString(),
+};
+
+const GEOFENCE_KEY = 'geofence_settings';
+let cachedGeofenceSettings: GeofenceSettings = { ...DEFAULT_GEOFENCE_SETTINGS };
+
+/**
+ * Read geofence and cafeteria coordinate settings from DB with fallback
+ */
+export async function getGeofenceSettings(): Promise<GeofenceSettings> {
+  try {
+    const record = await (prisma as any).systemSetting?.findUnique({
+      where: { key: GEOFENCE_KEY },
+    });
+
+    if (record?.value) {
+      const parsed = JSON.parse(record.value);
+      cachedGeofenceSettings = {
+        ...DEFAULT_GEOFENCE_SETTINGS,
+        ...parsed,
+      };
+      return cachedGeofenceSettings;
+    }
+  } catch (err) {
+    console.warn('[getGeofenceSettings] DB read notice, using cached geofence settings:', err);
+  }
+
+  return cachedGeofenceSettings;
+}
+
+/**
+ * Save geofence and cafeteria coordinates to database
+ */
+export async function saveGeofenceSettings(newSettings: Partial<GeofenceSettings>): Promise<GeofenceSettings> {
+  const merged: GeofenceSettings = {
+    ...cachedGeofenceSettings,
+    ...newSettings,
+    lastUpdated: new Date().toISOString(),
+  };
+
+  cachedGeofenceSettings = merged;
+
+  try {
+    await (prisma as any).systemSetting?.upsert({
+      where: { key: GEOFENCE_KEY },
+      update: {
+        value: JSON.stringify(merged),
+      },
+      create: {
+        key: GEOFENCE_KEY,
+        value: JSON.stringify(merged),
+      },
+    });
+  } catch (err) {
+    console.warn('[saveGeofenceSettings] DB write notice, settings cached in memory:', err);
+  }
+
+  return merged;
+}
+

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma, getInMemoryOrders, updateInMemoryOrder, updateInMemoryOrderRider } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { sendPushNotification } from '@/lib/pushService';
-import { verifyCafeteriaProximity } from '@/lib/locations';
+import { verifyCafeteriaProximity, calculateDistanceMeters, getCafeteriaCoordinates } from '@/lib/locations';
+import { getGeofenceSettings } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -474,22 +475,45 @@ export async function POST(request: NextRequest) {
         // Proceed if DB check fails
       }
 
-      // GPS Geofence Proximity Check
+      // GPS Geofence Proximity Check (Dynamic from Settings)
       const { lat, lng } = body;
       let verifiedDistance: number | null = null;
       if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
-        const proximityResult = verifyCafeteriaProximity(order.cafeteriaName, lat, lng, 200);
-        if (!proximityResult.isWithinGeofence) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: proximityResult.message,
-              distanceMeters: proximityResult.distanceMeters,
-            },
-            { status: 400 }
-          );
+        const geoSettings = await getGeofenceSettings();
+        if (geoSettings.enabled) {
+          // Check dynamic cafeteria coordinates from Settings first
+          let targetCoords: { lat: number; lng: number } | null = null;
+          if (Array.isArray(geoSettings.cafeterias) && geoSettings.cafeterias.length > 0) {
+            const cleanTarget = String(order.cafeteriaName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const found = geoSettings.cafeterias.find((c) => {
+              const cleanC = String(c.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              return cleanTarget.includes(cleanC) || cleanC.includes(cleanTarget);
+            });
+            if (found) {
+              targetCoords = { lat: found.lat, lng: found.lng };
+            }
+          }
+
+          if (!targetCoords) {
+            targetCoords = getCafeteriaCoordinates(order.cafeteriaName);
+          }
+
+          const radius = geoSettings.radiusMeters || 200;
+          if (targetCoords) {
+            const distance = calculateDistanceMeters(lat, lng, targetCoords.lat, targetCoords.lng);
+            if (distance > radius) {
+              return NextResponse.json(
+                {
+                  success: false,
+                  error: `Location Check: You are currently ${distance}m away from ${order.cafeteriaName}. You must be physically at the cafeteria (within ${radius}m) to request a handover.`,
+                  distanceMeters: distance,
+                },
+                { status: 400 }
+              );
+            }
+            verifiedDistance = distance;
+          }
         }
-        verifiedDistance = proximityResult.distanceMeters;
       }
 
       let updated: any;
