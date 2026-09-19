@@ -204,15 +204,16 @@ export default function FleetRadarPage() {
         {/* ── Main Radar Workspace (Map + Roster) ────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* Left Canvas: Live Map (8 cols) */}
-          <div className="lg:col-span-8 bg-white p-3.5 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-[650px]">
-            <div className="flex items-center justify-between pb-3 px-1">
+          <div className="lg:col-span-8 bg-white p-3 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-[680px]">
+            <div className="flex items-center justify-between pb-2.5 px-1">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-                <span className="text-xs font-bold text-slate-800">Campus Live Map</span>
-                <span className="text-[11px] text-slate-400">• Bowen University</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-bold text-slate-800">Campus Live Radar</span>
+                <span className="text-[11px] text-slate-400 font-medium">• Bowen University (Iwo)</span>
               </div>
-              <div className="text-[11px] font-semibold text-slate-500">
-                Geofence: <strong className="text-slate-800 font-bold">{geofenceRadius}m</strong>
+              <div className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5">
+                <span>Active Geofence:</span>
+                <strong className="text-blue-700 font-black bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">{geofenceRadius}m</strong>
               </div>
             </div>
 
@@ -229,16 +230,16 @@ export default function FleetRadarPage() {
           </div>
 
           {/* Right Panel: Live Rider Roster (4 cols) */}
-          <div className="lg:col-span-4 bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col h-[650px] overflow-hidden">
+          <div className="lg:col-span-4 bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col h-[680px] overflow-hidden">
             {/* Header & Search */}
-            <div className="p-4 border-b border-slate-100 space-y-3 bg-slate-50/50">
+            <div className="p-4 border-b border-slate-100 space-y-3 bg-slate-50/70">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
                   <Bike className="w-4 h-4 text-slate-700" />
-                  <span>Fleet Roster ({filteredRiders.length})</span>
+                  <span>Fleet Roster</span>
                 </h3>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-                  {summary.onlineRiders} Online
+                  {filteredRiders.length} of {riders.length} Riders
                 </span>
               </div>
 
@@ -260,19 +261,19 @@ export default function FleetRadarPage() {
                   onClick={() => setStatusFilter('all')}
                   className={`py-1 rounded-lg transition-all ${statusFilter === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'hover:text-slate-900'}`}
                 >
-                  All
+                  All ({riders.length})
                 </button>
                 <button
                   onClick={() => setStatusFilter('live')}
                   className={`py-1 rounded-lg transition-all ${statusFilter === 'live' ? 'bg-white text-emerald-700 shadow-sm' : 'hover:text-emerald-700'}`}
                 >
-                  Live
+                  Live ({summary.liveMovingRiders})
                 </button>
                 <button
                   onClick={() => setStatusFilter('idle')}
                   className={`py-1 rounded-lg transition-all ${statusFilter === 'idle' ? 'bg-white text-amber-700 shadow-sm' : 'hover:text-amber-700'}`}
                 >
-                  Idle
+                  Idle ({summary.idleRiders})
                 </button>
                 <button
                   onClick={() => setStatusFilter('off')}
@@ -286,9 +287,10 @@ export default function FleetRadarPage() {
             {/* Rider List Scroll Area */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
               {filteredRiders.length === 0 ? (
-                <div className="text-center py-12 text-slate-400">
-                  <Bike className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                  <p className="text-xs font-semibold">No riders match filter</p>
+                <div className="text-center py-16 text-slate-400">
+                  <Bike className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                  <p className="text-xs font-bold text-slate-600">No riders match filter</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Try selecting &quot;All&quot; to view all fleet members</p>
                 </div>
               ) : (
                 filteredRiders.map((r) => {
@@ -334,14 +336,14 @@ export default function FleetRadarPage() {
                       onClick={() => handleFocusRider(r)}
                       className={`p-3 rounded-2xl border transition-all cursor-pointer ${
                         isSelected
-                          ? 'border-slate-900 bg-slate-50/80 shadow-sm ring-1 ring-slate-900'
+                          ? 'border-slate-900 bg-slate-50/90 shadow-sm ring-1 ring-slate-900'
                           : 'border-slate-200/80 bg-white hover:border-slate-300 hover:shadow-sm'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <div className="font-black text-xs text-slate-900">{r.name}</div>
-                          <div className="text-[11px] text-slate-500 mt-0.5">{r.phone || 'No phone'}</div>
+                          <div className="text-[11px] text-slate-500 mt-0.5">{r.phone || 'No phone attached'}</div>
                         </div>
                         <div>{statusBadge}</div>
                       </div>
@@ -350,7 +352,11 @@ export default function FleetRadarPage() {
                       <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                         <div className="flex items-center gap-1.5 text-slate-600 font-semibold text-[11px]">
                           <Package className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{r.activeOrdersCount} order{r.activeOrdersCount !== 1 ? 's' : ''} on route</span>
+                          {r.activeOrdersCount > 0 ? (
+                            <span className="text-emerald-700 font-bold">{r.activeOrdersCount} order{r.activeOrdersCount !== 1 ? 's' : ''} on route</span>
+                          ) : (
+                            <span className="text-slate-400 font-medium">Available (No active load)</span>
+                          )}
                         </div>
 
                         {hasGps && (
@@ -369,7 +375,7 @@ export default function FleetRadarPage() {
 
                       {/* Quick Contact Bar */}
                       {r.phone && (
-                        <div className="mt-2 grid grid-cols-2 gap-1 pt-1.5 border-t border-slate-100/60">
+                        <div className="mt-2 grid grid-cols-2 gap-1.5 pt-1.5 border-t border-slate-100/60">
                           <a
                             href={`https://wa.me/${waNumber}`}
                             target="_blank"

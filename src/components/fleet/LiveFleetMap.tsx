@@ -125,6 +125,8 @@ export default function LiveFleetMap({
     }).addTo(map);
   }, [mapLayer]);
 
+  const [showGeofences, setShowGeofences] = React.useState(true);
+
   // 2. Render Cafeteria Markers & Geofence Perimeters
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -136,41 +138,44 @@ export default function LiveFleetMap({
     cafeterias.forEach((caf) => {
       if (typeof caf.lat !== 'number' || typeof caf.lng !== 'number') return;
 
-      // Circular Geofence Layer
-      const circle = L.circle([caf.lat, caf.lng], {
-        radius: geofenceRadiusMeters,
-        color: '#3b82f6',
-        fillColor: '#60a5fa',
-        fillOpacity: 0.12,
-        weight: 1.5,
-        dashArray: '4, 4',
-      });
-      geofenceCirclesRef.current?.addLayer(circle);
+      // Circular Geofence Layer (clean, subtle, non-intrusive)
+      if (showGeofences) {
+        const circle = L.circle([caf.lat, caf.lng], {
+          radius: geofenceRadiusMeters,
+          color: '#2563eb',
+          fillColor: '#3b82f6',
+          fillOpacity: 0.05,
+          weight: 1.2,
+          dashArray: '4, 6',
+        });
+        geofenceCirclesRef.current?.addLayer(circle);
+      }
 
       // Cafeteria Building Icon
       const isPermanent = caf.campus?.toLowerCase().includes('permanent');
       const badgeBg = isPermanent ? 'bg-indigo-600' : 'bg-emerald-600';
+      const shortName = caf.name.split(' ')[0];
 
       const cafeteriaIcon = L.divIcon({
         className: 'custom-cafeteria-pin',
         html: `
           <div class="flex flex-col items-center group cursor-pointer" style="transform: translate(-50%, -100%);">
-            <div class="px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${badgeBg} shadow-md border border-white whitespace-nowrap mb-0.5">
-              ${caf.name.split(' ')[0]}
+            <div class="px-2 py-0.5 rounded-full text-[10px] font-black text-white ${badgeBg} shadow-md border border-white/90 whitespace-nowrap mb-0.5 tracking-tight">
+              ${shortName}
             </div>
-            <div class="w-7 h-7 rounded-full ${badgeBg} border-2 border-white shadow-lg flex items-center justify-center text-white text-xs">
+            <div class="w-6 h-6 rounded-full ${badgeBg} border-2 border-white shadow-md flex items-center justify-center text-white text-[11px]">
               🏪
             </div>
-            <div class="w-1.5 h-1.5 bg-slate-800 rounded-full mt-0.5"></div>
+            <div class="w-1.5 h-1.5 bg-slate-900 rounded-full mt-0.5"></div>
           </div>
         `,
-        iconSize: [30, 42],
-        iconAnchor: [15, 42],
+        iconSize: [28, 40],
+        iconAnchor: [14, 40],
       });
 
       const marker = L.marker([caf.lat, caf.lng], { icon: cafeteriaIcon });
       marker.bindPopup(`
-        <div class="p-2.5 font-sans min-w-[200px]">
+        <div class="p-2.5 font-sans min-w-[210px]">
           <div class="flex items-center gap-1.5 mb-1">
             <span class="text-sm">🏪</span>
             <strong class="text-sm font-bold text-slate-900">${caf.name}</strong>
@@ -179,15 +184,16 @@ export default function LiveFleetMap({
             <span class="font-semibold text-slate-700">${caf.campus || 'Campus Cafeteria'}</span>
             ${caf.description ? ` • ${caf.description}` : ''}
           </div>
-          <div class="bg-blue-50 border border-blue-200 rounded-lg p-1.5 text-[10px] text-blue-800">
-            📍 <strong>${geofenceRadiusMeters}m</strong> Geofence perimeter active
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-1.5 text-[10px] text-blue-800 flex items-center justify-between">
+            <span>📍 Geofence Radius:</span>
+            <strong>${geofenceRadiusMeters}m</strong>
           </div>
         </div>
       `);
 
       cafeteriaMarkersRef.current?.addLayer(marker);
     });
-  }, [cafeterias, geofenceRadiusMeters]);
+  }, [cafeterias, geofenceRadiusMeters, showGeofences]);
 
   // 3. Render / Update Live Rider Markers
   useEffect(() => {
@@ -369,69 +375,89 @@ export default function LiveFleetMap({
       {/* Map DOM Canvas */}
       <div ref={mapContainerRef} className="w-full h-full min-h-[500px] z-0" />
 
-      {/* Floating Campus Quick Jump Bar */}
-      <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-2 bg-white/95 backdrop-blur-md p-1.5 rounded-2xl shadow-lg border border-slate-200/80">
-        <button
-          onClick={() => jumpToSite(BOWEN_TEMPORARY_CENTER)}
-          className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 transition-colors flex items-center gap-1.5"
-        >
-          <span>🏫</span>
-          <span>Temporary Site</span>
-        </button>
-        <button
-          onClick={() => jumpToSite(BOWEN_PERMANENT_CENTER)}
-          className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 transition-colors flex items-center gap-1.5"
-        >
-          <span>🏛️</span>
-          <span>Permanent Site</span>
-        </button>
-        <button
-          onClick={fitAllRiders}
-          className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white transition-colors flex items-center gap-1.5 shadow-sm"
-        >
-          <span>🎯</span>
-          <span>Fit All Riders</span>
-        </button>
-      </div>
+      {/* Unified Top Control Bar */}
+      <div className="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        {/* Left: Campus Focus Jumps */}
+        <div className="flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-1 rounded-2xl shadow-md border border-slate-200/80 pointer-events-auto">
+          <button
+            onClick={() => jumpToSite(BOWEN_TEMPORARY_CENTER)}
+            className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors flex items-center gap-1"
+          >
+            <span>🏫</span>
+            <span className="hidden sm:inline">Temp Site</span>
+          </button>
+          <button
+            onClick={() => jumpToSite(BOWEN_PERMANENT_CENTER)}
+            className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors flex items-center gap-1"
+          >
+            <span>🏛️</span>
+            <span className="hidden sm:inline">Perm Site</span>
+          </button>
+          <button
+            onClick={fitAllRiders}
+            className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white transition-colors flex items-center gap-1 shadow-sm"
+          >
+            <span>🎯</span>
+            <span>Fit Fleet</span>
+          </button>
+        </div>
 
-      {/* Map Layer Switcher (Google Satellite / Google Maps / OSM) */}
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-1 bg-white/95 backdrop-blur-md p-1 rounded-2xl shadow-lg border border-slate-200/80 text-xs font-bold">
-        <button
-          onClick={() => setMapLayer('google-hybrid')}
-          className={`px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
-            mapLayer === 'google-hybrid'
-              ? 'bg-slate-900 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-          title="Google Maps Satellite Imagery with Bowen University roads & labels"
-        >
-          <span>🛰️</span>
-          <span>Satellite</span>
-        </button>
-        <button
-          onClick={() => setMapLayer('google-streets')}
-          className={`px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
-            mapLayer === 'google-streets'
-              ? 'bg-slate-900 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-          title="Google Maps Standard Road Map"
-        >
-          <span>🗺️</span>
-          <span>Google Map</span>
-        </button>
-        <button
-          onClick={() => setMapLayer('osm')}
-          className={`px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
-            mapLayer === 'osm'
-              ? 'bg-slate-900 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-          title="OpenStreetMap Standard"
-        >
-          <span>🌐</span>
-          <span>OSM</span>
-        </button>
+        {/* Right: Geofences Toggle & Map Layer Switcher */}
+        <div className="flex items-center gap-1.5 pointer-events-auto">
+          {/* Geofence Toggle */}
+          <button
+            onClick={() => setShowGeofences(!showGeofences)}
+            className={`px-2.5 py-1.5 rounded-2xl text-xs font-bold shadow-md border transition-all flex items-center gap-1 backdrop-blur-md ${
+              showGeofences
+                ? 'bg-blue-600 border-blue-500 text-white'
+                : 'bg-white/95 border-slate-200/80 text-slate-600 hover:bg-slate-50'
+            }`}
+            title="Toggle 200m cafeteria geofence boundary circles"
+          >
+            <span>📍</span>
+            <span className="hidden sm:inline">Geofences</span>
+          </button>
+
+          {/* Layer Selector */}
+          <div className="flex items-center gap-0.5 bg-white/95 backdrop-blur-md p-1 rounded-2xl shadow-md border border-slate-200/80 text-xs font-bold">
+            <button
+              onClick={() => setMapLayer('google-hybrid')}
+              className={`px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
+                mapLayer === 'google-hybrid'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+              title="Google Maps Satellite Imagery with Bowen University roads & labels"
+            >
+              <span>🛰️</span>
+              <span className="hidden md:inline">Satellite</span>
+            </button>
+            <button
+              onClick={() => setMapLayer('google-streets')}
+              className={`px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
+                mapLayer === 'google-streets'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+              title="Google Maps Standard Road Map"
+            >
+              <span>🗺️</span>
+              <span className="hidden md:inline">Street</span>
+            </button>
+            <button
+              onClick={() => setMapLayer('osm')}
+              className={`px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
+                mapLayer === 'osm'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+              title="OpenStreetMap Standard"
+            >
+              <span>🌐</span>
+              <span className="hidden md:inline">OSM</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Map Legend */}
