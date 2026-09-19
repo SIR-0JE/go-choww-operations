@@ -52,12 +52,18 @@ const STATUS_RANK: Record<string, number> = {
 
 /**
  * Enforces order status progression rules during external GoChow sync:
- * 1. Terminal Completed: Once marked Completed/Delivered, never alter or demote.
- * 2. Remote Cancellation: GoChow cancellations apply to any active uncompleted order.
- * 3. Transit Protection: Dispatched orders cannot be demoted back to Ready/Preparing.
- * 4. Kitchen Progression: GoChow updates Confirmed -> Preparing -> Ready.
+ * 1. Active Delivery Lock: If an active rider has claimed this order (hasRiderAssigned),
+ *    do not let external GoChow mark it completed or demote it — rider portal controls delivery lifecycle.
+ * 2. Terminal Completed: Once marked Completed/Delivered, never alter or demote.
+ * 3. Remote Cancellation: GoChow cancellations apply to any active uncompleted order.
+ * 4. Transit Protection: Dispatched orders cannot be demoted back to Ready/Preparing.
+ * 5. Kitchen Progression: GoChow updates Confirmed -> Preparing -> Ready.
  */
-function shouldSyncUpdateOrderStatus(currentDbStatus: string, incomingLiveStatus: string): boolean {
+function shouldSyncUpdateOrderStatus(
+  currentDbStatus: string,
+  incomingLiveStatus: string,
+  hasRiderAssigned: boolean = false
+): boolean {
   const current = (currentDbStatus || '').trim().toLowerCase();
   const incoming = (incomingLiveStatus || '').trim().toLowerCase();
 
@@ -73,17 +79,26 @@ function shouldSyncUpdateOrderStatus(currentDbStatus: string, incomingLiveStatus
     return true;
   }
 
-  // 3. If locally cancelled, do not resurrect unless GoChow explicitly marks completed
+  // 3. Active Delivery Protection: If an active rider holds this order,
+  // do not let external GoChow auto-complete it or change its transit state.
+  if (hasRiderAssigned) {
+    // Only kitchen progression from Confirmed -> Preparing -> Ready is allowed before pickup
+    if (incoming === 'preparing' && current === 'confirmed') return true;
+    if (incoming === 'ready' && (current === 'confirmed' || current === 'preparing')) return true;
+    return false;
+  }
+
+  // 4. If locally cancelled, do not resurrect unless GoChow explicitly marks completed
   if (current === 'cancelled' || current === 'canceled') {
     return incoming === 'completed' || incoming === 'delivered';
   }
 
-  // 4. Transit protection: Dispatched orders cannot be demoted back to Ready, Preparing, or Confirmed
+  // 5. Transit protection: Dispatched orders cannot be demoted back to Ready, Preparing, or Confirmed
   if (current === 'dispatched') {
     return incoming === 'completed' || incoming === 'delivered';
   }
 
-  // 5. Forward progression rule: incoming rank must be strictly higher than current
+  // 6. Forward progression rule: incoming rank must be strictly higher than current
   const currentRank = STATUS_RANK[current] ?? 0;
   const incomingRank = STATUS_RANK[incoming] ?? 0;
 
@@ -216,8 +231,9 @@ async function performSync(force: boolean = false) {
         } else {
           const currentDbStatus = (existing.orderStatus || '').trim().toLowerCase();
           const currentDbPay = (existing.paymentStatus || '').trim().toLowerCase();
+          const hasRider = Boolean(existing.riderId);
 
-          const updateStatus = shouldSyncUpdateOrderStatus(currentDbStatus, liveOrderStatus);
+          const updateStatus = shouldSyncUpdateOrderStatus(currentDbStatus, liveOrderStatus, hasRider);
           const updatePay = currentDbPay !== livePaymentStatus.toLowerCase();
 
           if (updateStatus || updatePay) {
@@ -311,7 +327,8 @@ async function performSync(force: boolean = false) {
           });
           newlySyncedCount++;
         } else {
-          const updateStatus = shouldSyncUpdateOrderStatus(existingMem.orderStatus, liveOrderStatus);
+          const hasRider = Boolean(existingMem.riderId);
+          const updateStatus = shouldSyncUpdateOrderStatus(existingMem.orderStatus, liveOrderStatus, hasRider);
           const updatePay = (existingMem.paymentStatus || '').toLowerCase() !== livePaymentStatus.toLowerCase();
           if (updateStatus || updatePay) {
             updateInMemoryOrder(orderNumber, {

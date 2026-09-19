@@ -192,9 +192,15 @@ export default function RiderPortalPage() {
       if (!isBackground) setIsRefreshing(true);
       const localRiderId = typeof window !== 'undefined' ? localStorage.getItem('rider_id') : null;
       try {
-        const headers: Record<string, string> = {};
+        const headers: Record<string, string> = {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+        };
         if (localRiderId) headers['x-rider-id'] = localRiderId;
-        const res = await fetch('/api/rider/orders', { headers });
+        const res = await fetch(`/api/rider/orders?_t=${Date.now()}`, {
+          headers,
+          cache: 'no-store',
+        });
         if (res.status === 401) {
           if (!isBackground && !localRiderId) router.push('/rider/login');
           return;
@@ -222,21 +228,6 @@ export default function RiderPortalPage() {
           }
           prevAvailableIdsRef.current = new Set(newAvailable.map((o) => o.orderId));
 
-          // Real-time eviction detection: if an order was taken over from this rider by another rider at the cafeteria
-          if (isBackground && prevActiveIdsRef.current.size > 0) {
-            const currentActiveIds = new Set(newActive.map((o) => o.orderId || o.id));
-            for (const prevId of prevActiveIdsRef.current) {
-              if (!currentActiveIds.has(prevId)) {
-                const wasDelivered = newCompleted.some((c) => (c.orderId || c.id) === prevId);
-                if (!wasDelivered) {
-                  playAlertChime();
-                  showToast('🔔 An active delivery was picked up at the cafeteria by another rider.', 'success');
-                }
-              }
-            }
-          }
-          prevActiveIdsRef.current = new Set(newActive.map((o) => o.orderId || o.id));
-
           setAvailableOrders(newAvailable);
           setActiveTasks(newActive);
           setCompletedToday(newCompleted);
@@ -259,10 +250,9 @@ export default function RiderPortalPage() {
 
   // ── High-Speed Real-Time Synchronization (3.5s cycle + BroadcastChannel) ────
   useEffect(() => {
-    let isOffHours = false;
     let inFlightFetch = false;
 
-    // 1. Fast local portal data fetch (Direct database, sub-30ms)
+    // Fast local portal data fetch (Direct database, sub-30ms)
     const fetchFast = async () => {
       if (inFlightFetch) return;
       inFlightFetch = true;
@@ -273,44 +263,16 @@ export default function RiderPortalPage() {
       }
     };
 
-    // 2. Periodic external GoChow order sync (every 10s during operating hours)
-    const triggerExternalSync = async () => {
-      try {
-        if (!isOffHours) {
-          const syncRes = await fetch('/api/sync-orders', { method: 'POST' });
-          const syncData = await syncRes.json();
-          if (syncData && syncData.inOperatingWindow === false) {
-            isOffHours = true;
-          } else {
-            isOffHours = false;
-          }
-          if (syncData?.hasChanges) {
-            await fetchPortalData(true);
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('orders-synced', { detail: syncData }));
-            }
-          }
-        }
-      } catch {
-        // ignore
-      }
-    };
-
     // Initial load
     fetchPortalData(false);
-    triggerExternalSync();
 
     // Fast 3.5s poll for instant state transitions across riders
     const fastInterval = setInterval(fetchFast, 3500);
-
-    // 10s background sync from external GoChow platform
-    const syncInterval = setInterval(triggerExternalSync, 10000);
 
     // Instant sync on screen unlock / tab focus
     const handleVisibilityOrFocus = () => {
       if (document.visibilityState === 'visible') {
         fetchFast();
-        triggerExternalSync();
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityOrFocus);
@@ -339,7 +301,6 @@ export default function RiderPortalPage() {
 
     return () => {
       clearInterval(fastInterval);
-      clearInterval(syncInterval);
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
       window.removeEventListener('focus', handleVisibilityOrFocus);
       window.removeEventListener('rider-activity', handleCustomRiderActivity);
