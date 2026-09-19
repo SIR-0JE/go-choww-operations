@@ -15,13 +15,19 @@ model Rider {
   name      String
   phone     String?         @unique
   pin       String          @default("1234") // 4-digit PIN for portal login
-  status    String          @default("Active") // "Active", "Inactive", "On Leave"
-  isOnline  Boolean         @default(false)    // Rider online duty toggle
-  createdAt DateTime        @default(now())
-  orders    DeliveryOrder[]
+  status         String          @default("Active") // "Active", "Inactive", "On Leave"
+  isOnline       Boolean         @default(false)    // Rider online duty toggle
+  lastLat        Float?
+  lastLng        Float?
+  lastHeading    Float?
+  lastSpeed      Float?
+  lastLocationAt DateTime?
+  createdAt      DateTime        @default(now())
+  orders         DeliveryOrder[]
 
   @@index([status])
   @@index([phone])
+  @@index([isOnline])
 }
 
 model DeliveryOrder {

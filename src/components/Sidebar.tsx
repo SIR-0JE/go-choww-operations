@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Target,
   Bike,
+  Radio,
   Settings,
   Bell,
   ClipboardCheck,
@@ -61,6 +62,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
       icon: Bike,
       active: pathname === '/riders',
       badge: 'Fleet',
+    },
+    {
+      label: 'Live Fleet Radar',
+      href: '/dashboard/fleet',
+      icon: Radio,
+      active: pathname === '/dashboard/fleet',
+      badge: 'Live',
     },
     {
       label: 'Reconciliation',

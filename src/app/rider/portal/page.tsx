@@ -103,6 +103,9 @@ export default function RiderPortalPage() {
   const [takeoverModalOrder, setTakeoverModalOrder] = useState<RiderOrder | null>(null);
   const [isTakingOver, setIsTakingOver] = useState(false);
 
+  // GPS Telemetry Heartbeat State
+  const [gpsStatus, setGpsStatus] = useState<'active' | 'connecting' | 'idle' | 'off' | 'denied'>('off');
+
   const prevAvailableIdsRef = useRef<Set<string>>(new Set());
   const prevActiveIdsRef = useRef<Set<string>>(new Set());
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -186,6 +189,67 @@ export default function RiderPortalPage() {
       }
     }
   }, []);
+
+  // ── Periodic GPS Telemetry Heartbeat ─────────────────────────────────────────
+  useEffect(() => {
+    if (!rider?.id || !isOnline) {
+      setGpsStatus('off');
+      return;
+    }
+
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      setGpsStatus('denied');
+      return;
+    }
+
+    let isMounted = true;
+    setGpsStatus('connecting');
+
+    const transmitLocation = () => {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          if (!isMounted) return;
+          setGpsStatus('active');
+          try {
+            await fetch('/api/rider/location', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                riderId: rider.id,
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+                heading: position.coords.heading,
+                speed: position.coords.speed,
+              }),
+            });
+          } catch (err) {
+            console.warn('[GPS Heartbeat] Transmit error:', err);
+          }
+        },
+        (err) => {
+          if (!isMounted) return;
+          console.warn('[GPS Heartbeat] Geolocation notice:', err.message);
+          if (err.code === err.PERMISSION_DENIED) {
+            setGpsStatus('denied');
+          } else {
+            setGpsStatus('idle');
+          }
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 }
+      );
+    };
+
+    // Send immediately upon coming online
+    transmitLocation();
+
+    // Repeat every 20 seconds
+    const interval = setInterval(transmitLocation, 20000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [rider?.id, isOnline]);
 
   // ── Fetch Rider Profile & Orders ─────────────────────────────────────────────
   const fetchPortalData = useCallback(
@@ -643,6 +707,29 @@ export default function RiderPortalPage() {
                 <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
                   {isOnline ? 'On Duty' : 'Off Duty'}
                 </span>
+                {isOnline && (
+                  <span
+                    className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5 ${
+                      gpsStatus === 'active'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : gpsStatus === 'connecting'
+                        ? 'bg-amber-100 text-amber-700 animate-pulse'
+                        : gpsStatus === 'denied'
+                        ? 'bg-rose-100 text-rose-700'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}
+                    title={
+                      gpsStatus === 'active'
+                        ? 'Live GPS Transmitting'
+                        : gpsStatus === 'denied'
+                        ? 'GPS Permission Denied - Please allow location access in your browser'
+                        : 'Transmitting GPS telemetry...'
+                    }
+                  >
+                    <MapPin className="w-2.5 h-2.5" />
+                    {gpsStatus === 'active' ? 'GPS Live' : gpsStatus === 'denied' ? 'GPS Denied' : 'GPS...'}
+                  </span>
+                )}
               </div>
             </div>
           </div>
