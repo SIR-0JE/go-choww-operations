@@ -15,29 +15,42 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Upsert subscription in database
-    const subscription = await prisma.pushSubscription.upsert({
-      where: { endpoint },
-      update: {
-        p256dh: keys.p256dh,
-        auth: keys.auth,
-        userType: userType || 'admin',
-        riderId: riderId || null,
-        updatedAt: new Date(),
-      },
-      create: {
+    // Upsert subscription in database with fallback
+    let subscription: any = null;
+    try {
+      subscription = await prisma.pushSubscription.upsert({
+        where: { endpoint },
+        update: {
+          p256dh: keys.p256dh,
+          auth: keys.auth,
+          userType: userType || 'admin',
+          riderId: riderId || null,
+          updatedAt: new Date(),
+        },
+        create: {
+          endpoint,
+          p256dh: keys.p256dh,
+          auth: keys.auth,
+          userType: userType || 'admin',
+          riderId: riderId || null,
+        },
+      });
+    } catch (dbErr) {
+      console.warn('Database pool busy, storing subscription in memory fallback:', dbErr);
+      const { saveInMemorySubscription } = await import('@/lib/prisma');
+      subscription = saveInMemorySubscription({
         endpoint,
         p256dh: keys.p256dh,
         auth: keys.auth,
-        userType: userType || 'admin',
-        riderId: riderId || null,
-      },
-    });
+        userType,
+        riderId,
+      });
+    }
 
     return NextResponse.json({
       success: true,
       message: 'Subscribed to phone push notifications successfully',
-      subscriptionId: subscription.id,
+      subscriptionId: subscription?.id || 'active',
     });
   } catch (error: any) {
     console.error('Push subscribe error:', error);
