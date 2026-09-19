@@ -92,7 +92,7 @@ export interface FetchLiveOrdersResult {
 /**
  * Fetch the latest live orders with full status and transient retry protection.
  */
-export async function fetchLiveGoChowOrdersWithStatus(limit: number = 30): Promise<FetchLiveOrdersResult> {
+export async function fetchLiveGoChowOrdersWithStatus(limit: number = 50): Promise<FetchLiveOrdersResult> {
   try {
     const orders = await withRetry('fetchLiveOrders', async () => {
       const token = await getAdminToken();
@@ -119,9 +119,9 @@ export async function fetchLiveGoChowOrdersWithStatus(limit: number = 30): Promi
 }
 
 /**
- * Fetch the latest live orders from GoChow (defaults to top 30)
+ * Fetch the latest live orders from GoChow (defaults to top 50)
  */
-export async function fetchLiveGoChowOrders(limit: number = 30): Promise<any[]> {
+export async function fetchLiveGoChowOrders(limit: number = 50): Promise<any[]> {
   const result = await fetchLiveGoChowOrdersWithStatus(limit);
   return result.orders;
 }

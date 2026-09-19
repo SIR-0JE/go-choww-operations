@@ -130,8 +130,8 @@ async function performSync(force: boolean = false) {
     };
   }
 
-  // ── 1. Fetch the latest 30 live orders from GoChow with retry & connection status ────
-  const fetchResult = await fetchLiveGoChowOrdersWithStatus(30);
+  // ── 1. Fetch the latest 50 live orders from GoChow with retry & connection status ────
+  const fetchResult = await fetchLiveGoChowOrdersWithStatus(50);
 
   if (!fetchResult.success) {
     const status = getOperationalStatus(settings);
