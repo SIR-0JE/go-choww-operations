@@ -68,6 +68,8 @@ export default function LiveFleetMap({
 }: LiveFleetMapProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const [mapLayer, setMapLayer] = React.useState<'google-hybrid' | 'google-streets' | 'osm'>('google-hybrid');
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const riderMarkersRef = useRef<Map<string, L.Marker>>(new Map());
   const cafeteriaMarkersRef = useRef<L.LayerGroup | null>(null);
   const geofenceCirclesRef = useRef<L.LayerGroup | null>(null);
@@ -83,12 +85,6 @@ export default function LiveFleetMap({
       attributionControl: false,
     });
 
-    // Add clean CartoDB Voyager / OpenStreetMap standard tiles
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19,
-      subdomains: 'abcd',
-    }).addTo(map);
-
     // Reposition zoom controls to bottom-right
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
@@ -103,6 +99,31 @@ export default function LiveFleetMap({
       mapInstanceRef.current = null;
     };
   }, []);
+
+  // 1b. Update Base Tile Layer dynamically
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+    }
+
+    let url = 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'; // Default Google Hybrid
+    let maxZoom = 20;
+
+    if (mapLayer === 'google-streets') {
+      url = 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
+    } else if (mapLayer === 'osm') {
+      url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      maxZoom = 19;
+    }
+
+    tileLayerRef.current = L.tileLayer(url, {
+      maxZoom,
+      subdomains: ['a', 'b', 'c'],
+    }).addTo(map);
+  }, [mapLayer]);
 
   // 2. Render Cafeteria Markers & Geofence Perimeters
   useEffect(() => {
@@ -370,6 +391,46 @@ export default function LiveFleetMap({
         >
           <span>🎯</span>
           <span>Fit All Riders</span>
+        </button>
+      </div>
+
+      {/* Map Layer Switcher (Google Satellite / Google Maps / OSM) */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-1 bg-white/95 backdrop-blur-md p-1 rounded-2xl shadow-lg border border-slate-200/80 text-xs font-bold">
+        <button
+          onClick={() => setMapLayer('google-hybrid')}
+          className={`px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
+            mapLayer === 'google-hybrid'
+              ? 'bg-slate-900 text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+          title="Google Maps Satellite Imagery with Bowen University roads & labels"
+        >
+          <span>🛰️</span>
+          <span>Satellite</span>
+        </button>
+        <button
+          onClick={() => setMapLayer('google-streets')}
+          className={`px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
+            mapLayer === 'google-streets'
+              ? 'bg-slate-900 text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+          title="Google Maps Standard Road Map"
+        >
+          <span>🗺️</span>
+          <span>Google Map</span>
+        </button>
+        <button
+          onClick={() => setMapLayer('osm')}
+          className={`px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
+            mapLayer === 'osm'
+              ? 'bg-slate-900 text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+          title="OpenStreetMap Standard"
+        >
+          <span>🌐</span>
+          <span>OSM</span>
         </button>
       </div>
 
