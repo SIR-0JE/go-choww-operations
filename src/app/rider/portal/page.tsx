@@ -51,6 +51,7 @@ interface RiderOrder {
   } | null;
   handoverRequestedById?: string | null;
   handoverRequestedByName?: string | null;
+  handoverDistance?: number | null;
 }
 
 interface RiderProfile {
@@ -458,6 +459,33 @@ export default function RiderPortalPage() {
     }
   };
 
+  // ── On-Demand Device GPS Location Helper ───────────────────────────────────
+  const getDeviceLocation = (): Promise<{ lat: number; lng: number } | null> => {
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined' || !('geolocation' in navigator)) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          resolve({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          });
+        },
+        (err) => {
+          console.warn('GPS location reading notice:', err?.message);
+          resolve(null);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 6000,
+          maximumAge: 15000,
+        }
+      );
+    });
+  };
+
   // ── Handover Request Actions (request, cancel, accept, reject) ───────────────
   const handleHandoverAction = async (
     orderId: string,
@@ -470,13 +498,29 @@ export default function RiderPortalPage() {
 
     setActionLoadingId(orderId);
     const localRiderId = typeof window !== 'undefined' ? localStorage.getItem('rider_id') : null;
+
+    const payload: Record<string, any> = { orderId, action };
+
+    // Capture on-demand GPS coordinates for geofence verification
+    if (action === 'request_handover') {
+      try {
+        const coords = await getDeviceLocation();
+        if (coords) {
+          payload.lat = coords.lat;
+          payload.lng = coords.lng;
+        }
+      } catch {
+        // Proceed without crashing if browser GPS is unready
+      }
+    }
+
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (localRiderId) headers['x-rider-id'] = localRiderId;
       const res = await fetch('/api/rider/orders', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ orderId, action }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {
@@ -1133,9 +1177,22 @@ export default function RiderPortalPage() {
                           <div className="flex items-start gap-2">
                             <HandHelping className="w-4 h-4 text-amber-100 shrink-0 mt-0.5" />
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs font-black">Handover Requested!</p>
-                              <p className="text-[11px] text-amber-100 mt-0.5 leading-snug">
-                                <strong>{ord.handoverRequestedByName || 'Another rider'}</strong> is at {ord.cafeteriaName} and requested to take over this order.
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="text-xs font-black">Handover Requested!</p>
+                                {ord.handoverDistance !== undefined && ord.handoverDistance !== null ? (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-600/90 text-white text-[10px] font-black tracking-tight shadow-sm">
+                                    <MapPin className="w-2.5 h-2.5" />
+                                    📍 GPS Verified ({ord.handoverDistance}m away)
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-600/90 text-white text-[10px] font-bold tracking-tight shadow-sm">
+                                    <MapPin className="w-2.5 h-2.5" />
+                                    At Cafeteria
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-amber-100 mt-1 leading-snug">
+                                <strong>{ord.handoverRequestedByName || 'Another rider'}</strong> is physically at {ord.cafeteriaName} and requested to take over this order.
                               </p>
                             </div>
                           </div>

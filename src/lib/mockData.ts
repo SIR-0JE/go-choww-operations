@@ -28,6 +28,7 @@ export interface GeneratedOrder {
   rider?: GeneratedRider | null;
   handoverRequestedById?: string | null;
   handoverRequestedByName?: string | null;
+  handoverDistance?: number | null;
 }
 
 export interface GeneratedExpense {

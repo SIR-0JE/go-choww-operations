@@ -208,3 +208,124 @@ export function classifyDeliveryType(
 
   return 'Same side';
 }
+
+// ─────────────────────────────────────────────────────────────
+// 3. GPS GEOREFERENCING & GEOFENCING ENGINE
+// ─────────────────────────────────────────────────────────────
+
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
+
+/**
+ * Campus Cafeteria GPS Georeference Registry
+ */
+export const CAFETERIA_COORDINATES: Record<string, LatLng> = {
+  // Permanent Site Cafeterias
+  'jubilee': { lat: 7.6322, lng: 4.1825 },
+  'jubilee cafeteria': { lat: 7.6322, lng: 4.1825 },
+  'bbsf': { lat: 7.6330, lng: 4.1818 },
+  'bbsf cafeteria': { lat: 7.6330, lng: 4.1818 },
+  'ebun': { lat: 7.6318, lng: 4.1835 },
+  'ebunoluwa': { lat: 7.6318, lng: 4.1835 },
+  'ebunoluwagrills': { lat: 7.6318, lng: 4.1835 },
+  'a.j shawarma': { lat: 7.6340, lng: 4.1810 },
+  'a.j shawarma (boys nh)': { lat: 7.6340, lng: 4.1810 },
+  'shawarma': { lat: 7.6340, lng: 4.1810 },
+
+  // Temporary Site Cafeterias
+  'divine': { lat: 7.6282, lng: 4.1895 },
+  'divine cafeteria': { lat: 7.6282, lng: 4.1895 },
+  'kemi': { lat: 7.6275, lng: 4.1888 },
+  'kemi bee': { lat: 7.6275, lng: 4.1888 },
+};
+
+/**
+ * Lookup GPS coordinates for any cafeteria by name
+ */
+export function getCafeteriaCoordinates(cafeteriaName: string): LatLng | null {
+  const clean = cleanString(cafeteriaName);
+  if (!clean) return null;
+
+  for (const [key, coords] of Object.entries(CAFETERIA_COORDINATES)) {
+    if (clean.includes(key) || key.includes(clean)) {
+      return coords;
+    }
+  }
+
+  // General site fallback if specific cafeteria not found
+  const site = getCafeteriaSite(cafeteriaName);
+  if (site === 'permanent') return { lat: 7.6325, lng: 4.1825 };
+  if (site === 'temporary') return { lat: 7.6280, lng: 4.1890 };
+
+  return null;
+}
+
+/**
+ * Calculates the great-circle distance between two GPS coordinates in meters
+ * using the Haversine formula.
+ */
+export function calculateDistanceMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371e3; // Earth's mean radius in meters
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return Math.round(R * c);
+}
+
+export interface GeofenceVerificationResult {
+  isWithinGeofence: boolean;
+  distanceMeters: number;
+  cafeteriaName: string;
+  maxRadiusMeters: number;
+  message: string;
+}
+
+/**
+ * Verifies if a rider's GPS location is within the cafeteria's geofence radius.
+ * Default radius is 200m to account for building footprint and parking.
+ */
+export function verifyCafeteriaProximity(
+  cafeteriaName: string,
+  riderLat: number,
+  riderLng: number,
+  maxRadiusMeters: number = 200
+): GeofenceVerificationResult {
+  const coords = getCafeteriaCoordinates(cafeteriaName);
+  if (!coords) {
+    return {
+      isWithinGeofence: true,
+      distanceMeters: 0,
+      cafeteriaName,
+      maxRadiusMeters,
+      message: 'Cafeteria proximity verified',
+    };
+  }
+
+  const distance = calculateDistanceMeters(riderLat, riderLng, coords.lat, coords.lng);
+  const isWithin = distance <= maxRadiusMeters;
+
+  return {
+    isWithinGeofence: isWithin,
+    distanceMeters: distance,
+    cafeteriaName,
+    maxRadiusMeters,
+    message: isWithin
+      ? `Proximity verified (${distance}m away)`
+      : `Location Check: You are currently ${distance}m away from ${cafeteriaName}. You must be physically at the cafeteria (within ${maxRadiusMeters}m) to request a handover.`,
+  };
+}
+

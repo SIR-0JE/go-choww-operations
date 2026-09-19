@@ -44,6 +44,7 @@ model DeliveryOrder {
   rider                   Rider?   @relation(fields: [riderId], references: [id], onDelete: SetNull)
   handoverRequestedById   String?
   handoverRequestedByName String?
+  handoverDistance        Float?
 
   @@index([orderStatus, paymentStatus])
   @@index([createdAt])

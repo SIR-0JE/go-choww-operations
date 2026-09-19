@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma, getInMemoryOrders, updateInMemoryOrder, updateInMemoryOrderRider } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { sendPushNotification } from '@/lib/pushService';
+import { verifyCafeteriaProximity } from '@/lib/locations';
 
 export const dynamic = 'force-dynamic';
 
@@ -103,6 +104,7 @@ export async function GET(request: NextRequest) {
           riderId: true,
           handoverRequestedById: true,
           handoverRequestedByName: true,
+          handoverDistance: true,
           rider: {
             select: {
               id: true,
@@ -135,6 +137,7 @@ export async function GET(request: NextRequest) {
           customerPhone: true,
           handoverRequestedById: true,
           handoverRequestedByName: true,
+          handoverDistance: true,
         },
       });
 
@@ -471,6 +474,24 @@ export async function POST(request: NextRequest) {
         // Proceed if DB check fails
       }
 
+      // GPS Geofence Proximity Check
+      const { lat, lng } = body;
+      let verifiedDistance: number | null = null;
+      if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
+        const proximityResult = verifyCafeteriaProximity(order.cafeteriaName, lat, lng, 200);
+        if (!proximityResult.isWithinGeofence) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: proximityResult.message,
+              distanceMeters: proximityResult.distanceMeters,
+            },
+            { status: 400 }
+          );
+        }
+        verifiedDistance = proximityResult.distanceMeters;
+      }
+
       let updated: any;
       try {
         updated = await prisma.deliveryOrder.update({
@@ -478,23 +499,28 @@ export async function POST(request: NextRequest) {
           data: {
             handoverRequestedById: rider.id,
             handoverRequestedByName: rider.name,
+            handoverDistance: verifiedDistance,
           },
         });
       } catch {
         updated = updateInMemoryOrder(order.orderId || order.id, {
           handoverRequestedById: rider.id,
           handoverRequestedByName: rider.name,
+          handoverDistance: verifiedDistance,
         });
       }
 
       return NextResponse.json({
         success: true,
-        message: `Handover requested! Waiting for assigned rider to release it.`,
+        message: verifiedDistance !== null
+          ? `📍 Location verified (${verifiedDistance}m away)! Handover requested.`
+          : `Handover requested! Waiting for assigned rider to release it.`,
         order: {
           id: updated.id,
           orderId: updated.orderId,
           handoverRequestedById: rider.id,
           handoverRequestedByName: rider.name,
+          handoverDistance: verifiedDistance,
         },
       });
     }
@@ -508,12 +534,14 @@ export async function POST(request: NextRequest) {
           data: {
             handoverRequestedById: null,
             handoverRequestedByName: null,
+            handoverDistance: null,
           },
         });
       } catch {
         updated = updateInMemoryOrder(order.orderId || order.id, {
           handoverRequestedById: null,
           handoverRequestedByName: null,
+          handoverDistance: null,
         });
       }
 
@@ -554,6 +582,7 @@ export async function POST(request: NextRequest) {
             riderId: targetRiderId,
             handoverRequestedById: null,
             handoverRequestedByName: null,
+            handoverDistance: null,
           },
         });
       } catch {
@@ -561,6 +590,7 @@ export async function POST(request: NextRequest) {
         updated = updateInMemoryOrder(order.orderId || order.id, {
           handoverRequestedById: null,
           handoverRequestedByName: null,
+          handoverDistance: null,
         });
       }
 
@@ -591,12 +621,14 @@ export async function POST(request: NextRequest) {
           data: {
             handoverRequestedById: null,
             handoverRequestedByName: null,
+            handoverDistance: null,
           },
         });
       } catch {
         updated = updateInMemoryOrder(order.orderId || order.id, {
           handoverRequestedById: null,
           handoverRequestedByName: null,
+          handoverDistance: null,
         });
       }
 
@@ -635,6 +667,7 @@ export async function POST(request: NextRequest) {
             riderId: null,
             handoverRequestedById: null,
             handoverRequestedByName: null,
+            handoverDistance: null,
           },
         });
       } catch {
@@ -643,6 +676,7 @@ export async function POST(request: NextRequest) {
           riderId: null,
           handoverRequestedById: null,
           handoverRequestedByName: null,
+          handoverDistance: null,
         });
       }
 
