@@ -101,6 +101,8 @@ export async function GET(request: NextRequest) {
           createdAt: true,
           time: true,
           riderId: true,
+          handoverRequestedById: true,
+          handoverRequestedByName: true,
           rider: {
             select: {
               id: true,
@@ -131,6 +133,8 @@ export async function GET(request: NextRequest) {
           createdAt: true,
           time: true,
           customerPhone: true,
+          handoverRequestedById: true,
+          handoverRequestedByName: true,
         },
       });
 
@@ -166,42 +170,46 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      // 4. Other active riders available for peer-to-peer transfer
+      // 4. Other active riders available for peer-to-peer transfer (Optimized 1 single query)
       let otherRidersWithCounts: any[] = [];
       try {
-        const otherRidersList = await prisma.rider.findMany({
-          where: {
-            id: { not: rider.id },
-            status: 'Active',
-          },
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            isOnline: true,
-          },
-          orderBy: { name: 'asc' },
-        });
-
-        otherRidersWithCounts = await Promise.all(
-          otherRidersList.map(async (r) => {
-            const count = await prisma.deliveryOrder.count({
-              where: {
-                riderId: r.id,
-                orderStatus: {
-                  notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
-                },
+        const [otherRidersList, activeOrderCounts] = await Promise.all([
+          prisma.rider.findMany({
+            where: {
+              id: { not: rider.id },
+              status: 'Active',
+            },
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              isOnline: true,
+            },
+            orderBy: { name: 'asc' },
+          }),
+          prisma.deliveryOrder.groupBy({
+            by: ['riderId'],
+            where: {
+              riderId: { not: null },
+              orderStatus: {
+                notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
               },
-            });
-            return {
-              id: r.id,
-              name: r.name,
-              phone: r.phone,
-              isOnline: r.isOnline,
-              activeCount: count,
-            };
-          })
+            },
+            _count: { id: true },
+          }),
+        ]);
+
+        const countMap = new Map(
+          activeOrderCounts.map((c) => [c.riderId, c._count.id])
         );
+
+        otherRidersWithCounts = otherRidersList.map((r) => ({
+          id: r.id,
+          name: r.name,
+          phone: r.phone,
+          isOnline: r.isOnline,
+          activeCount: countMap.get(r.id) || 0,
+        }));
       } catch (err) {
         console.warn('[Rider otherRiders fetch warning]:', err);
       }
@@ -395,12 +403,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // ── ACTION: TAKEOVER (CAFETERIA PICKUP OVERRIDE) ──────────────────────────
-    if (action === 'takeover') {
+    // ── ACTION: REQUEST HANDOVER (CAFETERIA REQUEST) ─────────────────────────
+    if (action === 'request_handover') {
       const lowerStatus = (order.orderStatus || '').toLowerCase();
       if (['delivered', 'completed', 'cancelled'].includes(lowerStatus)) {
         return NextResponse.json(
-          { success: false, error: `Cannot pick up an order that is already ${order.orderStatus}` },
+          { success: false, error: `Cannot request an order that is already ${order.orderStatus}` },
           { status: 400 }
         );
       }
@@ -409,13 +417,20 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: 'This order was already picked up and is in transit by another rider.',
+            error: 'This order has already been picked up and is in transit.',
           },
           { status: 409 }
         );
       }
 
-      // Check 5-order cap on the acquiring rider
+      if (order.riderId === rider.id) {
+        return NextResponse.json(
+          { success: false, error: 'You are already assigned to this order.' },
+          { status: 400 }
+        );
+      }
+
+      // Check 5-order cap on requesting rider
       try {
         const activeCount = await prisma.deliveryOrder.count({
           where: {
@@ -429,7 +444,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(
             {
               success: false,
-              error: 'You already have 5 active orders. Deliver one before accepting more.',
+              error: 'You already have 5 active orders. Deliver one before requesting more.',
             },
             { status: 409 }
           );
@@ -438,45 +453,188 @@ export async function POST(request: NextRequest) {
         // Proceed if DB check fails
       }
 
-      const previousRiderId = order.riderId;
-
-      // Assign to this rider and mark as Dispatched immediately
       let updated: any;
       try {
         updated = await prisma.deliveryOrder.update({
           where: { id: order.id },
           data: {
-            riderId: rider.id,
-            orderStatus: 'Dispatched',
+            handoverRequestedById: rider.id,
+            handoverRequestedByName: rider.name,
           },
         });
       } catch {
-        updateInMemoryOrderRider(order.orderId || order.id, rider.id);
         updated = updateInMemoryOrder(order.orderId || order.id, {
-          orderStatus: 'Dispatched',
+          handoverRequestedById: rider.id,
+          handoverRequestedByName: rider.name,
         });
       }
 
-      // Dispatch mobile push notification
-      sendPushNotification(
-        {
-          title: '⚡ Cafeteria Pickup Takeover',
-          body: `${rider.name} picked up Order #${order.orderId || order.id} at the cafeteria`,
-          url: '/dashboard',
-          tag: `takeover-${order.orderId || order.id}`,
-        },
-        { userType: 'admin' }
-      ).catch(() => {});
-
       return NextResponse.json({
         success: true,
-        message: `Order #${order.orderId} picked up at cafeteria and assigned to you!`,
-        previousRiderId,
+        message: `Handover requested! Waiting for assigned rider to release it.`,
         order: {
           id: updated.id,
           orderId: updated.orderId,
-          orderStatus: updated.orderStatus,
-          riderId: rider.id,
+          handoverRequestedById: rider.id,
+          handoverRequestedByName: rider.name,
+        },
+      });
+    }
+
+    // ── ACTION: CANCEL HANDOVER REQUEST ──────────────────────────────────────
+    if (action === 'cancel_handover') {
+      let updated: any;
+      try {
+        updated = await prisma.deliveryOrder.update({
+          where: { id: order.id },
+          data: {
+            handoverRequestedById: null,
+            handoverRequestedByName: null,
+          },
+        });
+      } catch {
+        updated = updateInMemoryOrder(order.orderId || order.id, {
+          handoverRequestedById: null,
+          handoverRequestedByName: null,
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Handover request cancelled.',
+        order: {
+          id: updated.id,
+          orderId: updated.orderId,
+        },
+      });
+    }
+
+    // ── ACTION: ACCEPT HANDOVER (RELEASE TO REQUESTING RIDER) ────────────────
+    if (action === 'accept_handover') {
+      if (order.riderId !== rider.id) {
+        return NextResponse.json(
+          { success: false, error: 'Only the assigned rider can accept handover.' },
+          { status: 403 }
+        );
+      }
+
+      if (!order.handoverRequestedById) {
+        return NextResponse.json(
+          { success: false, error: 'No active handover request for this order.' },
+          { status: 400 }
+        );
+      }
+
+      const targetRiderId = order.handoverRequestedById;
+      const targetRiderName = order.handoverRequestedByName || 'Peer Rider';
+
+      let updated: any;
+      try {
+        updated = await prisma.deliveryOrder.update({
+          where: { id: order.id },
+          data: {
+            riderId: targetRiderId,
+            handoverRequestedById: null,
+            handoverRequestedByName: null,
+          },
+        });
+      } catch {
+        updateInMemoryOrderRider(order.orderId || order.id, targetRiderId);
+        updated = updateInMemoryOrder(order.orderId || order.id, {
+          handoverRequestedById: null,
+          handoverRequestedByName: null,
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Order released to ${targetRiderName}!`,
+        order: {
+          id: updated.id,
+          orderId: updated.orderId,
+          riderId: targetRiderId,
+        },
+      });
+    }
+
+    // ── ACTION: REJECT HANDOVER (KEEP ORDER) ──────────────────────────────────
+    if (action === 'reject_handover') {
+      if (order.riderId !== rider.id) {
+        return NextResponse.json(
+          { success: false, error: 'Only the assigned rider can decline handover.' },
+          { status: 403 }
+        );
+      }
+
+      let updated: any;
+      try {
+        updated = await prisma.deliveryOrder.update({
+          where: { id: order.id },
+          data: {
+            handoverRequestedById: null,
+            handoverRequestedByName: null,
+          },
+        });
+      } catch {
+        updated = updateInMemoryOrder(order.orderId || order.id, {
+          handoverRequestedById: null,
+          handoverRequestedByName: null,
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Handover declined. You kept this order.',
+        order: {
+          id: updated.id,
+          orderId: updated.orderId,
+        },
+      });
+    }
+
+    // ── ACTION: DROP ORDER (RETURN TO OPEN POOL) ─────────────────────────────
+    if (action === 'drop_order') {
+      if (order.riderId !== rider.id) {
+        return NextResponse.json(
+          { success: false, error: 'Only the assigned rider can drop this order.' },
+          { status: 403 }
+        );
+      }
+
+      const lowerStatus = (order.orderStatus || '').toLowerCase();
+      if (['dispatched', 'in transit', 'delivered', 'completed'].includes(lowerStatus)) {
+        return NextResponse.json(
+          { success: false, error: 'Cannot drop an order that has already been dispatched or completed.' },
+          { status: 400 }
+        );
+      }
+
+      let updated: any;
+      try {
+        updated = await prisma.deliveryOrder.update({
+          where: { id: order.id },
+          data: {
+            riderId: null,
+            handoverRequestedById: null,
+            handoverRequestedByName: null,
+          },
+        });
+      } catch {
+        updateInMemoryOrderRider(order.orderId || order.id, null);
+        updated = updateInMemoryOrder(order.orderId || order.id, {
+          riderId: null,
+          handoverRequestedById: null,
+          handoverRequestedByName: null,
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Order dropped back to the open pool!',
+        order: {
+          id: updated.id,
+          orderId: updated.orderId,
+          riderId: null,
         },
       });
     }
