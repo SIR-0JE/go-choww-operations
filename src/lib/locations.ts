@@ -223,22 +223,23 @@ export interface LatLng {
  */
 export const CAFETERIA_COORDINATES: Record<string, LatLng> = {
   // Permanent Site Cafeterias
-  'jubilee': { lat: 7.6322, lng: 4.1825 },
-  'jubilee cafeteria': { lat: 7.6322, lng: 4.1825 },
-  'bbsf': { lat: 7.6330, lng: 4.1818 },
-  'bbsf cafeteria': { lat: 7.6330, lng: 4.1818 },
-  'ebun': { lat: 7.6318, lng: 4.1835 },
-  'ebunoluwa': { lat: 7.6318, lng: 4.1835 },
-  'ebunoluwagrills': { lat: 7.6318, lng: 4.1835 },
-  'a.j shawarma': { lat: 7.6340, lng: 4.1810 },
-  'a.j shawarma (boys nh)': { lat: 7.6340, lng: 4.1810 },
-  'shawarma': { lat: 7.6340, lng: 4.1810 },
+  'jubilee': { lat: 7.618037, lng: 4.202415 },
+  'jubilee cafeteria': { lat: 7.618037, lng: 4.202415 },
+  'christoy': { lat: 7.618037, lng: 4.202415 },
+  'bbsf': { lat: 7.619532, lng: 4.205877 },
+  'bbsf cafeteria': { lat: 7.619532, lng: 4.205877 },
+  'ebun': { lat: 7.618500, lng: 4.203000 },
+  'ebunoluwa': { lat: 7.618500, lng: 4.203000 },
+  'ebunoluwagrills': { lat: 7.618500, lng: 4.203000 },
+  'a.j shawarma': { lat: 7.619000, lng: 4.204500 },
+  'a.j shawarma (boys nh)': { lat: 7.619000, lng: 4.204500 },
+  'shawarma': { lat: 7.619000, lng: 4.204500 },
 
   // Temporary Site Cafeterias
-  'divine': { lat: 7.6282, lng: 4.1895 },
-  'divine cafeteria': { lat: 7.6282, lng: 4.1895 },
-  'kemi': { lat: 7.6275, lng: 4.1888 },
-  'kemi bee': { lat: 7.6275, lng: 4.1888 },
+  'divine': { lat: 7.624629, lng: 4.193443 },
+  'divine cafeteria': { lat: 7.624629, lng: 4.193443 },
+  'kemi': { lat: 7.624730, lng: 4.193285 },
+  'kemi bee': { lat: 7.624730, lng: 4.193285 },
 };
 
 /**
@@ -256,8 +257,8 @@ export function getCafeteriaCoordinates(cafeteriaName: string): LatLng | null {
 
   // General site fallback if specific cafeteria not found
   const site = getCafeteriaSite(cafeteriaName);
-  if (site === 'permanent') return { lat: 7.6325, lng: 4.1825 };
-  if (site === 'temporary') return { lat: 7.6280, lng: 4.1890 };
+  if (site === 'permanent') return { lat: 7.6188, lng: 4.2040 };
+  if (site === 'temporary') return { lat: 7.6246, lng: 4.1934 };
 
   return null;
 }
