@@ -40,13 +40,16 @@ model DeliveryOrder {
   paymentStatus   String   // Values: "success", "failed", "pending"
   customerPhone   String?  // Customer contact number (from GoChow user profile)
 
-  riderId         String?
-  rider           Rider?   @relation(fields: [riderId], references: [id], onDelete: SetNull)
+  riderId                 String?
+  rider                   Rider?   @relation(fields: [riderId], references: [id], onDelete: SetNull)
+  handoverRequestedById   String?
+  handoverRequestedByName String?
 
   @@index([orderStatus, paymentStatus])
   @@index([createdAt])
   @@index([deliveryType])
   @@index([riderId])
+  @@index([handoverRequestedById])
 }
 
 model Expense {

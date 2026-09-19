@@ -26,6 +26,8 @@ import {
   X,
   Zap,
   Filter,
+  RotateCcw,
+  HandHelping,
 } from 'lucide-react';
 import { pushNotification, buildRiderNotification } from '@/lib/notifications';
 import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner';
@@ -47,6 +49,8 @@ interface RiderOrder {
     name: string;
     phone?: string;
   } | null;
+  handoverRequestedById?: string | null;
+  handoverRequestedByName?: string | null;
 }
 
 interface RiderProfile {
@@ -88,6 +92,10 @@ export default function RiderPortalPage() {
   const [transferModalOrder, setTransferModalOrder] = useState<RiderOrder | null>(null);
   const [selectedTargetRiderId, setSelectedTargetRiderId] = useState<string>('');
   const [isTransferring, setIsTransferring] = useState(false);
+
+  // Drop Order Modal State
+  const [dropModalOrder, setDropModalOrder] = useState<RiderOrder | null>(null);
+  const [isDropping, setIsDropping] = useState(false);
 
   // Cafeteria Filter & Takeover States
   const [selectedCafeteria, setSelectedCafeteria] = useState<string>('all');
@@ -489,16 +497,17 @@ export default function RiderPortalPage() {
     }
   };
 
-  // ── Cafeteria Order Takeover Action ──────────────────────────────────────────
-  const handleTakeoverOrder = async () => {
-    if (!takeoverModalOrder) return;
-    if (activeTasks.length >= MAX_ACTIVE_ORDERS) {
-      showToast(`You already have ${MAX_ACTIVE_ORDERS} active orders. Deliver one before picking up more.`, 'error');
-      setTakeoverModalOrder(null);
+  // ── Handover Request Actions (request, cancel, accept, reject) ───────────────
+  const handleHandoverAction = async (
+    orderId: string,
+    action: 'request_handover' | 'cancel_handover' | 'accept_handover' | 'reject_handover'
+  ) => {
+    if (action === 'request_handover' && activeTasks.length >= MAX_ACTIVE_ORDERS) {
+      showToast(`You already have ${MAX_ACTIVE_ORDERS} active orders. Deliver one before requesting more.`, 'error');
       return;
     }
 
-    setIsTakingOver(true);
+    setActionLoadingId(orderId);
     const localRiderId = typeof window !== 'undefined' ? localStorage.getItem('rider_id') : null;
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -506,25 +515,51 @@ export default function RiderPortalPage() {
       const res = await fetch('/api/rider/orders', {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          orderId: takeoverModalOrder.id || takeoverModalOrder.orderId,
-          action: 'takeover',
-        }),
+        body: JSON.stringify({ orderId, action }),
       });
       const data = await res.json();
       if (data.success) {
-        showToast(data.message || 'Order picked up at cafeteria & assigned to you!', 'success');
-        broadcastRiderUpdate('takeover', takeoverModalOrder.orderId, data.order);
-        setTakeoverModalOrder(null);
+        showToast(data.message, 'success');
+        broadcastRiderUpdate(action, orderId, data.order);
         await fetchPortalData(false);
-        setActiveTab('active');
       } else {
-        showToast(data.error || 'Could not pick up order.', 'error');
+        showToast(data.error || 'Action could not be completed.', 'error');
+        await fetchPortalData(false);
       }
     } catch (err: any) {
       showToast(err?.message || 'Network error.', 'error');
     } finally {
-      setIsTakingOver(false);
+      setActionLoadingId(null);
+    }
+  };
+
+  // ── Drop Order to Pool Action ────────────────────────────────────────────────
+  const handleDropOrder = async () => {
+    if (!dropModalOrder) return;
+    setIsDropping(true);
+    const orderId = dropModalOrder.id || dropModalOrder.orderId;
+    const localRiderId = typeof window !== 'undefined' ? localStorage.getItem('rider_id') : null;
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (localRiderId) headers['x-rider-id'] = localRiderId;
+      const res = await fetch('/api/rider/orders', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ orderId, action: 'drop_order' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message || 'Order dropped back to the pool.', 'success');
+        broadcastRiderUpdate('drop_order', dropModalOrder.orderId, data.order);
+        setDropModalOrder(null);
+        await fetchPortalData(false);
+      } else {
+        showToast(data.error || 'Could not drop order.', 'error');
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Network error.', 'error');
+    } finally {
+      setIsDropping(false);
     }
   };
 
@@ -929,30 +964,58 @@ export default function RiderPortalPage() {
                         </div>
                       </div>
 
-                      {/* Action Button: Peer Takeover vs Normal Claim */}
+                      {/* Action Button: Peer Claimed Handover Request vs Open Pool Claim */}
                       {isPeerClaimed ? (
-                        <button
-                          onClick={() => setTakeoverModalOrder(ord)}
-                          disabled={!isOnline || isAtCap}
-                          title={isAtCap ? 'You have reached the 5-order limit' : undefined}
-                          className={`w-full font-bold py-3 px-4 rounded-xl text-sm transition-all flex items-center justify-center gap-2 mt-1 ${
-                            isAtCap || !isOnline
-                              ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
-                              : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 active:scale-[0.98]'
-                          }`}
-                        >
-                          {isAtCap ? (
-                            <>
-                              <ShieldAlert className="w-4 h-4" />
-                              <span>Limit Reached (5/5)</span>
-                            </>
-                          ) : (
-                            <>
-                              <Zap className="w-4 h-4 fill-current" />
-                              <span>I'm at Cafeteria — Pick Up Now</span>
-                            </>
-                          )}
-                        </button>
+                        ord.handoverRequestedById === rider?.id ? (
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="flex-1 bg-amber-50 border border-amber-300 text-amber-900 px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-600 shrink-0" />
+                                <span className="truncate">Handover Requested • Waiting...</span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleHandoverAction(ord.id || ord.orderId, 'cancel_handover')}
+                              disabled={isLoadingAction}
+                              className="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-200 shrink-0 transition-colors"
+                            >
+                              Cancel ✕
+                            </button>
+                          </div>
+                        ) : ord.handoverRequestedById && ord.handoverRequestedById !== rider?.id ? (
+                          <div className="w-full bg-slate-100 border border-slate-200 text-slate-500 py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 mt-1">
+                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                            <span>Requested by {ord.handoverRequestedByName || 'another rider'}</span>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleHandoverAction(ord.id || ord.orderId, 'request_handover')}
+                            disabled={isLoadingAction || !isOnline || isAtCap}
+                            title={isAtCap ? 'You have reached the 5-order limit' : undefined}
+                            className={`w-full font-bold py-3 px-4 rounded-xl text-sm transition-all flex items-center justify-center gap-2 mt-1 ${
+                              isAtCap || !isOnline
+                                ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
+                                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 active:scale-[0.98]'
+                            }`}
+                          >
+                            {isLoadingAction ? (
+                              <>
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                <span>Requesting...</span>
+                              </>
+                            ) : isAtCap ? (
+                              <>
+                                <ShieldAlert className="w-4 h-4" />
+                                <span>Limit Reached (5/5)</span>
+                              </>
+                            ) : (
+                              <>
+                                <HandHelping className="w-4 h-4" />
+                                <span>I'm at Cafeteria — Request Handover</span>
+                              </>
+                            )}
+                          </button>
+                        )
                       ) : (
                         <button
                           onClick={() => handleOrderAction(ord.id || ord.orderId, 'claim')}
@@ -1103,6 +1166,40 @@ export default function RiderPortalPage() {
                         )}
                       </div>
 
+                      {/* Incoming Handover Request Banner */}
+                      {ord.handoverRequestedById && (
+                        <div className="p-3.5 rounded-xl bg-amber-500 text-white space-y-2 shadow-md">
+                          <div className="flex items-start gap-2">
+                            <HandHelping className="w-4 h-4 text-amber-100 shrink-0 mt-0.5" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-black">Handover Requested!</p>
+                              <p className="text-[11px] text-amber-100 mt-0.5 leading-snug">
+                                <strong>{ord.handoverRequestedByName || 'Another rider'}</strong> is at {ord.cafeteriaName} and requested to take over this order.
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleHandoverAction(ord.id || ord.orderId, 'accept_handover')}
+                              disabled={isLoadingAction}
+                              className="flex-1 bg-white hover:bg-emerald-50 text-emerald-800 font-black py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-[0.98]"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Release to {ord.handoverRequestedByName?.split(' ')[0] || 'Rider'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleHandoverAction(ord.id || ord.orderId, 'reject_handover')}
+                              disabled={isLoadingAction}
+                              className="px-3 py-2 rounded-lg bg-amber-600/80 hover:bg-amber-600 text-white text-xs font-bold transition-colors"
+                            >
+                              Keep Order
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Action Buttons */}
                       {!isDispatched ? (
                         <button
@@ -1128,19 +1225,32 @@ export default function RiderPortalPage() {
                         </button>
                       )}
 
-                      {/* Secondary Action: Hand Over / Transfer to Another Rider */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTransferModalOrder(ord);
-                          setSelectedTargetRiderId('');
-                        }}
-                        disabled={isLoadingAction}
-                        className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] border border-slate-200"
-                      >
-                        <ArrowRightLeft className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Hand Over / Transfer to Another Rider</span>
-                      </button>
+                      {/* Secondary Actions: Drop to Pool & Transfer */}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        {!isDispatched && (
+                          <button
+                            type="button"
+                            onClick={() => setDropModalOrder(ord)}
+                            disabled={isLoadingAction}
+                            className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold py-2.5 px-3 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] border border-rose-200"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5 text-rose-500" />
+                            <span>Drop to Pool</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTransferModalOrder(ord);
+                            setSelectedTargetRiderId('');
+                          }}
+                          disabled={isLoadingAction}
+                          className={`${!isDispatched ? 'col-span-1' : 'col-span-2'} bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold py-2.5 px-3 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] border border-slate-200 truncate`}
+                        >
+                          <ArrowRightLeft className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <span className="truncate">Transfer</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1362,24 +1472,24 @@ export default function RiderPortalPage() {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          CAFETERIA ORDER TAKEOVER CONFIRMATION MODAL
+          DROP ORDER TO POOL CONFIRMATION MODAL
       ───────────────────────────────────────────────────────────── */}
-      {takeoverModalOrder && (
+      {dropModalOrder && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white rounded-t-3xl sm:rounded-2xl border border-slate-200 w-full max-w-lg overflow-hidden shadow-2xl p-5 space-y-4 animate-in fade-in slide-in-from-bottom sm:zoom-in-95 duration-150 flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700">
-                  <Zap className="w-5 h-5 fill-current" />
+                <div className="w-9 h-9 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-700">
+                  <RotateCcw className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900">Pick Up from Cafeteria</h3>
-                  <p className="text-xs text-slate-500 font-mono">Order #{takeoverModalOrder.orderId}</p>
+                  <h3 className="text-base font-black text-slate-900">Drop Order to Pool</h3>
+                  <p className="text-xs text-slate-500 font-mono">Order #{dropModalOrder.orderId}</p>
                 </div>
               </div>
               <button
-                onClick={() => setTakeoverModalOrder(null)}
+                onClick={() => setDropModalOrder(null)}
                 className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold transition-colors"
               >
                 <X className="w-4 h-4" />
@@ -1387,34 +1497,30 @@ export default function RiderPortalPage() {
             </div>
 
             {/* Order summary */}
-            <div className="p-3.5 bg-indigo-50/50 rounded-xl border border-indigo-100 text-xs space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Currently Claimed By:</span>
-                <span className="font-extrabold text-indigo-900">{takeoverModalOrder.rider?.name || 'Another Rider'}</span>
-              </div>
+            <div className="p-3.5 bg-rose-50/50 rounded-xl border border-rose-100 text-xs space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">Cafeteria:</span>
-                <span className="font-bold text-slate-800 truncate max-w-[220px]">{takeoverModalOrder.cafeteriaName}</span>
+                <span className="font-bold text-slate-800 truncate max-w-[220px]">{dropModalOrder.cafeteriaName}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Delivery Destination:</span>
-                <span className="font-bold text-slate-800 truncate max-w-[220px]">{takeoverModalOrder.deliveryAddress}</span>
+                <span className="text-slate-500 font-medium">Destination:</span>
+                <span className="font-bold text-slate-800 truncate max-w-[220px]">{dropModalOrder.deliveryAddress}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">Customer:</span>
-                <span className="font-bold text-slate-800">{takeoverModalOrder.customerName}</span>
+                <span className="font-bold text-slate-800">{dropModalOrder.customerName}</span>
               </div>
-              <div className="flex items-center justify-between pt-1 border-t border-indigo-100">
+              <div className="flex items-center justify-between pt-1 border-t border-rose-100">
                 <span className="text-slate-500 font-medium">Pickup Code:</span>
-                <span className="font-black text-indigo-800 tracking-widest text-sm">{getPickupCode(takeoverModalOrder.orderId)}</span>
+                <span className="font-black text-rose-800 tracking-widest text-sm">{getPickupCode(dropModalOrder.orderId)}</span>
               </div>
             </div>
 
             {/* Explanatory notice */}
-            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 flex items-start gap-2">
-              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="p-3 bg-slate-100 rounded-xl border border-slate-200 text-xs text-slate-700 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
               <p>
-                Are you physically present at <strong>{takeoverModalOrder.cafeteriaName}</strong>? Confirming will mark this order as <strong>In Transit</strong> and reassign the delivery &amp; payout to you.
+                Dropping this order will unassign it from you and return it to the open dispatch pool so another available rider can pick it up.
               </p>
             </div>
 
@@ -1422,27 +1528,27 @@ export default function RiderPortalPage() {
             <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2 shrink-0">
               <button
                 type="button"
-                disabled={isTakingOver}
-                onClick={() => setTakeoverModalOrder(null)}
+                disabled={isDropping}
+                onClick={() => setDropModalOrder(null)}
                 className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                disabled={isTakingOver}
-                onClick={handleTakeoverOrder}
-                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all disabled:opacity-50 flex items-center gap-2"
+                disabled={isDropping}
+                onClick={handleDropOrder}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-all disabled:opacity-50 flex items-center gap-2"
               >
-                {isTakingOver ? (
+                {isDropping ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Picking up...</span>
+                    <span>Dropping...</span>
                   </>
                 ) : (
                   <>
-                    <Zap className="w-3.5 h-3.5 fill-current" />
-                    <span>Confirm Cafeteria Pickup</span>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Confirm Drop to Pool</span>
                   </>
                 )}
               </button>

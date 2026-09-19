@@ -26,6 +26,8 @@ export interface GeneratedOrder {
   paymentStatus: 'success' | 'failed' | 'pending';
   riderId?: string | null;
   rider?: GeneratedRider | null;
+  handoverRequestedById?: string | null;
+  handoverRequestedByName?: string | null;
 }
 
 export interface GeneratedExpense {
