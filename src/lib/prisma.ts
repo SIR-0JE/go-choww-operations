@@ -6,6 +6,7 @@ const globalForPrisma = globalThis as unknown as {
   mockOrders: GeneratedOrder[] | undefined;
   mockExpenses: GeneratedExpense[] | undefined;
   mockRiders: GeneratedRider[] | undefined;
+  mockSubscriptions: any[] | undefined;
 };
 
 export const prisma =
@@ -14,7 +15,7 @@ export const prisma =
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   });
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+globalForPrisma.prisma = prisma;
 
 if (!globalForPrisma.mockOrders) {
   globalForPrisma.mockOrders = [];
@@ -26,6 +27,10 @@ if (!globalForPrisma.mockExpenses) {
 
 if (!globalForPrisma.mockRiders) {
   globalForPrisma.mockRiders = [];
+}
+
+if (!globalForPrisma.mockSubscriptions) {
+  globalForPrisma.mockSubscriptions = [];
 }
 
 export const getInMemoryOrders = () => globalForPrisma.mockOrders || [];
@@ -105,8 +110,41 @@ export const deleteMockRider = (id: string) => {
   }
 };
 
+export const getInMemorySubscriptions = () => globalForPrisma.mockSubscriptions || [];
+
+export const saveInMemorySubscription = (sub: {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  userType?: string;
+  riderId?: string | null;
+}) => {
+  if (!globalForPrisma.mockSubscriptions) globalForPrisma.mockSubscriptions = [];
+  const idx = globalForPrisma.mockSubscriptions.findIndex((s) => s.endpoint === sub.endpoint);
+  const record = {
+    id: `mem-sub-${Date.now()}`,
+    ...sub,
+    userType: sub.userType || 'admin',
+    riderId: sub.riderId || null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  if (idx >= 0) {
+    globalForPrisma.mockSubscriptions[idx] = record;
+  } else {
+    globalForPrisma.mockSubscriptions.push(record);
+  }
+  return record;
+};
+
+export const deleteInMemorySubscription = (endpoint: string) => {
+  if (!globalForPrisma.mockSubscriptions) return;
+  globalForPrisma.mockSubscriptions = globalForPrisma.mockSubscriptions.filter((s) => s.endpoint !== endpoint);
+};
+
 export const clearAllInMemoryData = () => {
   globalForPrisma.mockOrders = [];
   globalForPrisma.mockExpenses = [];
   globalForPrisma.mockRiders = [];
+  globalForPrisma.mockSubscriptions = [];
 };

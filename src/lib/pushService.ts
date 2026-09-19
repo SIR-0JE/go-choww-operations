@@ -59,8 +59,24 @@ export async function sendPushNotification(
     try {
       subscriptions = await prisma.pushSubscription.findMany({ where });
     } catch (err) {
-      console.warn('Could not query push subscriptions from DB:', err);
-      return { sent: 0, failed: 0 };
+      console.warn('Could not query push subscriptions from DB, checking in-memory fallback:', err);
+    }
+
+    // Merge in-memory subscriptions
+    try {
+      const { getInMemorySubscriptions } = await import('./prisma');
+      const memSubs = getInMemorySubscriptions();
+      for (const m of memSubs) {
+        if (!subscriptions.some((s) => s.endpoint === m.endpoint)) {
+          if (!filter?.userType || filter.userType === 'all' || m.userType === filter.userType) {
+            if (!filter?.riderId || m.riderId === filter.riderId) {
+              subscriptions.push(m);
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore
     }
 
     if (!subscriptions || subscriptions.length === 0) {
