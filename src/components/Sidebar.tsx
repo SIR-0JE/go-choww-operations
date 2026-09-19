@@ -16,6 +16,7 @@ import {
   Bike,
   Settings,
   Bell,
+  ClipboardCheck,
 } from 'lucide-react';
 import { countUnread } from '@/lib/notifications';
 
@@ -60,6 +61,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
       icon: Bike,
       active: pathname === '/riders',
       badge: 'Fleet',
+    },
+    {
+      label: 'Reconciliation',
+      href: '/dashboard/reconciliation',
+      icon: ClipboardCheck,
+      active: pathname === '/dashboard/reconciliation',
+      badge: 'Backlog',
     },
     {
       label: 'Expenses',
