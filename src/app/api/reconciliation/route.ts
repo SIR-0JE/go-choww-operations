@@ -12,16 +12,36 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search')?.trim().toLowerCase() || '';
     const cafeteria = searchParams.get('cafeteria')?.trim() || '';
+    const dateParam = searchParams.get('date')?.trim() || ''; // YYYY-MM-DD
+    const startDateParam = searchParams.get('startDate')?.trim() || '';
+    const endDateParam = searchParams.get('endDate')?.trim() || '';
 
     let unassignedOrders: any[] = [];
     let riders: any[] = [];
+
+    // Construct date filter
+    let dateFilter: any = undefined;
+    if (dateParam) {
+      const startOfDay = new Date(`${dateParam}T00:00:00.000Z`);
+      const endOfDay = new Date(`${dateParam}T23:59:59.999Z`);
+      dateFilter = { gte: startOfDay, lte: endOfDay };
+    } else if (startDateParam || endDateParam) {
+      dateFilter = {};
+      if (startDateParam) {
+        dateFilter.gte = new Date(`${startDateParam}T00:00:00.000Z`);
+      }
+      if (endDateParam) {
+        dateFilter.lte = new Date(`${endDateParam}T23:59:59.999Z`);
+      }
+    }
 
     try {
       // 1. Fetch unassigned orders from PostgreSQL
       unassignedOrders = await prisma.deliveryOrder.findMany({
         where: {
           riderId: null,
-          ...(cafeteria ? { cafeteriaName: { contains: cafeteria, mode: 'insensitive' } } : {}),
+          ...(cafeteria && cafeteria !== 'ALL' ? { cafeteriaName: { contains: cafeteria, mode: 'insensitive' } } : {}),
+          ...(dateFilter ? { createdAt: dateFilter } : {}),
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -35,7 +55,17 @@ export async function GET(request: NextRequest) {
     } catch {
       // Fallback in memory
       const memOrders = getInMemoryOrders();
-      unassignedOrders = memOrders.filter((o) => !o.riderId);
+      unassignedOrders = memOrders.filter((o) => {
+        if (o.riderId) return false;
+        if (cafeteria && cafeteria !== 'ALL' && !o.cafeteriaName?.toLowerCase().includes(cafeteria.toLowerCase())) {
+          return false;
+        }
+        if (dateParam) {
+          const ordDate = new Date(o.createdAt).toISOString().split('T')[0];
+          if (ordDate !== dateParam) return false;
+        }
+        return true;
+      });
       const memRiders = getInMemoryRiders();
       riders = memRiders.filter((r) => r.status === 'Active');
     }

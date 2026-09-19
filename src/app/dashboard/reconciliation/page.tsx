@@ -20,6 +20,8 @@ import {
   ChevronDown,
   Sparkles,
   Zap,
+  Clock,
+  X,
 } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 
@@ -47,13 +49,23 @@ interface RiderOption {
   isOnline?: boolean;
 }
 
+type DatePreset = 'ALL' | 'TODAY' | 'YESTERDAY' | 'LAST7' | 'THIS_MONTH' | 'CUSTOM';
+
 export default function BacklogReconciliationPage() {
   const [orders, setOrders] = useState<UnassignedOrder[]>([]);
   const [riders, setRiders] = useState<RiderOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCafeteria, setSelectedCafeteria] = useState('ALL');
+  const [datePreset, setDatePreset] = useState<DatePreset>('ALL');
+  const [customDate, setCustomDate] = useState('');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+
+  // Bulk & Action States
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [bulkRiderId, setBulkRiderId] = useState('');
   const [isBulkAssigning, setIsBulkAssigning] = useState(false);
@@ -66,11 +78,53 @@ export default function BacklogReconciliationPage() {
     setTimeout(() => setToast(null), 4000);
   }, []);
 
+  // ── Compute Date Range Parameters based on Presets ──────────────────────────
+  const getDateQueryParams = useCallback((): { date?: string; startDate?: string; endDate?: string } => {
+    const today = new Date();
+    const toYMD = (d: Date) => d.toISOString().split('T')[0];
+
+    if (datePreset === 'TODAY') {
+      return { date: toYMD(today) };
+    }
+    if (datePreset === 'YESTERDAY') {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return { date: toYMD(yesterday) };
+    }
+    if (datePreset === 'LAST7') {
+      const past = new Date(today);
+      past.setDate(past.getDate() - 7);
+      return { startDate: toYMD(past), endDate: toYMD(today) };
+    }
+    if (datePreset === 'THIS_MONTH') {
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { startDate: toYMD(firstDay), endDate: toYMD(today) };
+    }
+    if (datePreset === 'CUSTOM') {
+      if (customDate) return { date: customDate };
+      if (customStartDate || customEndDate) {
+        return {
+          ...(customStartDate && { startDate: customStartDate }),
+          ...(customEndDate && { endDate: customEndDate }),
+        };
+      }
+    }
+    return {};
+  }, [datePreset, customDate, customStartDate, customEndDate]);
+
   // ── Fetch Backlog Orders and Active Riders ──────────────────────────────────
   const fetchBacklog = useCallback(async (showSpin = true) => {
     if (showSpin) setIsRefreshing(true);
     try {
-      const res = await fetch('/api/reconciliation', { cache: 'no-store' });
+      const params = new URLSearchParams();
+      const dateParams = getDateQueryParams();
+      if (dateParams.date) params.set('date', dateParams.date);
+      if (dateParams.startDate) params.set('startDate', dateParams.startDate);
+      if (dateParams.endDate) params.set('endDate', dateParams.endDate);
+      if (selectedCafeteria !== 'ALL') params.set('cafeteria', selectedCafeteria);
+
+      const url = `/api/reconciliation?${params.toString()}`;
+      const res = await fetch(url, { cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
         setOrders(data.orders || []);
@@ -85,10 +139,10 @@ export default function BacklogReconciliationPage() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [showToast]);
+  }, [getDateQueryParams, selectedCafeteria, showToast]);
 
   useEffect(() => {
-    fetchBacklog(false);
+    fetchBacklog(true);
   }, [fetchBacklog]);
 
   // ── Unique Cafeterias for Filter Tabs ───────────────────────────────────────
@@ -100,16 +154,21 @@ export default function BacklogReconciliationPage() {
     return Array.from(set).sort();
   }, [orders]);
 
-  // ── Filtered Orders ────────────────────────────────────────────────────────
-  const filteredOrders = useMemo(() => {
-    return orders.filter((o) => {
-      const matchesCafe =
-        selectedCafeteria === 'ALL' ||
-        o.cafeteriaName.toLowerCase() === selectedCafeteria.toLowerCase();
-      if (!matchesCafe) return false;
+  // ── Unique Dates in Backlog for Quick Chips ────────────────────────────────
+  const uniqueDatesInOrders = useMemo(() => {
+    const map = new Map<string, number>();
+    orders.forEach((o) => {
+      const dStr = new Date(o.createdAt).toISOString().split('T')[0];
+      map.set(dStr, (map.get(dStr) || 0) + 1);
+    });
+    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [orders]);
 
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
+  // ── Client Filtered Orders (Search Query) ──────────────────────────────────
+  const filteredOrders = useMemo(() => {
+    if (!searchQuery.trim()) return orders;
+    const q = searchQuery.toLowerCase();
+    return orders.filter((o) => {
       return (
         o.orderId.toLowerCase().includes(q) ||
         o.customerName.toLowerCase().includes(q) ||
@@ -118,16 +177,16 @@ export default function BacklogReconciliationPage() {
         o.deliveryAddress.toLowerCase().includes(q)
       );
     });
-  }, [orders, selectedCafeteria, searchQuery]);
+  }, [orders, searchQuery]);
 
   // ── Backlog Summary Stats ──────────────────────────────────────────────────
   const totalValue = useMemo(() => {
-    return orders.reduce((sum, o) => sum + Number(o.totalAmountPaid || 0), 0);
-  }, [orders]);
+    return filteredOrders.reduce((sum, o) => sum + Number(o.totalAmountPaid || 0), 0);
+  }, [filteredOrders]);
 
   const totalDeliveryFees = useMemo(() => {
-    return orders.reduce((sum, o) => sum + Number(o.deliveryFee || 0), 0);
-  }, [orders]);
+    return filteredOrders.reduce((sum, o) => sum + Number(o.deliveryFee || 0), 0);
+  }, [filteredOrders]);
 
   // ── Single Row Rider Assignment ────────────────────────────────────────────
   const handleAssignSingle = async (orderId: string, riderId: string) => {
@@ -243,14 +302,14 @@ export default function BacklogReconciliationPage() {
                   <Bike className="w-5 h-5 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                  <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2 flex-wrap">
                     Backlog Reconciliation Ledger
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                      {orders.length} Unassigned
+                      {filteredOrders.length} Unassigned
                     </span>
                   </h1>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Quickly assign fleet riders to historical and unallocated orders to settle accounts and calculate fleet balances.
+                    Filter by date, cafeteria, or search keywords to allocate historical deliveries to riders.
                   </p>
                 </div>
               </div>
@@ -279,11 +338,11 @@ export default function BacklogReconciliationPage() {
           {/* Quick Metrics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-5 border-t border-slate-100">
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/60">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Unassigned Orders</p>
-              <p className="text-lg font-black text-slate-900 mt-0.5">{orders.length}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Filtered Backlog</p>
+              <p className="text-lg font-black text-slate-900 mt-0.5">{filteredOrders.length}</p>
             </div>
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/60">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Backlog Gross Total</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Filtered Gross Value</p>
               <p className="text-lg font-black text-slate-900 mt-0.5">₦{totalValue.toLocaleString()}</p>
             </div>
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/60">
@@ -295,6 +354,132 @@ export default function BacklogReconciliationPage() {
               <p className="text-lg font-black text-blue-600 mt-0.5">{riders.length} Riders</p>
             </div>
           </div>
+        </div>
+
+        {/* Date Filter & Preset Toolbar */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm space-y-3.5">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            {/* Date Preset Buttons */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] font-bold text-slate-500 mr-1 flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                <span>Date Range:</span>
+              </span>
+
+              {(
+                [
+                  { id: 'ALL', label: 'All Time' },
+                  { id: 'TODAY', label: 'Today' },
+                  { id: 'YESTERDAY', label: 'Yesterday' },
+                  { id: 'LAST7', label: 'Last 7 Days' },
+                  { id: 'THIS_MONTH', label: 'This Month' },
+                  { id: 'CUSTOM', label: 'Custom Date' },
+                ] as const
+              ).map((preset) => (
+                <button
+                  key={preset.id}
+                  onClick={() => {
+                    setDatePreset(preset.id);
+                    if (preset.id !== 'CUSTOM') {
+                      setCustomDate('');
+                      setCustomStartDate('');
+                      setCustomEndDate('');
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                    datePreset === preset.id
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Date Pickers */}
+            {datePreset === 'CUSTOM' && (
+              <div className="flex items-center gap-2 flex-wrap animate-in fade-in duration-200">
+                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Specific Date:</span>
+                  <input
+                    type="date"
+                    value={customDate}
+                    onChange={(e) => {
+                      setCustomDate(e.target.value);
+                      setCustomStartDate('');
+                      setCustomEndDate('');
+                    }}
+                    className="bg-transparent text-xs font-semibold text-slate-800 focus:outline-none"
+                  />
+                </div>
+
+                <span className="text-xs text-slate-400 font-medium">or</span>
+
+                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">From:</span>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => {
+                      setCustomStartDate(e.target.value);
+                      setCustomDate('');
+                    }}
+                    className="bg-transparent text-xs font-semibold text-slate-800 focus:outline-none"
+                  />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase ml-1">To:</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => {
+                      setCustomEndDate(e.target.value);
+                      setCustomDate('');
+                    }}
+                    className="bg-transparent text-xs font-semibold text-slate-800 focus:outline-none"
+                  />
+                </div>
+
+                {(customDate || customStartDate || customEndDate) && (
+                  <button
+                    onClick={() => {
+                      setCustomDate('');
+                      setCustomStartDate('');
+                      setCustomEndDate('');
+                    }}
+                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500"
+                    title="Clear custom date"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Quick Date Chips from Loaded Backlog */}
+          {datePreset === 'ALL' && uniqueDatesInOrders.length > 1 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-slate-100 pb-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
+                Jump to Day:
+              </span>
+              {uniqueDatesInOrders.slice(0, 8).map(([dStr, count]) => {
+                const dateObj = new Date(dStr);
+                const label = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                return (
+                  <button
+                    key={dStr}
+                    onClick={() => {
+                      setDatePreset('CUSTOM');
+                      setCustomDate(dStr);
+                    }}
+                    className="shrink-0 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-brand-50 hover:text-brand-700 border border-slate-200/80 text-[11px] font-semibold text-slate-700 transition-colors"
+                  >
+                    {label} <span className="text-slate-400 font-normal">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Bulk Action Sticky Bar (Appears when rows are selected) */}
@@ -344,7 +529,7 @@ export default function BacklogReconciliationPage() {
           </div>
         )}
 
-        {/* Filter and Search Bar */}
+        {/* Search & Cafeteria Toolbar */}
         <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm space-y-3">
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <div className="relative flex-1 w-full">
@@ -388,22 +573,26 @@ export default function BacklogReconciliationPage() {
                 <CheckCircle2 className="w-6 h-6" />
               </div>
               <h3 className="text-sm font-bold text-slate-900">
-                {orders.length === 0 ? '🎉 All Backlog Orders Reconciled!' : 'No matching unassigned orders'}
+                {orders.length === 0 ? '🎉 No Unassigned Orders for this Date!' : 'No matching unassigned orders'}
               </h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
                 {orders.length === 0
-                  ? 'Every single order in the system has been successfully allocated to a rider. Your fleet ledgers and delivery accounts are completely up to date.'
-                  : 'Try clearing your search query or cafeteria filter to view other unassigned orders.'}
+                  ? 'All historical orders for the selected date range have been assigned. Adjust the date filter to inspect other periods.'
+                  : 'Try clearing your search query or adjusting your filters to view other unassigned orders.'}
               </p>
-              {orders.length > 0 && (
+              {(searchQuery || selectedCafeteria !== 'ALL' || datePreset !== 'ALL') && (
                 <button
                   onClick={() => {
                     setSearchQuery('');
                     setSelectedCafeteria('ALL');
+                    setDatePreset('ALL');
+                    setCustomDate('');
+                    setCustomStartDate('');
+                    setCustomEndDate('');
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
                 >
-                  Clear Filters
+                  Reset All Filters
                 </button>
               )}
             </div>
