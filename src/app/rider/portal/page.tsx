@@ -28,6 +28,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { pushNotification, buildRiderNotification } from '@/lib/notifications';
+import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner';
 
 interface RiderOrder {
   id: string;
@@ -746,6 +747,9 @@ export default function RiderPortalPage() {
 
       {/* ── Main Content ──────────────────────────────────────────────────────── */}
       <main className="flex-1 p-4 space-y-3 pb-10">
+
+        {/* Mobile Phone Status Bar Push Notification Activation Banner */}
+        <NotificationPermissionBanner userType="rider" riderId={rider?.id} />
 
         {/* Offline notice */}
         {!isOnline && (

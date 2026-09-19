@@ -3,6 +3,7 @@ import { prisma, getInMemoryOrders, appendMockOrder, updateInMemoryOrder } from 
 import { fetchLiveGoChowOrders, fetchLiveGoChowOrdersWithStatus } from '@/services/gochowApi';
 import { classifyDeliveryType } from '@/lib/locations';
 import { getSyncSettings, isWithinOperatingWindow, getOperationalStatus } from '@/lib/settings';
+import { sendPushNotification } from '@/lib/pushService';
 
 export const dynamic = 'force-dynamic';
 
@@ -326,6 +327,22 @@ async function performSync(force: boolean = false) {
 
   // ── Build response ─────────────────────────────────────────────────────────
   const hasChanges = newlySyncedCount > 0 || statusUpdatedCount > 0;
+
+  if (newlySyncedCount > 0) {
+    // Asynchronously dispatch mobile phone push notification to all riders and dashboard
+    sendPushNotification(
+      {
+        title: newlySyncedCount === 1 ? '🛵 New Order on GoChoww!' : `🛵 ${newlySyncedCount} New Orders on GoChoww!`,
+        body:
+          newlySyncedCount === 1
+            ? `New order ready for pickup in the dispatch pool!`
+            : `${newlySyncedCount} new customer orders are waiting for pickup in the pool!`,
+        url: '/rider/portal',
+        tag: `new-order-${Date.now()}`,
+      },
+      { userType: 'all' }
+    ).catch((err) => console.warn('Background push dispatch error:', err));
+  }
 
   let message = 'No changes — all orders are up to date.';
   if (hasChanges) {
