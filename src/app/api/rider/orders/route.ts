@@ -225,24 +225,33 @@ export async function GET(request: NextRequest) {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
 
-      return NextResponse.json({
-        success: true,
-        rider: {
-          id: rider.id,
-          name: rider.name,
-          phone: rider.phone,
-          isOnline: rider.isOnline,
+      return NextResponse.json(
+        {
+          success: true,
+          rider: {
+            id: rider.id,
+            name: rider.name,
+            phone: rider.phone,
+            isOnline: rider.isOnline,
+          },
+          available: sortedAvailableOrders,
+          active: activeTasks,
+          completedToday,
+          otherRiders: otherRidersWithCounts,
+          counts: {
+            available: sortedAvailableOrders.length,
+            active: activeTasks.length,
+            completedToday: completedToday.length,
+          },
         },
-        available: sortedAvailableOrders,
-        active: activeTasks,
-        completedToday,
-        otherRiders: otherRidersWithCounts,
-        counts: {
-          available: sortedAvailableOrders.length,
-          active: activeTasks.length,
-          completedToday: completedToday.length,
-        },
-      });
+        {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            Pragma: 'no-cache',
+            Expires: '0',
+          },
+        }
+      );
     } catch (dbErr) {
       console.warn('[Rider Orders Fetch] DB fallback to memory:', dbErr);
       const mem = getInMemoryOrders();
@@ -264,23 +273,32 @@ export async function GET(request: NextRequest) {
           new Date(o.createdAt).getTime() >= dayAgo.getTime()
       );
 
-      return NextResponse.json({
-        success: true,
-        rider: {
-          id: rider.id,
-          name: rider.name,
-          phone: rider.phone,
-          isOnline: rider.isOnline,
+      return NextResponse.json(
+        {
+          success: true,
+          rider: {
+            id: rider.id,
+            name: rider.name,
+            phone: rider.phone,
+            isOnline: rider.isOnline,
+          },
+          available: availableOrders,
+          active: activeTasks,
+          completedToday,
+          counts: {
+            available: availableOrders.length,
+            active: activeTasks.length,
+            completedToday: completedToday.length,
+          },
         },
-        available: availableOrders,
-        active: activeTasks,
-        completedToday,
-        counts: {
-          available: availableOrders.length,
-          active: activeTasks.length,
-          completedToday: completedToday.length,
-        },
-      });
+        {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            Pragma: 'no-cache',
+            Expires: '0',
+          },
+        }
+      );
     }
   } catch (error: any) {
     console.error('[Rider Orders Fetch Error]:', error);
