@@ -25,6 +25,7 @@ import {
   Package,
   Truck,
 } from 'lucide-react';
+import { InteractiveDailyTrendChart, DailyDataPoint } from '@/components/charts/InteractiveDailyTrendChart';
 
 interface MonthlyWeeklyBreakdown {
   monthKey: string;
@@ -54,6 +55,7 @@ export default function ExecutiveDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [activeOrdersCount, setActiveOrdersCount] = useState<number>(0);
+  const [dailyData, setDailyData] = useState<DailyDataPoint[]>([]);
 
   // Live rider activity notifications (accept / pickup / deliver)
   const [riderNotifications, setRiderNotifications] = useState<
@@ -138,6 +140,48 @@ export default function ExecutiveDashboardPage() {
         pickUp: pick,
         other: oth,
       });
+
+      // Compute Daily Data Points for Interactive Daily Trend Chart
+      const dayMap = new Map<string, DailyDataPoint>();
+      for (const ord of allOrders) {
+        const d = new Date(ord.createdAt);
+        const dateKey = d.toISOString().split('T')[0];
+        const displayDate = d.toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        });
+
+        if (!dayMap.has(dateKey)) {
+          dayMap.set(dateKey, {
+            date: dateKey,
+            displayDate,
+            totalOrders: 0,
+            completedOrders: 0,
+            grossRevenue: 0,
+            sameSide: 0,
+            differentSide: 0,
+            pickUp: 0,
+            other: 0,
+          });
+        }
+
+        const row = dayMap.get(dateKey)!;
+        row.totalOrders += 1;
+        if (isSettledOrder(ord)) {
+          row.completedOrders += 1;
+        }
+        if (isRevenueOrder(ord)) {
+          row.grossRevenue += Number(ord.deliveryFee) || 0;
+        }
+        const dType = (ord.deliveryType || '').toLowerCase();
+        if (dType === 'same side') row.sameSide = (row.sameSide || 0) + 1;
+        else if (dType === 'different side') row.differentSide = (row.differentSide || 0) + 1;
+        else if (dType === 'pick up' || dType === 'pickup') row.pickUp = (row.pickUp || 0) + 1;
+        else row.other = (row.other || 0) + 1;
+      }
+      setDailyData(Array.from(dayMap.values()));
 
       // Compute Joint Monthly and Weekly Breakdown
       computeJointMonthlyWeekly(allOrders, allExpenses);
@@ -689,6 +733,18 @@ export default function ExecutiveDashboardPage() {
               <div className="text-[11px] text-slate-500 font-medium mt-1.5">Custom Order</div>
             </div>
           </div>
+        </section>
+
+        {/* ─────────────────────────────────────────────────────────────
+            INTERACTIVE DAILY VELOCITY & REVENUE/ORDER TRENDS
+        ───────────────────────────────────────────────────────────── */}
+        <section aria-label="Daily Trends">
+          <InteractiveDailyTrendChart
+            data={dailyData}
+            isLoading={isLoading}
+            title="Daily Velocity &amp; Order Trajectory"
+            description="Switch between revenue and order counts, filter by date presets, or select a custom date window"
+          />
         </section>
 
         {/* ─────────────────────────────────────────────────────────────

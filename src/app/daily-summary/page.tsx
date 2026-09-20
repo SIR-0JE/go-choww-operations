@@ -13,6 +13,7 @@ import {
   AlertOctagon,
   Calendar,
 } from 'lucide-react';
+import { InteractiveDailyTrendChart } from '@/components/charts/InteractiveDailyTrendChart';
 import {
   AreaChart,
   Area,
@@ -171,73 +172,14 @@ export default function DailySummaryPage() {
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
-            TOP: RECHARTS DAILY TREND GRAPH
+            TOP: INTERACTIVE DAILY TREND GRAPH (DUAL-MODE & DATE FILTER)
         ───────────────────────────────────────────────────────────── */}
-        <div className="rounded-2xl bg-white border border-slate-200/90 p-5 sm:p-6 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-brand-600" />
-                Daily Delivery Revenue &amp; Order Trajectory
-              </h3>
-              <p className="text-xs text-slate-500 font-medium">
-                Visualizing daily gross delivery revenues collected and order volume trends
-              </p>
-            </div>
-          </div>
-
-          <div className="w-full h-64 sm:h-72">
-            {isLoading ? (
-              <div className="h-full flex items-center justify-center text-slate-400">
-                <Activity className="w-8 h-8 animate-spin text-brand-500" />
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="dailyRevGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#f97316" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis
-                    dataKey="displayDate"
-                    stroke="#94a3b8"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e2e8f0' }}
-                    tickFormatter={(str) => str.split(',')[0]}
-                  />
-                  <YAxis
-                    stroke="#94a3b8"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e2e8f0' }}
-                    tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`}
-                  />
-                  <Tooltip content={<CustomDailyTooltip />} />
-                  <Legend
-                    verticalAlign="top"
-                    align="right"
-                    iconType="circle"
-                    iconSize={8}
-                    wrapperStyle={{ paddingBottom: '10px', fontSize: '11px', color: '#64748b' }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="grossRevenue"
-                    name="Delivery Revenue (₦)"
-                    stroke="#f97316"
-                    strokeWidth={2.5}
-                    fillOpacity={1}
-                    fill="url(#dailyRevGrad)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
+        <InteractiveDailyTrendChart
+          data={dailyData}
+          isLoading={isLoading}
+          title="Daily Delivery Revenue &amp; Order Trajectory"
+          description="Switch between revenue and order counts, filter by date presets, or pick a custom date window"
+        />
 
         {/* ─────────────────────────────────────────────────────────────
             BOTTOM: MODERN DATA GRID
