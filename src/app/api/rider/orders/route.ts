@@ -91,7 +91,6 @@ export async function GET(request: NextRequest) {
           ],
         },
         orderBy: { createdAt: 'desc' },
-        take: 60,
         select: {
           id: true,
           orderId: true,
@@ -160,7 +159,6 @@ export async function GET(request: NextRequest) {
           },
         },
         orderBy: { createdAt: 'desc' },
-        take: 100,
         select: {
           id: true,
           orderId: true,
