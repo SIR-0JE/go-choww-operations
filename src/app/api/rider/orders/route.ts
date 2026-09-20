@@ -91,6 +91,7 @@ export async function GET(request: NextRequest) {
           ],
         },
         orderBy: { createdAt: 'desc' },
+        take: 500,
         select: {
           id: true,
           orderId: true,
@@ -102,6 +103,7 @@ export async function GET(request: NextRequest) {
           createdAt: true,
           time: true,
           riderId: true,
+          pickupCode: true,
           handoverRequestedById: true,
           handoverRequestedByName: true,
           handoverDistance: true,
@@ -115,7 +117,7 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      // 2. Active Tasks claimed by this rider
+      // 2. Active Tasks claimed by this rider (Active Log)
       const activeTasks = await prisma.deliveryOrder.findMany({
         where: {
           riderId: rider.id,
@@ -135,6 +137,7 @@ export async function GET(request: NextRequest) {
           createdAt: true,
           time: true,
           customerPhone: true,
+          pickupCode: true,
           handoverRequestedById: true,
           handoverRequestedByName: true,
           handoverDistance: true,
@@ -159,6 +162,7 @@ export async function GET(request: NextRequest) {
           },
         },
         orderBy: { createdAt: 'desc' },
+        take: 500,
         select: {
           id: true,
           orderId: true,
@@ -169,6 +173,7 @@ export async function GET(request: NextRequest) {
           orderStatus: true,
           createdAt: true,
           time: true,
+          pickupCode: true,
         },
       });
 

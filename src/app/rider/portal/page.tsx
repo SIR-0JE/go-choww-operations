@@ -43,6 +43,7 @@ interface RiderOrder {
   createdAt: string;
   time: string;
   customerPhone?: string | null;
+  pickupCode?: string | null;
   riderId?: string | null;
   rider?: {
     id: string;
@@ -662,9 +663,14 @@ export default function RiderPortalPage() {
     });
   }, [availableOrders, selectedCafeteria]);
 
-  // ── Pickup code: last 4 chars of orderId ─────────────────────────────────────
-  const getPickupCode = (orderId: string) => {
-    const clean = orderId.replace(/[-\s]/g, '');
+  // ── Pickup code: real GoChow confirmationCode (fallback: last 4 chars of orderId) ──
+  const getPickupCode = (order: RiderOrder | string | null | undefined) => {
+    if (!order) return '';
+    if (typeof order === 'object' && order.pickupCode) {
+      return String(order.pickupCode).trim();
+    }
+    const orderIdStr = typeof order === 'string' ? order : order.orderId || '';
+    const clean = orderIdStr.replace(/[-\s]/g, '');
     return clean.slice(-4).toUpperCase();
   };
 
@@ -1180,7 +1186,7 @@ export default function RiderPortalPage() {
               activeTasks.map((ord) => {
                 const isLoadingAction = actionLoadingId === ord.id || actionLoadingId === ord.orderId;
                 const isDispatched = (ord.orderStatus || '').toLowerCase().includes('disp');
-                const pickupCode = getPickupCode(ord.orderId);
+                const pickupCode = getPickupCode(ord);
 
                 return (
                   <div
@@ -1456,7 +1462,7 @@ export default function RiderPortalPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">Pickup Code:</span>
-                <span className="font-black text-amber-700 tracking-widest">{getPickupCode(transferModalOrder.orderId)}</span>
+                <span className="font-black text-amber-700 tracking-widest">{getPickupCode(transferModalOrder)}</span>
               </div>
             </div>
 
@@ -1617,7 +1623,7 @@ export default function RiderPortalPage() {
               </div>
               <div className="flex items-center justify-between pt-1 border-t border-rose-100">
                 <span className="text-slate-500 font-medium">Pickup Code:</span>
-                <span className="font-black text-rose-800 tracking-widest text-sm">{getPickupCode(dropModalOrder.orderId)}</span>
+                <span className="font-black text-rose-800 tracking-widest text-sm">{getPickupCode(dropModalOrder)}</span>
               </div>
             </div>
 

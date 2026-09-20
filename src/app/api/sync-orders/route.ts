@@ -202,6 +202,7 @@ async function performSync(force: boolean = false) {
         const deliveryAddress = String(order.deliveryAddress || 'Campus Hostel Block').trim();
         // Extract phone from GoChow user profile if present
         const customerPhone = String(order.user?.phone || order.user?.phoneNumber || order.customerPhone || '').trim() || null;
+        const pickupCode = order.confirmationCode ? String(order.confirmationCode).trim() : (order.pickupCode ? String(order.pickupCode).trim() : null);
 
         const deliveryFee = Number(order.deliveryFee ?? 0);
         const foodTotal = Number(order.subtotal ?? order.foodTotal ?? 0);
@@ -227,6 +228,7 @@ async function performSync(force: boolean = false) {
             orderStatus: liveOrderStatus,
             paymentStatus: livePaymentStatus,
             ...(customerPhone && { customerPhone }),
+            ...(pickupCode && { pickupCode }),
           });
         } else {
           const currentDbStatus = (existing.orderStatus || '').trim().toLowerCase();
@@ -235,13 +237,15 @@ async function performSync(force: boolean = false) {
 
           const updateStatus = shouldSyncUpdateOrderStatus(currentDbStatus, liveOrderStatus, hasRider);
           const updatePay = currentDbPay !== livePaymentStatus.toLowerCase();
+          const updateCode = Boolean(pickupCode && (existing as any).pickupCode !== pickupCode);
 
-          if (updateStatus || updatePay) {
+          if (updateStatus || updatePay || updateCode) {
             toUpdate.push({
               id: existing.id,
               status: updateStatus ? liveOrderStatus : existing.orderStatus,
               pay: updatePay ? livePaymentStatus : existing.paymentStatus,
-            });
+              ...(updateCode && { pickupCode }),
+            } as any);
           }
         }
       }
@@ -276,6 +280,7 @@ async function performSync(force: boolean = false) {
               data: {
                 orderStatus: u.status,
                 paymentStatus: u.pay,
+                ...((u as any).pickupCode && { pickupCode: (u as any).pickupCode }),
               },
             });
             statusUpdatedCount++;

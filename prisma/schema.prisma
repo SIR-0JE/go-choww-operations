@@ -45,6 +45,7 @@ model DeliveryOrder {
   orderStatus     String   // Values: "Completed", "Cancelled", "Pending"
   paymentStatus   String   // Values: "success", "failed", "pending"
   customerPhone   String?  // Customer contact number (from GoChow user profile)
+  pickupCode      String?  // Real 4-digit cafeteria vendor pickup code from GoChow (confirmationCode)
 
   riderId                 String?
   rider                   Rider?   @relation(fields: [riderId], references: [id], onDelete: SetNull)
