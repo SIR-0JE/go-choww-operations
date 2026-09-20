@@ -300,9 +300,6 @@ export default function RiderPortalPage() {
           if (data.otherRiders) {
             setOtherRiders(data.otherRiders);
           }
-          if (newActive.length > 0 && activeTasks.length === 0 && !isBackground) {
-            setActiveTab('active');
-          }
         }
       } catch (err: any) {
         console.error('Failed to load rider orders:', err);
@@ -311,7 +308,7 @@ export default function RiderPortalPage() {
         setIsRefreshing(false);
       }
     },
-    [router, playAlertChime, activeTasks.length]
+    [router, playAlertChime]
   );
 
   // ── High-Speed Real-Time Synchronization (3.5s cycle + BroadcastChannel) ────
@@ -359,44 +356,30 @@ export default function RiderPortalPage() {
       // ignore
     }
 
-    const handleCustomRiderActivity = () => {
-      fetchFast();
-    };
-    window.addEventListener('rider-activity', handleCustomRiderActivity);
-    window.addEventListener('orders-synced', handleCustomRiderActivity);
-
     return () => {
       clearInterval(fastInterval);
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
       window.removeEventListener('focus', handleVisibilityOrFocus);
-      window.removeEventListener('rider-activity', handleCustomRiderActivity);
-      window.removeEventListener('orders-synced', handleCustomRiderActivity);
       if (channel) channel.close();
     };
   }, [fetchPortalData]);
 
-  // ── Toggle Online Status ────────────────────────────────────────────────────
+  // ── Online / Offline Toggle ──────────────────────────────────────────────────
   const toggleOnlineStatus = async () => {
-    const newStatus = !isOnline;
-    setIsOnline(newStatus);
+    const nextStatus = !isOnline;
+    setIsOnline(nextStatus);
     const localRiderId = typeof window !== 'undefined' ? localStorage.getItem('rider_id') : null;
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (localRiderId) headers['x-rider-id'] = localRiderId;
-      const res = await fetch('/api/rider/status', {
-        method: 'PATCH',
+      await fetch('/api/rider/status', {
+        method: 'POST',
         headers,
-        body: JSON.stringify({ isOnline: newStatus }),
+        body: JSON.stringify({ isOnline: nextStatus }),
       });
-      const data = await res.json();
-      if (data.success) {
-        showToast(data.message, 'success');
-        if (typeof window !== 'undefined' && rider) {
-          localStorage.setItem('rider_session', JSON.stringify({ ...rider, isOnline: newStatus }));
-        }
-      }
+      showToast(nextStatus ? 'You are now On Duty!' : 'You are now Off Duty.', 'success');
+      fetchPortalData(false);
     } catch {
-      setIsOnline(!newStatus);
       showToast('Could not update status. Check your connection.', 'error');
     }
   };
@@ -447,6 +430,9 @@ export default function RiderPortalPage() {
       return;
     }
 
+    const targetOrder = availableOrders.find((o) => o.id === orderId || o.orderId === orderId);
+    const targetCaf = targetOrder?.cafeteriaName;
+
     setActionLoadingId(orderId);
     const localRiderId = typeof window !== 'undefined' ? localStorage.getItem('rider_id') : null;
     try {
@@ -459,10 +445,34 @@ export default function RiderPortalPage() {
       });
       const data = await res.json();
       if (data.success) {
-        showToast(data.message, 'success');
+        if (action === 'claim') {
+          // Check if there are other available orders from this same cafeteria
+          const remainingSiblings = targetCaf
+            ? availableOrders.filter(
+                (o) =>
+                  o.id !== orderId &&
+                  o.orderId !== orderId &&
+                  (o.cafeteriaName || '').trim().toLowerCase() === targetCaf.trim().toLowerCase()
+              )
+            : [];
+
+          if (remainingSiblings.length > 0) {
+            showToast(
+              `✅ Accepted! 💡 ${remainingSiblings.length} more order(s) available at ${targetCaf}. Claim them together to save trips!`,
+              'success'
+            );
+          } else {
+            showToast(data.message || '✅ Order accepted and added to your Active tasks!', 'success');
+          }
+          // Intentionally stay on the Pool tab so the rider can continue batch-claiming orders
+        } else if (action === 'deliver') {
+          showToast(data.message || 'Order completed!', 'success');
+          setActiveTab('completed');
+        } else {
+          showToast(data.message, 'success');
+        }
+
         await fetchPortalData(false);
-        if (action === 'claim') setActiveTab('active');
-        else if (action === 'deliver') setActiveTab('completed');
         
         // Broadcast to all other tabs/windows in real time
         broadcastRiderUpdate(action, orderId, data.order);
@@ -662,6 +672,24 @@ export default function RiderPortalPage() {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   }, [availableOrders, selectedCafeteria]);
+
+  // ── Smart Batching Advice: Match active pickup cafeterias with pool orders ───
+  const activeBatchAdvices = React.useMemo(() => {
+    const awaitingPickupCafeterias = new Set(
+      activeTasks
+        .filter((t) => !(t.orderStatus || '').toLowerCase().includes('disp'))
+        .map((t) => (t.cafeteriaName || '').trim().toLowerCase())
+        .filter(Boolean)
+    );
+
+    const advices: { cafeteriaName: string; poolCount: number }[] = [];
+    uniqueCafeterias.forEach((c) => {
+      if (awaitingPickupCafeterias.has(c.name.trim().toLowerCase()) && c.count > 0) {
+        advices.push({ cafeteriaName: c.name, poolCount: c.count });
+      }
+    });
+    return advices;
+  }, [activeTasks, uniqueCafeterias]);
 
   // ── Pickup code: real GoChow confirmationCode (fallback: last 4 chars of orderId) ──
   const getPickupCode = (order: RiderOrder | string | null | undefined) => {
@@ -974,6 +1002,39 @@ export default function RiderPortalPage() {
               </div>
             )}
 
+            {/* ── Active Pickup Batch Opportunities Banner ── */}
+            {activeBatchAdvices.length > 0 && (
+              <div className="space-y-2">
+                {activeBatchAdvices.map((adv) => (
+                  <div
+                    key={adv.cafeteriaName}
+                    className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 flex items-start justify-between gap-3 shadow-sm"
+                  >
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-black uppercase tracking-wider text-amber-800">
+                          Smart Batching Advice
+                        </p>
+                        <p className="text-xs font-semibold text-amber-900 mt-0.5">
+                          You have an active pickup at <strong className="underline">{adv.cafeteriaName}</strong>, and there {adv.poolCount === 1 ? 'is' : 'are'} <strong>{adv.poolCount} more order{adv.poolCount > 1 ? 's' : ''}</strong> waiting there!
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCafeteria(adv.cafeteriaName)}
+                      className="px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 shadow-sm transition-all"
+                    >
+                      View ({adv.poolCount})
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {filteredAvailableOrders.length === 0 ? (
               <div className="py-16 text-center border border-dashed border-slate-300 rounded-2xl bg-white p-6">
                 <Bike className="w-10 h-10 mx-auto mb-3 text-slate-300 stroke-[1.5]" />
@@ -999,6 +1060,9 @@ export default function RiderPortalPage() {
                 const isLoadingAction = actionLoadingId === ord.id || actionLoadingId === ord.orderId;
                 const isAtCap = atCapacity;
                 const isPeerClaimed = Boolean(ord.rider && ord.rider.id !== rider?.id);
+                const sameCafOrdersCount = availableOrders.filter(
+                  (o) => (o.cafeteriaName || '').trim().toLowerCase() === (ord.cafeteriaName || '').trim().toLowerCase()
+                ).length;
 
                 return (
                   <div
@@ -1035,6 +1099,30 @@ export default function RiderPortalPage() {
                           <p className="text-sm font-bold text-slate-900 truncate">{ord.cafeteriaName || 'Campus Cafeteria'}</p>
                         </div>
                       </div>
+
+                      {/* Smart Batching Opportunity Pill on Card */}
+                      {sameCafOrdersCount > 1 && (
+                        <div className="flex items-center justify-between bg-amber-50/80 border border-amber-200/80 rounded-xl px-3 py-1.5 text-xs text-amber-900">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span className="font-bold truncate">
+                              💡 {sameCafOrdersCount} orders at this cafeteria
+                            </span>
+                          </div>
+                          {selectedCafeteria === 'all' && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedCafeteria(ord.cafeteriaName);
+                              }}
+                              className="text-[11px] text-amber-700 hover:text-amber-900 font-extrabold underline shrink-0 ml-2"
+                            >
+                              Batch View
+                            </button>
+                          )}
+                        </div>
+                      )}
 
                       <div className="border-t border-slate-100" />
 
