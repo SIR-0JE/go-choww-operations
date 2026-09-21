@@ -501,8 +501,8 @@ export default function RiderPortalPage() {
           }
           // Intentionally stay on the Pool tab so the rider can continue batch-claiming orders
         } else if (action === 'deliver') {
-          showToast(data.message || 'Order completed!', 'success');
-          setActiveTab('completed');
+          showToast(data.message || '✅ Order delivered successfully and moved to Done!', 'success');
+          // Intentionally stay on Active tab so rider can continue with remaining deliveries
         } else {
           showToast(data.message, 'success');
         }
