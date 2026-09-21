@@ -677,7 +677,7 @@ export default function RiderPortalPage() {
   const activeBatchAdvices = React.useMemo(() => {
     const awaitingPickupCafeterias = new Set(
       activeTasks
-        .filter((t) => !(t.orderStatus || '').toLowerCase().includes('disp'))
+        .filter((t) => !['in transit', 'dispatched'].includes((t.orderStatus || '').toLowerCase()))
         .map((t) => (t.cafeteriaName || '').trim().toLowerCase())
         .filter(Boolean)
     );
@@ -1059,7 +1059,7 @@ export default function RiderPortalPage() {
               filteredAvailableOrders.map((ord) => {
                 const isLoadingAction = actionLoadingId === ord.id || actionLoadingId === ord.orderId;
                 const isAtCap = atCapacity;
-                const isPeerClaimed = Boolean(ord.rider && ord.rider.id !== rider?.id);
+                const isPeerClaimed = Boolean(ord.riderId && ord.riderId !== rider?.id);
                 const sameCafOrdersCount = availableOrders.filter(
                   (o) => (o.cafeteriaName || '').trim().toLowerCase() === (ord.cafeteriaName || '').trim().toLowerCase()
                 ).length;
@@ -1079,7 +1079,7 @@ export default function RiderPortalPage() {
                         <div className="flex items-center gap-1.5">
                           <Users className="w-3.5 h-3.5 text-indigo-600" />
                           <span className="text-xs font-bold">
-                            Accepted by <span className="underline decoration-indigo-300">{ord.rider?.name}</span>
+                            Accepted by <span className="underline decoration-indigo-300">{ord.rider?.name || 'Another Rider'}</span>
                           </span>
                         </div>
                         <span className="text-[10px] font-extrabold uppercase tracking-wider bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
@@ -1273,7 +1273,7 @@ export default function RiderPortalPage() {
             ) : (
               activeTasks.map((ord) => {
                 const isLoadingAction = actionLoadingId === ord.id || actionLoadingId === ord.orderId;
-                const isDispatched = (ord.orderStatus || '').toLowerCase().includes('disp');
+                const isDispatched = ['in transit', 'dispatched'].includes((ord.orderStatus || '').toLowerCase());
                 const pickupCode = getPickupCode(ord);
 
                 return (

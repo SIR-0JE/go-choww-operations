@@ -24,10 +24,10 @@ export const dynamic = 'force-dynamic';
 function mapOrderStatus(raw: string): string {
   const s = (raw || '').toLowerCase().trim();
   if (s === 'delivered' || s === 'completed') return 'Completed';
-  if (s === 'dispatched') return 'Dispatched';
+  if (s === 'cancelled' || s === 'canceled') return 'Cancelled';
+  if (s === 'dispatched') return 'Ready'; // Ready for rider pickup in dispatch pool
   if (s === 'ready') return 'Ready';
   if (s === 'preparing') return 'Preparing';
-  if (s === 'cancelled' || s === 'canceled') return 'Cancelled';
   if (s === 'confirmed' || s === 'paid' || s === 'pending') return 'Confirmed';
   return 'Confirmed';
 }

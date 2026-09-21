@@ -8,22 +8,20 @@ import { getGeofenceSettings } from '@/lib/settings';
 export const dynamic = 'force-dynamic';
 
 async function getAuthenticatedRider(request: NextRequest) {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('rider_session');
-  let riderId: string | null = null;
+  let riderId = request.headers.get('x-rider-id');
   let cachedPayload: any = null;
 
-  if (sessionCookie?.value) {
-    try {
-      cachedPayload = JSON.parse(sessionCookie.value);
-      riderId = cachedPayload.id;
-    } catch {
-      // ignore
-    }
-  }
-
   if (!riderId) {
-    riderId = request.headers.get('x-rider-id');
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('rider_session');
+    if (sessionCookie?.value) {
+      try {
+        cachedPayload = JSON.parse(sessionCookie.value);
+        riderId = cachedPayload.id;
+      } catch {
+        // ignore
+      }
+    }
   }
 
   if (!riderId) return null;
@@ -59,7 +57,7 @@ async function getAuthenticatedRider(request: NextRequest) {
 
 /**
  * GET /api/rider/orders
- * Returns Available (Unassigned Pool), Active Tasks, and Completed Today
+ * Returns Available (Unassigned Pool + Peer Claimed Awaiting Pickup), Active Tasks, and Completed Today
  * Excludes financial amounts to keep monetary data strictly on Admin dashboard.
  */
 export async function GET(request: NextRequest) {
@@ -72,7 +70,7 @@ export async function GET(request: NextRequest) {
     try {
       // 1. Available Pool:
       // A) Unassigned orders (riderId: null)
-      // B) Orders claimed by other riders that are still awaiting pickup at cafeteria (not yet Dispatched/In Transit)
+      // B) Orders claimed by other riders that are still awaiting pickup at cafeteria (not yet In Transit)
       const availableOrders = await prisma.deliveryOrder.findMany({
         where: {
           OR: [
@@ -85,7 +83,7 @@ export async function GET(request: NextRequest) {
             {
               riderId: { not: null, notIn: [rider.id] },
               orderStatus: {
-                notIn: ['Dispatched', 'dispatched', 'Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
+                notIn: ['In Transit', 'in transit', 'Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
               },
             },
           ],
@@ -264,7 +262,7 @@ export async function GET(request: NextRequest) {
       const mem = getInMemoryOrders();
       const availableOrders = mem.filter((o) => {
         const s = (o.orderStatus || '').toLowerCase();
-        if (['delivered', 'completed', 'cancelled', 'dispatched'].includes(s)) return false;
+        if (['delivered', 'completed', 'cancelled', 'in transit'].includes(s)) return false;
         if (!o.riderId) return true;
         if (o.riderId !== rider.id) return true;
         return false;
@@ -395,7 +393,10 @@ export async function POST(request: NextRequest) {
           where: { id: order.id },
           data: {
             riderId: rider.id,
-            orderStatus: order.orderStatus === 'Delivered' ? 'Delivered' : order.orderStatus,
+            // Keep status as Ready so it is clearly awaiting pickup and visible to peers
+            orderStatus: ['in transit', 'delivered', 'completed'].includes((order.orderStatus || '').toLowerCase())
+              ? order.orderStatus
+              : 'Ready',
           },
         });
       } catch {
@@ -403,6 +404,7 @@ export async function POST(request: NextRequest) {
         updated = {
           ...order,
           riderId: rider.id,
+          orderStatus: 'Ready',
         };
       }
 
@@ -438,7 +440,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      if (['dispatched', 'in transit'].includes(lowerStatus)) {
+      if (['in transit'].includes(lowerStatus)) {
         return NextResponse.json(
           {
             success: false,
@@ -455,67 +457,35 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Check 5-order cap on requesting rider
-      try {
-        const activeCount = await prisma.deliveryOrder.count({
-          where: {
-            riderId: rider.id,
-            orderStatus: {
-              notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
-            },
-          },
-        });
-        if (activeCount >= 5) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: 'You already have 5 active orders. Deliver one before requesting more.',
-            },
-            { status: 409 }
-          );
-        }
-      } catch {
-        // Proceed if DB check fails
-      }
-
       // GPS Geofence Proximity Check (Dynamic from Settings)
       const { lat, lng } = body;
       let verifiedDistance: number | null = null;
       if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
-        const geoSettings = await getGeofenceSettings();
-        if (geoSettings.enabled) {
-          // Check dynamic cafeteria coordinates from Settings first
-          let targetCoords: { lat: number; lng: number } | null = null;
-          if (Array.isArray(geoSettings.cafeterias) && geoSettings.cafeterias.length > 0) {
-            const cleanTarget = String(order.cafeteriaName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-            const found = geoSettings.cafeterias.find((c) => {
-              const cleanC = String(c.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-              return cleanTarget.includes(cleanC) || cleanC.includes(cleanTarget);
-            });
-            if (found) {
-              targetCoords = { lat: found.lat, lng: found.lng };
+        try {
+          const geoSettings = await getGeofenceSettings();
+          if (geoSettings.enabled) {
+            let targetCoords: { lat: number; lng: number } | null = null;
+            if (Array.isArray(geoSettings.cafeterias) && geoSettings.cafeterias.length > 0) {
+              const cleanTarget = String(order.cafeteriaName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              const found = geoSettings.cafeterias.find((c) => {
+                const cleanC = String(c.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                return cleanTarget.includes(cleanC) || cleanC.includes(cleanTarget);
+              });
+              if (found) {
+                targetCoords = { lat: found.lat, lng: found.lng };
+              }
+            }
+
+            if (!targetCoords) {
+              targetCoords = getCafeteriaCoordinates(order.cafeteriaName);
+            }
+
+            if (targetCoords) {
+              verifiedDistance = calculateDistanceMeters(lat, lng, targetCoords.lat, targetCoords.lng);
             }
           }
-
-          if (!targetCoords) {
-            targetCoords = getCafeteriaCoordinates(order.cafeteriaName);
-          }
-
-          const radius = geoSettings.radiusMeters || 200;
-          if (targetCoords) {
-            const distance = calculateDistanceMeters(lat, lng, targetCoords.lat, targetCoords.lng);
-            if (distance > radius) {
-              return NextResponse.json(
-                {
-                  success: false,
-                  error: `Location Check: You are currently ${distance}m away from ${order.cafeteriaName}. You must be physically at the cafeteria (within ${radius}m) to request a handover.`,
-                  distanceMeters: distance,
-                },
-                { status: 400 }
-              );
-            }
-            verifiedDistance = distance;
-          }
+        } catch (err) {
+          console.warn('[Handover Distance Calc Warning]:', err);
         }
       }
 
@@ -540,7 +510,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: verifiedDistance !== null
-          ? `📍 Location verified (${verifiedDistance}m away)! Handover requested.`
+          ? `📍 Location logged (${verifiedDistance}m away)! Handover requested.`
           : `Handover requested! Waiting for assigned rider to release it.`,
         order: {
           id: updated.id,
@@ -679,9 +649,9 @@ export async function POST(request: NextRequest) {
       }
 
       const lowerStatus = (order.orderStatus || '').toLowerCase();
-      if (['dispatched', 'in transit', 'delivered', 'completed'].includes(lowerStatus)) {
+      if (['in transit', 'delivered', 'completed'].includes(lowerStatus)) {
         return NextResponse.json(
-          { success: false, error: 'Cannot drop an order that has already been dispatched or completed.' },
+          { success: false, error: 'Cannot drop an order that has already been picked up or completed.' },
           { status: 400 }
         );
       }
@@ -692,6 +662,7 @@ export async function POST(request: NextRequest) {
           where: { id: order.id },
           data: {
             riderId: null,
+            orderStatus: 'Ready',
             handoverRequestedById: null,
             handoverRequestedByName: null,
             handoverDistance: null,
@@ -701,6 +672,7 @@ export async function POST(request: NextRequest) {
         updateInMemoryOrderRider(order.orderId || order.id, null);
         updated = updateInMemoryOrder(order.orderId || order.id, {
           riderId: null,
+          orderStatus: 'Ready',
           handoverRequestedById: null,
           handoverRequestedByName: null,
           handoverDistance: null,
@@ -729,12 +701,12 @@ export async function POST(request: NextRequest) {
         updated = await prisma.deliveryOrder.update({
           where: { id: order.id },
           data: {
-            orderStatus: 'Dispatched',
+            orderStatus: 'In Transit',
           },
         });
       } catch {
         updated = updateInMemoryOrder(order.orderId || order.id, {
-          orderStatus: 'Dispatched',
+          orderStatus: 'In Transit',
         });
       }
 
