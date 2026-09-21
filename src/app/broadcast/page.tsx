@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Megaphone,
   Search,
-  Filter,
   Calendar,
   Phone,
   Mail,
@@ -16,19 +15,21 @@ import {
   CheckCircle2,
   Users,
   Store,
-  ExternalLink,
-  ChevronRight,
-  ArrowUpDown,
   FileSpreadsheet,
-  Layers,
   ShoppingBag,
   RefreshCw,
   X,
-  Clock,
+  QrCode,
+  Smartphone,
+  Check,
+  Pause,
+  Play,
+  Square,
+  AlertCircle,
+  Unlink,
+  Wifi,
+  WifiOff,
   Flame,
-  Gift,
-  Tag,
-  Share2,
 } from 'lucide-react';
 import { CustomerAudienceMember, BroadcastCustomersResponse } from '../api/broadcast/customers/route';
 
@@ -99,16 +100,60 @@ export default function BroadcastMarketingPage() {
   const [customEmailSubject, setCustomEmailSubject] = useState(CAMPAIGN_PRESETS[0].subject);
   const [customEmailBody, setCustomEmailBody] = useState(CAMPAIGN_PRESETS[0].email);
 
-  // ── Toast & Copy Notifications ───────────────────────────────────────────────
+  // ── WhatsApp Device Linking State ───────────────────────────────────────────
+  const [waConnection, setWaConnection] = useState<{
+    status: 'disconnected' | 'connecting' | 'qr_ready' | 'connected' | 'error';
+    qrCodeDataUrl: string | null;
+    user: { id?: string; name?: string; phone?: string } | null;
+    lastError: string | null;
+  }>({
+    status: 'disconnected',
+    qrCodeDataUrl: null,
+    user: null,
+    lastError: null,
+  });
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [isConnectingWa, setIsConnectingWa] = useState(false);
+
+  // ── Automated Background Broadcast Queue State ──────────────────────────────
+  const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
+  const [broadcastQueue, setBroadcastQueue] = useState<{
+    campaignId: string;
+    status: 'idle' | 'running' | 'paused' | 'completed' | 'stopped' | 'error';
+    total: number;
+    sent: number;
+    failed: number;
+    currentIndex: number;
+    currentContact: { name: string; phone: string } | null;
+    logs: Array<{
+      id: string;
+      timestamp: string;
+      name: string;
+      phone: string;
+      status: 'success' | 'failed';
+      error?: string;
+    }>;
+  }>({
+    campaignId: '',
+    status: 'idle',
+    total: 0,
+    sent: 0,
+    failed: 0,
+    currentIndex: 0,
+    currentContact: null,
+    logs: [],
+  });
+
+  // ── Toast Notifications ─────────────────────────────────────────────────────
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // ── WhatsApp Queue Modal ────────────────────────────────────────────────────
+  // ── Manual Step-by-Step WhatsApp Queue Modal ────────────────────────────────
   const [queueModalOpen, setQueueModalOpen] = useState(false);
   const [queueIndex, setQueueIndex] = useState(0);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
   // ── Fetch Customers from API ────────────────────────────────────────────────
@@ -150,7 +195,6 @@ export default function BroadcastMarketingPage() {
             activeTimeframeLabel: 'Filtered View',
           }
         );
-        // Default select all currently fetched customers
         setSelectedCustomerIds(new Set(data.customers.map((c) => c.id)));
       } else {
         showToast('Could not load audience data.');
@@ -167,6 +211,170 @@ export default function BroadcastMarketingPage() {
   useEffect(() => {
     fetchAudience(true);
   }, [fetchAudience]);
+
+  // ── Fetch & Poll WhatsApp Connection Status ─────────────────────────────────
+  const fetchWhatsAppStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/whatsapp/status');
+      const data = await res.json();
+      if (data.success) {
+        setWaConnection({
+          status: data.status,
+          qrCodeDataUrl: data.qrCodeDataUrl,
+          user: data.user,
+          lastError: data.lastError,
+        });
+
+        // If newly connected and QR modal is open, close it
+        if (data.status === 'connected' && isQrModalOpen) {
+          setIsQrModalOpen(false);
+          showToast(`✅ WhatsApp Linked: +${data.user?.phone || 'Connected'}`);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch WhatsApp status:', err);
+    }
+  }, [isQrModalOpen]);
+
+  // Poll WhatsApp status regularly (every 2.5s if QR modal is open, otherwise every 10s)
+  useEffect(() => {
+    fetchWhatsAppStatus();
+    const intervalTime = isQrModalOpen ? 2500 : 10000;
+    const timer = setInterval(fetchWhatsAppStatus, intervalTime);
+    return () => clearInterval(timer);
+  }, [fetchWhatsAppStatus, isQrModalOpen]);
+
+  // ── Poll Broadcast Queue Status ─────────────────────────────────────────────
+  const fetchBroadcastProgress = useCallback(async () => {
+    try {
+      const res = await fetch('/api/whatsapp/broadcast');
+      const data = await res.json();
+      if (data.success && data.queue) {
+        setBroadcastQueue(data.queue);
+        if (data.queue.status === 'running') {
+          setIsBroadcastModalOpen(true);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to poll broadcast queue:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBroadcastProgress();
+    const timer = setInterval(() => {
+      if (isBroadcastModalOpen || broadcastQueue.status === 'running') {
+        fetchBroadcastProgress();
+      }
+    }, 1500);
+    return () => clearInterval(timer);
+  }, [fetchBroadcastProgress, isBroadcastModalOpen, broadcastQueue.status]);
+
+  // ── Connect WhatsApp (Generate QR) ──────────────────────────────────────────
+  const handleConnectWhatsApp = async () => {
+    setIsConnectingWa(true);
+    setIsQrModalOpen(true);
+    try {
+      const res = await fetch('/api/whatsapp/status', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setWaConnection({
+          status: data.status,
+          qrCodeDataUrl: data.qrCodeDataUrl,
+          user: data.user,
+          lastError: data.lastError,
+        });
+      }
+    } catch (err) {
+      showToast('Failed to generate WhatsApp QR code.');
+    } finally {
+      setIsConnectingWa(false);
+    }
+  };
+
+  // ── Logout / Unlink WhatsApp ────────────────────────────────────────────────
+  const handleLogoutWhatsApp = async () => {
+    if (!confirm('Are you sure you want to unlink your WhatsApp account?')) return;
+    try {
+      const res = await fetch('/api/whatsapp/logout', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setWaConnection({
+          status: 'disconnected',
+          qrCodeDataUrl: null,
+          user: null,
+          lastError: null,
+        });
+        showToast('WhatsApp account unlinked.');
+      }
+    } catch (err) {
+      showToast('Failed to unlink WhatsApp.');
+    }
+  };
+
+  // ── Launch Automated 1-Click Broadcast ──────────────────────────────────────
+  const handleLaunchAutomatedBroadcast = async () => {
+    if (waConnection.status !== 'connected') {
+      setIsQrModalOpen(true);
+      handleConnectWhatsApp();
+      return;
+    }
+
+    if (targetWhatsAppCustomers.length === 0) {
+      showToast('No recipients with valid phone numbers in selection.');
+      return;
+    }
+
+    if (
+      !confirm(
+        `🚀 Start automated background dispatch to all ${targetWhatsAppCustomers.length} selected customers?\n\nMessages will be sent automatically with safe pacing.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setIsBroadcastModalOpen(true);
+      const res = await fetch('/api/whatsapp/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'start',
+          campaignId: `gochow_${selectedPresetId}_${Date.now()}`,
+          recipients: targetWhatsAppCustomers,
+          template: customWhatsappMsg,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.queue) {
+        setBroadcastQueue(data.queue);
+        showToast(`🚀 Automated broadcast launched for ${data.queue.total} contacts!`);
+      } else {
+        showToast(data.error || 'Failed to start automated broadcast.');
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Network error starting broadcast.');
+    }
+  };
+
+  // ── Control Broadcast Queue (Pause / Resume / Stop) ─────────────────────────
+  const handleControlBroadcast = async (action: 'pause' | 'resume' | 'stop') => {
+    try {
+      const res = await fetch('/api/whatsapp/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (data.success && data.queue) {
+        setBroadcastQueue(data.queue);
+        showToast(`Campaign ${action}d.`);
+      }
+    } catch (err) {
+      showToast(`Failed to ${action} broadcast.`);
+    }
+  };
 
   // ── Extract Unique Cafeterias for Filter ─────────────────────────────────────
   const availableCafeterias = useMemo(() => {
@@ -366,6 +574,8 @@ export default function BroadcastMarketingPage() {
     }
   };
 
+  const progressPercent = broadcastQueue.total > 0 ? Math.round((broadcastQueue.currentIndex / broadcastQueue.total) * 100) : 0;
+
   return (
     <div className="space-y-6 pb-20">
       {/* ── Toast Alert Banner ──────────────────────────────────────────────── */}
@@ -382,8 +592,8 @@ export default function BroadcastMarketingPage() {
         </div>
       )}
 
-      {/* ── Page Header & Title ─────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* ── Page Header & WhatsApp Device Status Bar ───────────────────────── */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm">
@@ -394,21 +604,52 @@ export default function BroadcastMarketingPage() {
                 Customer Broadcast & Offers
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 font-medium">
-                Auto-aggregated customer directory, 30-day date filters, and 1-click WhatsApp & Email campaigns.
+                Auto-aggregated customer directory, 30-day date filters, and 1-click automated bulk WhatsApp campaigns.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Global Refresh & Sync */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        {/* WhatsApp Device Connection Pill */}
+        <div className="flex items-center gap-2.5 self-start md:self-auto">
+          {waConnection.status === 'connected' ? (
+            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-2xl px-3.5 py-2 text-emerald-950 shadow-xs">
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              <div className="text-xs">
+                <span className="font-bold text-emerald-900">WhatsApp Linked: </span>
+                <span className="font-mono font-black text-emerald-800">
+                  +{waConnection.user?.phone || 'Connected'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogoutWhatsApp}
+                className="text-[10px] text-red-600 hover:text-red-800 font-bold ml-1 p-1 hover:bg-red-100 rounded-md transition-all flex items-center gap-0.5"
+                title="Unlink WhatsApp"
+              >
+                <Unlink className="w-3 h-3" />
+                <span>Unlink</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleConnectWhatsApp}
+              disabled={isConnectingWa}
+              className="px-4 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center gap-2 shadow-sm transition-all animate-pulse"
+            >
+              <QrCode className="w-4 h-4 text-emerald-200" />
+              <span>📲 Link WhatsApp (1-Click Auto-Pilot)</span>
+            </button>
+          )}
+
           <button
             onClick={() => fetchAudience(false)}
             disabled={isRefreshing}
-            className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 text-slate-700 font-bold text-xs flex items-center gap-2 shadow-xs transition-all"
+            className="px-3 py-2 rounded-2xl bg-white border border-slate-200 hover:border-slate-300 text-slate-700 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>{isRefreshing ? 'Updating...' : 'Refresh Audience'}</span>
+            <span>{isRefreshing ? 'Updating...' : 'Refresh'}</span>
           </button>
         </div>
       </div>
@@ -524,7 +765,7 @@ export default function BroadcastMarketingPage() {
           </div>
         </div>
 
-        {/* Custom date range pickers (visible if custom is selected) */}
+        {/* Custom date range pickers */}
         {timeframe === 'custom' && (
           <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 flex flex-wrap items-center gap-3 animate-in fade-in duration-150">
             <span className="text-xs font-bold text-amber-900">Custom Date Boundaries:</span>
@@ -592,7 +833,7 @@ export default function BroadcastMarketingPage() {
       {/* ── Main Workspace: Left Composer & Right Smartphone Preview ─────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        {/* Left Side: Campaign Composer (8 Cols) */}
+        {/* Left Side: Campaign Composer (7 Cols) */}
         <div className="lg:col-span-7 space-y-4">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
             {/* Channel Tabs */}
@@ -666,7 +907,7 @@ export default function BroadcastMarketingPage() {
               </label>
               <div className="flex flex-wrap items-center gap-1.5">
                 {[
-                  { tag: 'name', label: 'First Name (e.g. John)' },
+                  { tag: 'name', label: 'First Name' },
                   { tag: 'cafeteria', label: 'Favorite Cafeteria' },
                   { tag: 'orders', label: 'Order Count' },
                   { tag: 'phone', label: 'Phone Number' },
@@ -729,17 +970,28 @@ export default function BroadcastMarketingPage() {
               <div className="flex flex-wrap items-center gap-2">
                 {activeChannel === 'whatsapp' ? (
                   <>
+                    {/* Primary Automated 1-Click Dispatcher */}
+                    <button
+                      type="button"
+                      onClick={handleLaunchAutomatedBroadcast}
+                      disabled={targetWhatsAppCustomers.length === 0}
+                      className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center gap-2 shadow-md transition-all disabled:opacity-50 ring-2 ring-emerald-300"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>🚀 Launch 1-Click Broadcast ({targetWhatsAppCustomers.length} People)</span>
+                    </button>
+
+                    {/* Step-by-step Queue Modal Fallback */}
                     <button
                       type="button"
                       onClick={() => {
                         setQueueIndex(0);
                         setQueueModalOpen(true);
                       }}
-                      disabled={targetWhatsAppCustomers.length === 0}
-                      className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center gap-2 shadow-sm transition-all disabled:opacity-50"
+                      className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all"
+                      title="Step through sending manually"
                     >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Start 1-Click WhatsApp Queue ({targetWhatsAppCustomers.length})</span>
+                      <span>Manual Step Queue</span>
                     </button>
 
                     <button
@@ -757,7 +1009,7 @@ export default function BroadcastMarketingPage() {
                       className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all"
                     >
                       <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Export VCF Phone Contacts</span>
+                      <span>Export VCF</span>
                     </button>
                   </>
                 ) : (
@@ -1084,7 +1336,248 @@ export default function BroadcastMarketingPage() {
         )}
       </div>
 
-      {/* ── Interactive 1-Click WhatsApp Step-by-Step Modal ─────────────────── */}
+      {/* ── WhatsApp QR Code Linking Modal ──────────────────────────────────── */}
+      {isQrModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden space-y-0 animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="bg-emerald-600 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-white text-emerald-600 flex items-center justify-center shadow-xs">
+                  <QrCode className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black">Link Your WhatsApp Account</h3>
+                  <p className="text-[10px] text-emerald-100">For 1-click automated background dispatch</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsQrModalOpen(false)}
+                className="text-emerald-200 hover:text-white text-sm font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* QR Code Container */}
+            <div className="p-6 text-center space-y-4">
+              {waConnection.qrCodeDataUrl ? (
+                <div className="space-y-3">
+                  <div className="inline-block p-3 bg-white rounded-2xl border-2 border-slate-200 shadow-md">
+                    <img
+                      src={waConnection.qrCodeDataUrl}
+                      alt="WhatsApp QR Code"
+                      className="w-56 h-56 mx-auto rounded-lg"
+                    />
+                  </div>
+                  <p className="text-xs font-bold text-slate-800 animate-pulse flex items-center justify-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    Scan QR code with your phone to connect
+                  </p>
+                </div>
+              ) : isConnectingWa || waConnection.status === 'connecting' ? (
+                <div className="py-12 space-y-3">
+                  <RefreshCw className="w-10 h-10 mx-auto text-emerald-500 animate-spin" />
+                  <p className="text-xs font-bold text-slate-600">Generating secure WhatsApp QR code...</p>
+                </div>
+              ) : waConnection.status === 'connected' ? (
+                <div className="py-10 space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center">
+                    <Check className="w-6 h-6 stroke-[3]" />
+                  </div>
+                  <h4 className="text-base font-black text-slate-900">WhatsApp is Connected!</h4>
+                  <p className="text-xs text-slate-500">You can now launch 1-click broadcasts to all customers.</p>
+                </div>
+              ) : (
+                <div className="py-8 space-y-3">
+                  <AlertCircle className="w-10 h-10 mx-auto text-amber-500" />
+                  <p className="text-xs text-slate-600 font-medium">Ready to generate a new QR session code.</p>
+                  <button
+                    type="button"
+                    onClick={handleConnectWhatsApp}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-xs"
+                  >
+                    Generate QR Code
+                  </button>
+                </div>
+              )}
+
+              {/* Instructions */}
+              <div className="text-left bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs space-y-2">
+                <p className="font-bold text-slate-900">How to link in 3 easy steps:</p>
+                <ol className="list-decimal list-inside space-y-1 text-slate-600 text-[11px] leading-relaxed">
+                  <li>Open <strong>WhatsApp</strong> or <strong>WhatsApp Business</strong> on your phone.</li>
+                  <li>Tap <strong>Settings</strong> or <strong>Menu (⋮)</strong> → <strong>Linked Devices</strong>.</li>
+                  <li>Tap <strong>Link a Device</strong> and point your camera at this QR code.</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Automated Broadcast Live Monitor Modal ──────────────────────────── */}
+      {isBroadcastModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden space-y-0 animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="bg-slate-900 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center">
+                  <Send className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black">Live Automated Broadcast Monitor</h3>
+                  <p className="text-[10px] text-slate-400">
+                    Status: <strong className="uppercase text-emerald-400">{broadcastQueue.status}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsBroadcastModalOpen(false)}
+                className="text-slate-400 hover:text-white text-sm font-bold p-1"
+                title="Minimize (keeps running in background)"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-5">
+              {/* Animated Progress Bar */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs font-black text-slate-700">
+                  <span>Campaign Progress</span>
+                  <span>{progressPercent}%</span>
+                </div>
+                <div className="w-full bg-slate-100 h-3.5 rounded-full overflow-hidden p-0.5 border border-slate-200">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      broadcastQueue.status === 'completed'
+                        ? 'bg-emerald-500'
+                        : broadcastQueue.status === 'paused'
+                        ? 'bg-amber-500'
+                        : 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                    }`}
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Stats Counters */}
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Total Target</p>
+                  <p className="text-lg font-black text-slate-900">{broadcastQueue.total}</p>
+                </div>
+                <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-200">
+                  <p className="text-[10px] uppercase tracking-wider text-emerald-700 font-bold">Delivered</p>
+                  <p className="text-lg font-black text-emerald-700">{broadcastQueue.sent}</p>
+                </div>
+                <div className="bg-rose-50 p-3 rounded-2xl border border-rose-200">
+                  <p className="text-[10px] uppercase tracking-wider text-rose-700 font-bold">Failed / Invalid</p>
+                  <p className="text-lg font-black text-rose-700">{broadcastQueue.failed}</p>
+                </div>
+              </div>
+
+              {/* Current Active Contact */}
+              {broadcastQueue.status === 'running' && broadcastQueue.currentContact && (
+                <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 flex items-center justify-between text-xs animate-pulse">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="font-bold text-emerald-950">
+                      Currently Sending: <strong className="underline">{broadcastQueue.currentContact.name}</strong> ({broadcastQueue.currentContact.phone})
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-emerald-800 font-mono font-bold">Pacing...</span>
+                </div>
+              )}
+
+              {/* Campaign Complete Banner */}
+              {broadcastQueue.status === 'completed' && (
+                <div className="p-4 rounded-2xl bg-emerald-100 border border-emerald-300 text-emerald-950 text-center space-y-1">
+                  <p className="text-sm font-black">🎉 Broadcast Complete!</p>
+                  <p className="text-xs">
+                    Successfully delivered to <strong>{broadcastQueue.sent}</strong> customers directly on WhatsApp.
+                  </p>
+                </div>
+              )}
+
+              {/* Live Activity Logs */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Live Dispatch Activity:
+                </p>
+                <div className="bg-slate-950 text-slate-200 rounded-2xl p-3 max-h-40 overflow-y-auto font-mono text-[11px] space-y-1.5 border border-slate-800 scrollbar-none">
+                  {broadcastQueue.logs.length === 0 ? (
+                    <p className="text-slate-500 italic">Initializing dispatch queue...</p>
+                  ) : (
+                    broadcastQueue.logs.map((log) => (
+                      <div key={log.id} className="flex items-center justify-between gap-2">
+                        <span className="text-slate-500">[{log.timestamp}]</span>
+                        <span className="text-slate-300 truncate max-w-[200px]">{log.name} ({log.phone})</span>
+                        <span
+                          className={`font-bold px-1.5 py-0.2 rounded text-[9px] ${
+                            log.status === 'success' ? 'bg-emerald-900/60 text-emerald-300' : 'bg-rose-900/60 text-rose-300'
+                          }`}
+                        >
+                          {log.status === 'success' ? 'SENT ✓' : 'FAILED ✕'}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Control Buttons */}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                <div className="flex items-center gap-2">
+                  {broadcastQueue.status === 'running' ? (
+                    <button
+                      type="button"
+                      onClick={() => handleControlBroadcast('pause')}
+                      className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Pause className="w-3.5 h-3.5" />
+                      <span>Pause</span>
+                    </button>
+                  ) : broadcastQueue.status === 'paused' ? (
+                    <button
+                      type="button"
+                      onClick={() => handleControlBroadcast('resume')}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Play className="w-3.5 h-3.5" />
+                      <span>Resume</span>
+                    </button>
+                  ) : null}
+
+                  {['running', 'paused'].includes(broadcastQueue.status) && (
+                    <button
+                      type="button"
+                      onClick={() => handleControlBroadcast('stop')}
+                      className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs flex items-center gap-1 border border-rose-200"
+                    >
+                      <Square className="w-3.5 h-3.5" />
+                      <span>Stop Campaign</span>
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsBroadcastModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs"
+                >
+                  Close Window (Keeps Running)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Manual Step-by-Step WhatsApp Queue Modal ────────────────────────── */}
       {queueModalOpen && targetWhatsAppCustomers.length > 0 && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden space-y-0 animate-in fade-in zoom-in-95 duration-150">
@@ -1095,7 +1588,7 @@ export default function BroadcastMarketingPage() {
                   <Send className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black">1-Click WhatsApp Broadcast Queue</h3>
+                  <h3 className="text-sm font-black">Manual WhatsApp Stepping Queue</h3>
                   <p className="text-[10px] text-slate-400">
                     Contact {queueIndex + 1} of {targetWhatsAppCustomers.length}
                   </p>
@@ -1112,7 +1605,6 @@ export default function BroadcastMarketingPage() {
             {/* Current Target Contact Details */}
             {targetWhatsAppCustomers[queueIndex] && (
               <div className="p-6 space-y-4">
-                {/* Progress bar */}
                 <div className="space-y-1">
                   <div className="flex justify-between text-[10px] font-bold text-slate-500">
                     <span>Progress</span>
@@ -1182,7 +1674,7 @@ export default function BroadcastMarketingPage() {
                         setQueueIndex((i) => i + 1);
                       } else {
                         setQueueModalOpen(false);
-                        showToast('Reached end of broadcast queue!');
+                        showToast('Reached end of manual queue!');
                       }
                     }}
                     className="px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs"

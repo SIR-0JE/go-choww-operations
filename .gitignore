@@ -38,3 +38,6 @@ heetch-template/
 *.xlsx
 *.xls
 *.csv
+
+# WhatsApp Local Auth Sessions
+.whatsapp-session/
