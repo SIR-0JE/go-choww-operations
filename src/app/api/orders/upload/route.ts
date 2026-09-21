@@ -221,6 +221,26 @@ export async function POST(request: NextRequest) {
 
       const deliveryType = classifyDeliveryType(cafeteriaName, deliveryAddress, rawOrderType);
 
+      // Customer contact info (if present in CSV columns)
+      const customerPhone = String(
+        normalizedRow['phone'] ||
+        normalizedRow['customerphone'] ||
+        normalizedRow['phonenumber'] ||
+        normalizedRow['telephone'] ||
+        row['Phone'] ||
+        row['Customer Phone'] ||
+        ''
+      ).trim() || null;
+
+      const customerEmail = String(
+        normalizedRow['email'] ||
+        normalizedRow['customeremail'] ||
+        normalizedRow['useremail'] ||
+        row['Email'] ||
+        row['Customer Email'] ||
+        ''
+      ).trim().toLowerCase() || null;
+
       // Verified settled status
       const orderStatus = 'Completed';
       const paymentStatus = 'success';
@@ -238,6 +258,8 @@ export async function POST(request: NextRequest) {
         deliveryType,
         orderStatus,
         paymentStatus,
+        ...(customerPhone && { customerPhone }),
+        ...(customerEmail && { customerEmail }),
       });
     }
 

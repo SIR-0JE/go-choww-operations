@@ -200,8 +200,9 @@ async function performSync(force: boolean = false) {
         const customerName = String(order.user?.name || order.customerName || 'Student Customer').trim();
         const cafeteriaName = String(order.vendor?.restaurantName || order.cafeteriaName || 'Campus Cafeteria').trim();
         const deliveryAddress = String(order.deliveryAddress || 'Campus Hostel Block').trim();
-        // Extract phone from GoChow user profile if present
+        // Extract phone & email from GoChow user profile if present
         const customerPhone = String(order.user?.phone || order.user?.phoneNumber || order.customerPhone || '').trim() || null;
+        const customerEmail = String(order.user?.email || order.customerEmail || order.email || '').trim().toLowerCase() || null;
         const pickupCode = order.confirmationCode ? String(order.confirmationCode).trim() : (order.pickupCode ? String(order.pickupCode).trim() : null);
 
         const deliveryFee = Number(order.deliveryFee ?? 0);
@@ -228,6 +229,7 @@ async function performSync(force: boolean = false) {
             orderStatus: liveOrderStatus,
             paymentStatus: livePaymentStatus,
             ...(customerPhone && { customerPhone }),
+            ...(customerEmail && { customerEmail }),
             ...(pickupCode && { pickupCode }),
           });
         } else {
