@@ -105,6 +105,7 @@ export async function GET(request: NextRequest) {
         phone: rider.phone || 'N/A',
         status: rider.status || 'Active',
         isOnline: Boolean(rider.isOnline),
+        assignedCafeterias: rider.assignedCafeterias || [],
         pin: rider.pin || '1234',
         createdAt: rider.createdAt,
         totalOrdersAssigned: riderOrders.length,
@@ -152,7 +153,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, phone, status, pin } = body;
+    const { name, phone, status, pin, assignedCafeterias } = body;
 
     if (!name || typeof name !== 'string' || !name.trim()) {
       return NextResponse.json(
@@ -165,6 +166,9 @@ export async function POST(request: NextRequest) {
     const cleanPhone = phone ? String(phone).trim() : null;
     const cleanStatus = status || 'Active';
     const cleanPin = pin ? String(pin).trim() : '1234';
+    const cleanAssignedCafeterias = Array.isArray(assignedCafeterias)
+      ? assignedCafeterias.map((c: string) => String(c).trim()).filter(Boolean)
+      : [];
     const riderId = `rider-${Date.now().toString(36)}`;
 
     const newRider: GeneratedRider = {
@@ -183,6 +187,7 @@ export async function POST(request: NextRequest) {
           phone: cleanPhone,
           status: cleanStatus,
           pin: cleanPin,
+          assignedCafeterias: cleanAssignedCafeterias,
         },
       });
       return NextResponse.json({
@@ -210,7 +215,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, status, name, phone } = body;
+    const { id, status, name, phone, assignedCafeterias, pin } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -223,6 +228,10 @@ export async function PATCH(request: NextRequest) {
     if (status) updateData.status = status;
     if (name) updateData.name = name.trim();
     if (phone !== undefined) updateData.phone = phone ? String(phone).trim() : null;
+    if (pin) updateData.pin = String(pin).trim();
+    if (assignedCafeterias !== undefined && Array.isArray(assignedCafeterias)) {
+      updateData.assignedCafeterias = assignedCafeterias.map((c: string) => String(c).trim()).filter(Boolean);
+    }
 
     try {
       const updated = await prisma.rider.update({

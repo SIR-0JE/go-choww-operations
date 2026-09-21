@@ -111,6 +111,8 @@ export async function GET(
       name: rider.name,
       phone: rider.phone || 'N/A',
       status: rider.status || 'Active',
+      isOnline: Boolean(rider.isOnline),
+      assignedCafeterias: rider.assignedCafeterias || [],
       createdAt: rider.createdAt,
       totalOrdersAssigned: riderOrders.length,
       settledOrdersCount: settledOrders.length,

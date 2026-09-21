@@ -43,6 +43,7 @@ async function getAuthenticatedRider(request: NextRequest) {
       phone: cachedPayload.phone || '',
       isOnline: true,
       status: 'Active',
+      assignedCafeterias: (cachedPayload.assignedCafeterias as string[]) || [],
     };
   }
 
@@ -52,6 +53,7 @@ async function getAuthenticatedRider(request: NextRequest) {
     phone: '',
     isOnline: true,
     status: 'Active',
+    assignedCafeterias: [] as string[],
   };
 }
 
@@ -219,8 +221,34 @@ export async function GET(request: NextRequest) {
         console.warn('[Rider otherRiders fetch warning]:', err);
       }
 
-      // Sort accepted/claimed orders awaiting pickup to the top of the pool list
-      const sortedAvailableOrders = availableOrders.sort((a, b) => {
+      // Cafeteria assignment matching helper
+      const assignedCafeterias: string[] = Array.isArray((rider as any)?.assignedCafeterias) ? (rider as any).assignedCafeterias : [];
+      const assignedSet = new Set(assignedCafeterias.map((c: string) => c.trim().toLowerCase()));
+
+      const isAssignedStation = (cafName?: string | null) => {
+        if (!cafName || assignedSet.size === 0) return false;
+        const clean = cafName.trim().toLowerCase();
+        for (const assigned of assignedSet) {
+          if (clean.includes(assigned) || assigned.includes(clean)) return true;
+        }
+        return false;
+      };
+
+      // Enrich and Sort available orders:
+      // 1. Orders from rider's assigned cafeterias (Highest priority)
+      // 2. Peer-claimed orders awaiting pickup
+      // 3. Other campus orders (newest first)
+      const mappedAvailableOrders = availableOrders.map((ord) => ({
+        ...ord,
+        isAssignedStation: isAssignedStation(ord.cafeteriaName),
+      }));
+
+      const sortedAvailableOrders = mappedAvailableOrders.sort((a, b) => {
+        const aAssigned = a.isAssignedStation ? 1 : 0;
+        const bAssigned = b.isAssignedStation ? 1 : 0;
+
+        if (aAssigned !== bAssigned) return bAssigned - aAssigned;
+
         const aIsClaimed = Boolean(a.riderId || a.rider);
         const bIsClaimed = Boolean(b.riderId || b.rider);
 
@@ -238,6 +266,7 @@ export async function GET(request: NextRequest) {
             name: rider.name,
             phone: rider.phone,
             isOnline: rider.isOnline,
+            assignedCafeterias,
           },
           available: sortedAvailableOrders,
           active: activeTasks,

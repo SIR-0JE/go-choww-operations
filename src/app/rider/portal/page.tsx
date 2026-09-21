@@ -45,6 +45,7 @@ interface RiderOrder {
   customerPhone?: string | null;
   pickupCode?: string | null;
   riderId?: string | null;
+  isAssignedStation?: boolean;
   rider?: {
     id: string;
     name: string;
@@ -60,6 +61,7 @@ interface RiderProfile {
   name: string;
   phone: string;
   isOnline: boolean;
+  assignedCafeterias?: string[];
 }
 
 interface OtherRider {
@@ -177,6 +179,33 @@ export default function RiderPortalPage() {
     }
   }, [soundEnabled, initOrResumeAudio]);
 
+  // Urgent station chime (3 rapid ascending chimes for assigned cafeteria orders)
+  const playUrgentStationChime = useCallback(() => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = initOrResumeAudio();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      [0, 0.12, 0.24].forEach((offset, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(784 + idx * 261, now + offset); // G5 -> C6 -> E6
+        gain.gain.setValueAtTime(0.4, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.14);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.14);
+      });
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate([300, 100, 300, 100, 400]);
+      }
+    } catch (e) {
+      console.warn('Urgent station chime notice:', e);
+    }
+  }, [soundEnabled, initOrResumeAudio]);
+
   // ── Restore session from localStorage ───────────────────────────────────────
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -286,10 +315,16 @@ export default function RiderPortalPage() {
           const newCompleted: RiderOrder[] = data.completedToday || [];
 
           if (isBackground && prevAvailableIdsRef.current.size > 0) {
-            const hasNewOrder = newAvailable.some((ord) => !prevAvailableIdsRef.current.has(ord.orderId));
-            if (hasNewOrder) {
-              playAlertChime();
-              showToast('🔔 New order available in the dispatch pool!', 'success');
+            const newArrivals = newAvailable.filter((ord) => !prevAvailableIdsRef.current.has(ord.orderId));
+            if (newArrivals.length > 0) {
+              const stationArrival = newArrivals.find((o) => o.isAssignedStation);
+              if (stationArrival) {
+                playUrgentStationChime();
+                showToast(`⭐ URGENT: New order at your assigned station (${stationArrival.cafeteriaName})!`, 'success');
+              } else {
+                playAlertChime();
+                showToast('🔔 New order available in the dispatch pool!', 'success');
+              }
             }
           }
           prevAvailableIdsRef.current = new Set(newAvailable.map((o) => o.orderId));
@@ -308,7 +343,7 @@ export default function RiderPortalPage() {
         setIsRefreshing(false);
       }
     },
-    [router, playAlertChime]
+    [router, playAlertChime, playUrgentStationChime]
   );
 
   // ── High-Speed Real-Time Synchronization (3.5s cycle + BroadcastChannel) ────
@@ -654,15 +689,29 @@ export default function RiderPortalPage() {
   }, [availableOrders]);
 
   const filteredAvailableOrders = React.useMemo(() => {
-    const list =
-      selectedCafeteria === 'all'
-        ? [...availableOrders]
-        : availableOrders.filter(
-            (o) => (o.cafeteriaName || '').trim().toLowerCase() === selectedCafeteria.toLowerCase()
-          );
+    let list = [...availableOrders];
+    if (selectedCafeteria === 'my_stations') {
+      const assigned = (rider?.assignedCafeterias || []).map((c) => c.trim().toLowerCase());
+      list = list.filter(
+        (o) =>
+          o.isAssignedStation ||
+          assigned.some((c) => (o.cafeteriaName || '').trim().toLowerCase().includes(c))
+      );
+    } else if (selectedCafeteria !== 'all') {
+      list = list.filter(
+        (o) => (o.cafeteriaName || '').trim().toLowerCase() === selectedCafeteria.toLowerCase()
+      );
+    }
 
-    // Prioritize accepted/claimed orders awaiting pickup to the very top of the list
+    // Prioritize:
+    // 1. Orders matching rider's assigned cafeteria (isAssignedStation)
+    // 2. Peer-claimed orders awaiting pickup
+    // 3. Newest orders
     return list.sort((a, b) => {
+      const aAssigned = a.isAssignedStation ? 1 : 0;
+      const bAssigned = b.isAssignedStation ? 1 : 0;
+      if (aAssigned !== bAssigned) return bAssigned - aAssigned;
+
       const aIsClaimed = Boolean(a.riderId || a.rider);
       const bIsClaimed = Boolean(b.riderId || b.rider);
 
@@ -671,7 +720,7 @@ export default function RiderPortalPage() {
 
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [availableOrders, selectedCafeteria]);
+  }, [availableOrders, selectedCafeteria, rider?.assignedCafeterias]);
 
   // ── Smart Batching Advice: Match active pickup cafeterias with pool orders ───
   const activeBatchAdvices = React.useMemo(() => {
@@ -976,6 +1025,26 @@ export default function RiderPortalPage() {
                   </span>
                 </button>
 
+                {/* If rider has assigned stations, show "⭐ My Stations" button */}
+                {rider?.assignedCafeterias && rider.assignedCafeterias.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCafeteria(selectedCafeteria === 'my_stations' ? 'all' : 'my_stations')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 border ${
+                      selectedCafeteria === 'my_stations'
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-sm ring-2 ring-amber-300'
+                        : 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
+                    }`}
+                  >
+                    <span>⭐ My Stations</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                      selectedCafeteria === 'my_stations' ? 'bg-amber-700 text-white' : 'bg-amber-200 text-amber-900'
+                    }`}>
+                      {availableOrders.filter((o) => o.isAssignedStation).length}
+                    </span>
+                  </button>
+                )}
+
                 {uniqueCafeterias.map((caf) => {
                   const isSelected = selectedCafeteria.toLowerCase() === caf.name.toLowerCase();
                   return (
@@ -1039,7 +1108,11 @@ export default function RiderPortalPage() {
               <div className="py-16 text-center border border-dashed border-slate-300 rounded-2xl bg-white p-6">
                 <Bike className="w-10 h-10 mx-auto mb-3 text-slate-300 stroke-[1.5]" />
                 <h3 className="text-sm font-semibold text-slate-700">
-                  {selectedCafeteria === 'all' ? 'No Orders in the Pool' : `No Orders at ${selectedCafeteria}`}
+                  {selectedCafeteria === 'all'
+                    ? 'No Orders in the Pool'
+                    : selectedCafeteria === 'my_stations'
+                    ? 'No Orders at Your Assigned Stations'
+                    : `No Orders at ${selectedCafeteria}`}
                 </h3>
                 <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
                   {selectedCafeteria === 'all'
@@ -1070,9 +1143,24 @@ export default function RiderPortalPage() {
                     className={`bg-white rounded-2xl border shadow-sm overflow-hidden space-y-0 transition-all ${
                       isPeerClaimed
                         ? 'border-indigo-200 ring-1 ring-indigo-100'
+                        : ord.isAssignedStation
+                        ? 'border-amber-400 ring-2 ring-amber-300/80 shadow-md bg-gradient-to-b from-amber-50/30 to-white'
                         : 'border-slate-200'
                     }`}
                   >
+                    {/* Assigned Station Priority Banner */}
+                    {ord.isAssignedStation && !isPeerClaimed && (
+                      <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-4 py-2 flex items-center justify-between shadow-xs">
+                        <div className="flex items-center gap-1.5 font-black text-xs tracking-wide">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-200 animate-pulse" />
+                          <span>⭐ YOUR ASSIGNED STATION</span>
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 text-white px-2 py-0.5 rounded-full border border-white/30">
+                          Priority
+                        </span>
+                      </div>
+                    )}
+
                     {/* Peer Claimed Header Tag */}
                     {isPeerClaimed && (
                       <div className="bg-indigo-50/90 border-b border-indigo-100 px-4 py-2 flex items-center justify-between text-indigo-900">

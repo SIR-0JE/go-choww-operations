@@ -17,6 +17,7 @@ model Rider {
   pin       String          @default("1234") // 4-digit PIN for portal login
   status         String          @default("Active") // "Active", "Inactive", "On Leave"
   isOnline       Boolean         @default(false)    // Rider online duty toggle
+  assignedCafeterias String[]    @default([])       // Cafeterias assigned to this rider for priority dispatch
   lastLat        Float?
   lastLng        Float?
   lastHeading    Float?

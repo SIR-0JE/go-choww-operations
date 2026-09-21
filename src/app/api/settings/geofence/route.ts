@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   getGeofenceSettings,
   saveGeofenceSettings,
+  getAllCafeterias,
+  addOrUpdateCafeteria,
+  deleteCafeteria,
   DEFAULT_GEOFENCE_SETTINGS,
 } from '@/lib/settings';
 
@@ -9,14 +12,16 @@ export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/settings/geofence
- * Retrieves current geofence configuration and cafeteria coordinates
+ * Retrieves current geofence configuration, configured coordinates, and auto-discovered cafeterias
  */
 export async function GET() {
   try {
     const settings = await getGeofenceSettings();
+    const allCafeterias = await getAllCafeterias();
     return NextResponse.json({
       success: true,
       settings,
+      allCafeterias,
     });
   } catch (error: any) {
     console.error('[GET /api/settings/geofence error]:', error);
@@ -37,10 +42,34 @@ export async function POST(request: NextRequest) {
 
     if (body.action === 'reset_defaults') {
       const reset = await saveGeofenceSettings(DEFAULT_GEOFENCE_SETTINGS);
+      const allCafeterias = await getAllCafeterias();
       return NextResponse.json({
         success: true,
         settings: reset,
+        allCafeterias,
         message: 'Restored default cafeteria coordinates and 200m radius',
+      });
+    }
+
+    if (body.action === 'add_cafeteria' && body.cafeteria) {
+      const updated = await addOrUpdateCafeteria(body.cafeteria);
+      const allCafeterias = await getAllCafeterias();
+      return NextResponse.json({
+        success: true,
+        settings: updated,
+        allCafeterias,
+        message: `Cafeteria "${body.cafeteria.name}" saved successfully!`,
+      });
+    }
+
+    if (body.action === 'delete_cafeteria' && body.idOrName) {
+      const updated = await deleteCafeteria(body.idOrName);
+      const allCafeterias = await getAllCafeterias();
+      return NextResponse.json({
+        success: true,
+        settings: updated,
+        allCafeterias,
+        message: 'Cafeteria removed.',
       });
     }
 
@@ -56,10 +85,12 @@ export async function POST(request: NextRequest) {
       ...(enabled !== undefined && { enabled }),
       ...(cafeterias !== undefined && { cafeterias }),
     });
+    const allCafeterias = await getAllCafeterias();
 
     return NextResponse.json({
       success: true,
       settings: updated,
+      allCafeterias,
       message: 'Geofence and cafeteria coordinate settings saved successfully',
     });
   } catch (error: any) {

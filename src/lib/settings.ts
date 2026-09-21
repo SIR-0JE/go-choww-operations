@@ -322,3 +322,87 @@ export async function saveGeofenceSettings(newSettings: Partial<GeofenceSettings
   return merged;
 }
 
+/**
+ * Get unified list of all campus cafeterias (configured settings + auto-discovered from orders)
+ */
+export async function getAllCafeterias(): Promise<CafeteriaLocationItem[]> {
+  const geofence = await getGeofenceSettings();
+  const configuredList = [...(geofence.cafeterias || [])];
+  const nameMap = new Map<string, CafeteriaLocationItem>();
+
+  configuredList.forEach((c) => {
+    nameMap.set(c.name.trim().toLowerCase(), c);
+  });
+
+  try {
+    const dbCafeterias = await prisma.deliveryOrder.findMany({
+      select: { cafeteriaName: true },
+      distinct: ['cafeteriaName'],
+    });
+
+    dbCafeterias.forEach((item) => {
+      const rawName = (item.cafeteriaName || '').trim();
+      if (!rawName) return;
+      const key = rawName.toLowerCase();
+      if (!nameMap.has(key)) {
+        const autoItem: CafeteriaLocationItem = {
+          id: rawName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+          name: rawName,
+          lat: 7.620000,
+          lng: 4.200000,
+          campus: 'Campus Main',
+          description: 'Auto-discovered from orders',
+        };
+        nameMap.set(key, autoItem);
+        configuredList.push(autoItem);
+      }
+    });
+  } catch (err) {
+    console.warn('[getAllCafeterias] DB query warning:', err);
+  }
+
+  return configuredList;
+}
+
+/**
+ * Add or update a cafeteria in system settings
+ */
+export async function addOrUpdateCafeteria(item: Partial<CafeteriaLocationItem> & { name: string }): Promise<GeofenceSettings> {
+  const current = await getGeofenceSettings();
+  const list = [...(current.cafeterias || [])];
+  const cleanId = (item.id || item.name.toLowerCase().replace(/[^a-z0-9]/g, '_')).trim();
+  const existingIdx = list.findIndex(
+    (c) => c.id === cleanId || c.name.trim().toLowerCase() === item.name.trim().toLowerCase()
+  );
+
+  const fullItem: CafeteriaLocationItem = {
+    id: cleanId,
+    name: item.name.trim(),
+    lat: typeof item.lat === 'number' ? item.lat : 7.620000,
+    lng: typeof item.lng === 'number' ? item.lng : 4.200000,
+    campus: item.campus || 'Campus Main',
+    description: item.description || '',
+  };
+
+  if (existingIdx >= 0) {
+    list[existingIdx] = { ...list[existingIdx], ...fullItem };
+  } else {
+    list.push(fullItem);
+  }
+
+  return saveGeofenceSettings({ cafeterias: list });
+}
+
+/**
+ * Delete a cafeteria from system settings
+ */
+export async function deleteCafeteria(idOrName: string): Promise<GeofenceSettings> {
+  const current = await getGeofenceSettings();
+  const cleanTarget = idOrName.trim().toLowerCase();
+  const filtered = (current.cafeterias || []).filter(
+    (c) => c.id.toLowerCase() !== cleanTarget && c.name.trim().toLowerCase() !== cleanTarget
+  );
+  return saveGeofenceSettings({ cafeterias: filtered });
+}
+
+
