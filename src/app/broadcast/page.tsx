@@ -104,16 +104,21 @@ export default function BroadcastMarketingPage() {
   const [waConnection, setWaConnection] = useState<{
     status: 'disconnected' | 'connecting' | 'qr_ready' | 'connected' | 'error';
     qrCodeDataUrl: string | null;
+    pairingCode: string | null;
     user: { id?: string; name?: string; phone?: string } | null;
     lastError: string | null;
   }>({
     status: 'disconnected',
     qrCodeDataUrl: null,
+    pairingCode: null,
     user: null,
     lastError: null,
   });
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isConnectingWa, setIsConnectingWa] = useState(false);
+  const [linkTab, setLinkTab] = useState<'qr' | 'pairing'>('qr');
+  const [pairingPhoneInput, setPairingPhoneInput] = useState('');
+  const [isRequestingPairing, setIsRequestingPairing] = useState(false);
 
   // ── Automated Background Broadcast Queue State ──────────────────────────────
   const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
@@ -221,6 +226,7 @@ export default function BroadcastMarketingPage() {
         setWaConnection({
           status: data.status,
           qrCodeDataUrl: data.qrCodeDataUrl,
+          pairingCode: data.pairingCode,
           user: data.user,
           lastError: data.lastError,
         });
@@ -236,10 +242,10 @@ export default function BroadcastMarketingPage() {
     }
   }, [isQrModalOpen]);
 
-  // Poll WhatsApp status regularly (every 2.5s if QR modal is open, otherwise every 10s)
+  // Poll WhatsApp status regularly (every 1.5s if QR modal is open, otherwise every 10s)
   useEffect(() => {
     fetchWhatsAppStatus();
-    const intervalTime = isQrModalOpen ? 2500 : 10000;
+    const intervalTime = isQrModalOpen ? 1500 : 10000;
     const timer = setInterval(fetchWhatsAppStatus, intervalTime);
     return () => clearInterval(timer);
   }, [fetchWhatsAppStatus, isQrModalOpen]);
@@ -270,25 +276,60 @@ export default function BroadcastMarketingPage() {
     return () => clearInterval(timer);
   }, [fetchBroadcastProgress, isBroadcastModalOpen, broadcastQueue.status]);
 
-  // ── Connect WhatsApp (Generate QR) ──────────────────────────────────────────
-  const handleConnectWhatsApp = async () => {
+  // ── Connect WhatsApp (Generate QR / Refresh) ────────────────────────────────
+  const handleConnectWhatsApp = async (forceFresh = false) => {
     setIsConnectingWa(true);
     setIsQrModalOpen(true);
     try {
-      const res = await fetch('/api/whatsapp/status', { method: 'POST' });
+      const res = await fetch('/api/whatsapp/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forceFresh }),
+      });
       const data = await res.json();
       if (data.success) {
         setWaConnection({
           status: data.status,
           qrCodeDataUrl: data.qrCodeDataUrl,
+          pairingCode: data.pairingCode,
           user: data.user,
           lastError: data.lastError,
         });
+      } else {
+        showToast(data.error || 'Failed to generate QR code.');
       }
     } catch (err) {
       showToast('Failed to generate WhatsApp QR code.');
     } finally {
       setIsConnectingWa(false);
+    }
+  };
+
+  // ── Request Phone Number Pairing Code ───────────────────────────────────────
+  const handleRequestPairingCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pairingPhoneInput.trim()) {
+      showToast('Please enter your WhatsApp phone number.');
+      return;
+    }
+    setIsRequestingPairing(true);
+    try {
+      const res = await fetch('/api/whatsapp/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber: pairingPhoneInput.trim() }),
+      });
+      const data = await res.json();
+      if (data.success && data.pairingCode) {
+        setWaConnection((prev) => ({ ...prev, pairingCode: data.pairingCode }));
+        showToast(`Pairing code generated: ${data.pairingCode}`);
+      } else {
+        showToast(data.error || 'Failed to generate pairing code.');
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Error generating pairing code.');
+    } finally {
+      setIsRequestingPairing(false);
     }
   };
 
@@ -302,6 +343,7 @@ export default function BroadcastMarketingPage() {
         setWaConnection({
           status: 'disconnected',
           qrCodeDataUrl: null,
+          pairingCode: null,
           user: null,
           lastError: null,
         });
@@ -634,7 +676,7 @@ export default function BroadcastMarketingPage() {
           ) : (
             <button
               type="button"
-              onClick={handleConnectWhatsApp}
+              onClick={() => handleConnectWhatsApp(true)}
               disabled={isConnectingWa}
               className="px-4 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center gap-2 shadow-sm transition-all animate-pulse"
             >
@@ -1336,7 +1378,7 @@ export default function BroadcastMarketingPage() {
         )}
       </div>
 
-      {/* ── WhatsApp QR Code Linking Modal ──────────────────────────────────── */}
+      {/* ── WhatsApp Linking Modal (QR Code & Phone Pairing Code) ─────────── */}
       {isQrModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden space-y-0 animate-in fade-in zoom-in-95 duration-150">
@@ -1344,10 +1386,10 @@ export default function BroadcastMarketingPage() {
             <div className="bg-emerald-600 text-white p-5 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-white text-emerald-600 flex items-center justify-center shadow-xs">
-                  <QrCode className="w-5 h-5" />
+                  <Smartphone className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black">Link Your WhatsApp Account</h3>
+                  <h3 className="text-sm font-black">Link WhatsApp Account</h3>
                   <p className="text-[10px] text-emerald-100">For 1-click automated background dispatch</p>
                 </div>
               </div>
@@ -1359,62 +1401,166 @@ export default function BroadcastMarketingPage() {
               </button>
             </div>
 
-            {/* QR Code Container */}
+            {/* Linking Method Tabs */}
+            <div className="grid grid-cols-2 p-2 bg-slate-100 border-b border-slate-200 gap-1 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => {
+                  setLinkTab('qr');
+                  if (!waConnection.qrCodeDataUrl) handleConnectWhatsApp(true);
+                }}
+                className={`py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+                  linkTab === 'qr'
+                    ? 'bg-white text-emerald-800 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <QrCode className="w-4 h-4" />
+                <span>Scan QR Code</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLinkTab('pairing')}
+                className={`py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+                  linkTab === 'pairing'
+                    ? 'bg-white text-emerald-800 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Smartphone className="w-4 h-4" />
+                <span>Pairing Code (No Camera)</span>
+              </button>
+            </div>
+
+            {/* Modal Content */}
             <div className="p-6 text-center space-y-4">
-              {waConnection.qrCodeDataUrl ? (
-                <div className="space-y-3">
-                  <div className="inline-block p-3 bg-white rounded-2xl border-2 border-slate-200 shadow-md">
-                    <img
-                      src={waConnection.qrCodeDataUrl}
-                      alt="WhatsApp QR Code"
-                      className="w-56 h-56 mx-auto rounded-lg"
-                    />
+              {/* TAB 1: QR CODE */}
+              {linkTab === 'qr' && (
+                <div className="space-y-4">
+                  {waConnection.qrCodeDataUrl ? (
+                    <div className="space-y-3">
+                      <div className="inline-block p-3 bg-white rounded-2xl border-2 border-slate-200 shadow-md">
+                        <img
+                          src={waConnection.qrCodeDataUrl}
+                          alt="WhatsApp QR Code"
+                          className="w-56 h-56 mx-auto rounded-lg"
+                        />
+                      </div>
+                      <div className="flex items-center justify-center gap-2">
+                        <p className="text-xs font-bold text-slate-800 animate-pulse flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          Scan QR code with your phone
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => handleConnectWhatsApp(true)}
+                          disabled={isConnectingWa}
+                          className="text-[11px] text-emerald-700 hover:text-emerald-900 font-bold underline flex items-center gap-1"
+                          title="Generate a fresh QR code"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${isConnectingWa ? 'animate-spin' : ''}`} />
+                          <span>Reload QR</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : isConnectingWa || waConnection.status === 'connecting' ? (
+                    <div className="py-12 space-y-3">
+                      <RefreshCw className="w-10 h-10 mx-auto text-emerald-500 animate-spin" />
+                      <p className="text-xs font-bold text-slate-600">Generating secure WhatsApp QR code...</p>
+                    </div>
+                  ) : waConnection.status === 'connected' ? (
+                    <div className="py-10 space-y-3">
+                      <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center">
+                        <Check className="w-6 h-6 stroke-[3]" />
+                      </div>
+                      <h4 className="text-base font-black text-slate-900">WhatsApp is Connected!</h4>
+                      <p className="text-xs text-slate-500">You can now launch 1-click broadcasts to all customers.</p>
+                    </div>
+                  ) : (
+                    <div className="py-8 space-y-3">
+                      <AlertCircle className="w-10 h-10 mx-auto text-amber-500" />
+                      <p className="text-xs text-slate-600 font-medium">Click below to generate a new QR session code.</p>
+                      <button
+                        type="button"
+                        onClick={() => handleConnectWhatsApp(true)}
+                        className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-xs"
+                      >
+                        Generate QR Code
+                      </button>
+                    </div>
+                  )}
+
+                  {/* QR Step-by-Step Instructions */}
+                  <div className="text-left bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs space-y-2">
+                    <p className="font-bold text-slate-900">How to scan on your phone:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-slate-600 text-[11px] leading-relaxed">
+                      <li>Open <strong>WhatsApp</strong> or <strong>WhatsApp Business</strong>.</li>
+                      <li>Tap <strong>Settings (⚙️)</strong> or <strong>Menu (⋮)</strong> → <strong>Linked Devices</strong>.</li>
+                      <li>Tap <strong>Link a Device</strong> and scan this QR code.</li>
+                    </ol>
                   </div>
-                  <p className="text-xs font-bold text-slate-800 animate-pulse flex items-center justify-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    Scan QR code with your phone to connect
-                  </p>
-                </div>
-              ) : isConnectingWa || waConnection.status === 'connecting' ? (
-                <div className="py-12 space-y-3">
-                  <RefreshCw className="w-10 h-10 mx-auto text-emerald-500 animate-spin" />
-                  <p className="text-xs font-bold text-slate-600">Generating secure WhatsApp QR code...</p>
-                </div>
-              ) : waConnection.status === 'connected' ? (
-                <div className="py-10 space-y-3">
-                  <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center">
-                    <Check className="w-6 h-6 stroke-[3]" />
-                  </div>
-                  <h4 className="text-base font-black text-slate-900">WhatsApp is Connected!</h4>
-                  <p className="text-xs text-slate-500">You can now launch 1-click broadcasts to all customers.</p>
-                </div>
-              ) : (
-                <div className="py-8 space-y-3">
-                  <AlertCircle className="w-10 h-10 mx-auto text-amber-500" />
-                  <p className="text-xs text-slate-600 font-medium">Ready to generate a new QR session code.</p>
-                  <button
-                    type="button"
-                    onClick={handleConnectWhatsApp}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-xs"
-                  >
-                    Generate QR Code
-                  </button>
                 </div>
               )}
 
-              {/* Instructions */}
-              <div className="text-left bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs space-y-2">
-                <p className="font-bold text-slate-900">How to link in 3 easy steps:</p>
-                <ol className="list-decimal list-inside space-y-1 text-slate-600 text-[11px] leading-relaxed">
-                  <li>Open <strong>WhatsApp</strong> or <strong>WhatsApp Business</strong> on your phone.</li>
-                  <li>Tap <strong>Settings</strong> or <strong>Menu (⋮)</strong> → <strong>Linked Devices</strong>.</li>
-                  <li>Tap <strong>Link a Device</strong> and point your camera at this QR code.</li>
-                </ol>
-              </div>
+              {/* TAB 2: PHONE PAIRING CODE */}
+              {linkTab === 'pairing' && (
+                <div className="space-y-4">
+                  <div className="text-left space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Enter Your Phone Number:</label>
+                    <form onSubmit={handleRequestPairingCode} className="flex gap-2">
+                      <input
+                        type="tel"
+                        value={pairingPhoneInput}
+                        onChange={(e) => setPairingPhoneInput(e.target.value)}
+                        placeholder="e.g. 08012345678 or 2348012345678"
+                        className="flex-1 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono"
+                      />
+                      <button
+                        type="submit"
+                        disabled={isRequestingPairing}
+                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs shrink-0 disabled:opacity-50"
+                      >
+                        {isRequestingPairing ? 'Generating...' : 'Get Code'}
+                      </button>
+                    </form>
+                  </div>
+
+                  {waConnection.pairingCode ? (
+                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 space-y-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                        Your 8-Character Pairing Code:
+                      </p>
+                      <div className="text-2xl font-mono font-black text-emerald-900 tracking-widest bg-white py-2 rounded-xl border border-emerald-200 shadow-2xs">
+                        {waConnection.pairingCode}
+                      </div>
+                      <p className="text-[11px] text-emerald-700 font-medium">
+                        Enter this code on your phone when prompted!
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-400">
+                      Enter your WhatsApp phone number above to get an 8-character code.
+                    </p>
+                  )}
+
+                  {/* Pairing Instructions */}
+                  <div className="text-left bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs space-y-2">
+                    <p className="font-bold text-slate-900">How to link with code:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-slate-600 text-[11px] leading-relaxed">
+                      <li>Open <strong>WhatsApp</strong> on your phone.</li>
+                      <li>Go to <strong>Linked Devices → Link a Device</strong>.</li>
+                      <li>Tap <strong>"Link with phone number instead"</strong> at the bottom.</li>
+                      <li>Type in the 8-character code shown above.</li>
+                    </ol>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
+
+      {/* ── Automated Broadcast Live Monitor Modal ──────────────────────────── */}
 
       {/* ── Automated Broadcast Live Monitor Modal ──────────────────────────── */}
       {isBroadcastModalOpen && (
