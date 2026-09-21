@@ -7,8 +7,9 @@ export const dynamic = 'force-dynamic';
 function normalizePhone(p: string): string {
   if (!p) return '';
   const digits = p.replace(/\D/g, '');
-  if (digits.startsWith('234') && digits.length >= 13) {
-    return '0' + digits.slice(3);
+  // Return the last 10 digits for standard phone matching across all Nigerian and international formats
+  if (digits.length >= 10) {
+    return digits.slice(-10);
   }
   return digits;
 }
@@ -38,14 +39,14 @@ export async function POST(request: NextRequest) {
       const allRiders = await prisma.rider.findMany();
       rider = allRiders.find((r) => {
         const storedClean = normalizePhone(r.phone || '');
-        return storedClean === cleanInputPhone || (r.phone && r.phone.replace(/\D/g, '').includes(cleanInputPhone));
+        return storedClean.length >= 7 && (storedClean === cleanInputPhone || cleanInputPhone.includes(storedClean) || storedClean.includes(cleanInputPhone));
       });
     } catch {
       // Fallback in memory
       const memRiders = getInMemoryRiders();
       rider = memRiders.find((r) => {
         const storedClean = normalizePhone(r.phone || '');
-        return storedClean === cleanInputPhone;
+        return storedClean.length >= 7 && (storedClean === cleanInputPhone || cleanInputPhone.includes(storedClean) || storedClean.includes(cleanInputPhone));
       });
     }
 
