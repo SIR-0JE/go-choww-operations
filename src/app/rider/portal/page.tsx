@@ -272,7 +272,7 @@ export default function RiderPortalPage() {
     }
   }, []);
 
-  // ── Periodic GPS Telemetry Heartbeat ─────────────────────────────────────────
+  // ── High-Precision GPS Telemetry (watchPosition + WakeLock + VisibilitySync) ─
   useEffect(() => {
     if (!rider?.id || !isOnline) {
       setGpsStatus('off');
@@ -285,51 +285,116 @@ export default function RiderPortalPage() {
     }
 
     let isMounted = true;
+    let watchId: number | null = null;
+    let wakeLockSentinel: any = null;
+    let lastTransmittedTime = 0;
+    const MIN_TRANSMIT_INTERVAL_MS = 12000; // Throttle transmissions to at most once per 12s
+
     setGpsStatus('connecting');
 
-    const transmitLocation = () => {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
+    // 1. Send telemetry to backend
+    const sendTelemetry = async (coords: {
+      latitude: number;
+      longitude: number;
+      heading: number | null;
+      speed: number | null;
+    }) => {
+      if (!isMounted || !rider?.id) return;
+      setGpsStatus('active');
+      lastTransmittedTime = Date.now();
+      try {
+        await fetch('/api/rider/location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            riderId: rider.id,
+            lat: coords.latitude,
+            lng: coords.longitude,
+            heading: coords.heading,
+            speed: coords.speed,
+          }),
+        });
+      } catch (err) {
+        console.warn('[GPS Heartbeat] Transmit error:', err);
+      }
+    };
+
+    // 2. Hardware GPS stream listener (watchPosition)
+    try {
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
           if (!isMounted) return;
-          setGpsStatus('active');
-          try {
-            await fetch('/api/rider/location', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                riderId: rider.id,
-                lat: position.coords.latitude,
-                lng: position.coords.longitude,
-                heading: position.coords.heading,
-                speed: position.coords.speed,
-              }),
-            });
-          } catch (err) {
-            console.warn('[GPS Heartbeat] Transmit error:', err);
+          const now = Date.now();
+          if (now - lastTransmittedTime >= MIN_TRANSMIT_INTERVAL_MS) {
+            sendTelemetry(position.coords);
+          } else {
+            setGpsStatus('active');
           }
         },
         (err) => {
           if (!isMounted) return;
-          console.warn('[GPS Heartbeat] Geolocation notice:', err.message);
+          console.warn('[GPS Watch] Notice:', err.message);
           if (err.code === err.PERMISSION_DENIED) {
             setGpsStatus('denied');
           } else {
             setGpsStatus('idle');
           }
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+      );
+    } catch (e) {
+      console.warn('[GPS Watch] Init error:', e);
+    }
+
+    // 3. Fallback on-demand transmission on interval & app resume / tab focus
+    const triggerImmediatePosition = () => {
+      if (!isMounted) return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => sendTelemetry(pos.coords),
+        (err) => {
+          if (!isMounted) return;
+          if (err.code === err.PERMISSION_DENIED) setGpsStatus('denied');
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
       );
     };
 
-    // Send immediately upon coming online
-    transmitLocation();
+    triggerImmediatePosition();
+    const fallbackInterval = setInterval(triggerImmediatePosition, 25000);
 
-    // Repeat every 20 seconds
-    const interval = setInterval(transmitLocation, 20000);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        triggerImmediatePosition();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', triggerImmediatePosition);
+
+    // 4. Keep Screen Awake while On Duty (WakeLock API)
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator && (navigator as any).wakeLock) {
+          wakeLockSentinel = await (navigator as any).wakeLock.request('screen');
+        }
+      } catch {
+        // WakeLock request denied or unsupported
+      }
+    };
+    requestWakeLock();
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+      clearInterval(fallbackInterval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', triggerImmediatePosition);
+      if (wakeLockSentinel) {
+        try {
+          wakeLockSentinel.release();
+        } catch { /* ignore */ }
+      }
     };
   }, [rider?.id, isOnline]);
 
