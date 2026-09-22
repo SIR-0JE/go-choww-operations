@@ -130,44 +130,68 @@ export default function RiderPortalPage() {
       showToast('Geolocation is not supported by your browser.', 'error');
       return;
     }
+    if (window.isSecureContext === false && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      showToast('🔒 HTTPS Required: Chrome blocks GPS on insecure HTTP connections.', 'error');
+      setShowGpsHelpModal(true);
+      return;
+    }
     setIsRetryingGps(true);
     setGpsStatus('connecting');
 
+    const handleSuccess = async (position: GeolocationPosition) => {
+      setIsRetryingGps(false);
+      setGpsStatus('active');
+      setShowGpsHelpModal(false);
+      showToast('📍 GPS Location enabled and transmitting!', 'success');
+      if (rider?.id) {
+        try {
+          await fetch('/api/rider/location', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              riderId: rider.id,
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              heading: position.coords.heading,
+              speed: position.coords.speed,
+            }),
+          });
+        } catch (err) {
+          console.warn('[GPS Retry] Transmit error:', err);
+        }
+      }
+    };
+
+    const handleFailure = (err: GeolocationPositionError) => {
+      setIsRetryingGps(false);
+      if (err.code === err.PERMISSION_DENIED) {
+        setGpsStatus('denied');
+        showToast('Location still blocked. Check master Phone Location & Chrome site permissions.', 'error');
+      } else if (err.code === err.POSITION_UNAVAILABLE) {
+        setGpsStatus('denied');
+        showToast('Phone GPS is OFF. Turn ON "Location" in phone notification tray.', 'error');
+      } else {
+        setGpsStatus('idle');
+        showToast(`GPS Notice: ${err.message}`, 'error');
+      }
+    };
+
+    // Stage 1: High Accuracy
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        setIsRetryingGps(false);
-        setGpsStatus('active');
-        setShowGpsHelpModal(false);
-        showToast('📍 GPS Location enabled and transmitting!', 'success');
-        if (rider?.id) {
-          try {
-            await fetch('/api/rider/location', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                riderId: rider.id,
-                lat: position.coords.latitude,
-                lng: position.coords.longitude,
-                heading: position.coords.heading,
-                speed: position.coords.speed,
-              }),
-            });
-          } catch (err) {
-            console.warn('[GPS Retry] Transmit error:', err);
-          }
-        }
-      },
+      handleSuccess,
       (err) => {
-        setIsRetryingGps(false);
-        if (err.code === err.PERMISSION_DENIED) {
-          setGpsStatus('denied');
-          showToast('GPS is still blocked. Tap "How to Unblock" for steps.', 'error');
+        // Stage 2: Fallback to standard network positioning
+        if (err.code === err.TIMEOUT || err.code === err.POSITION_UNAVAILABLE) {
+          navigator.geolocation.getCurrentPosition(
+            handleSuccess,
+            handleFailure,
+            { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+          );
         } else {
-          setGpsStatus('idle');
-          showToast(`GPS Notice: ${err.message}`, 'error');
+          handleFailure(err);
         }
       },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
     );
   };
 
@@ -353,7 +377,20 @@ export default function RiderPortalPage() {
         (pos) => sendTelemetry(pos.coords),
         (err) => {
           if (!isMounted) return;
-          if (err.code === err.PERMISSION_DENIED) setGpsStatus('denied');
+          if (err.code === err.TIMEOUT || err.code === err.POSITION_UNAVAILABLE) {
+            // Stage 2 fallback to standard network/cellular positioning
+            navigator.geolocation.getCurrentPosition(
+              (pos2) => sendTelemetry(pos2.coords),
+              (err2) => {
+                if (!isMounted) return;
+                if (err2.code === err2.PERMISSION_DENIED) setGpsStatus('denied');
+                else setGpsStatus('idle');
+              },
+              { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+            );
+          } else if (err.code === err.PERMISSION_DENIED) {
+            setGpsStatus('denied');
+          }
         },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
       );

@@ -31,11 +31,80 @@ export const GpsPermissionModal: React.FC<GpsPermissionModalProps> = ({
 
   if (!isOpen) return null;
 
+  const handleGpsSuccess = async (position: GeolocationPosition) => {
+    setIsVerifying(false);
+    const { latitude, longitude, heading, speed } = position.coords;
+    setStatusMessage({
+      type: 'success',
+      text: `GPS Connected! Location verified (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`,
+    });
+
+    if (riderId) {
+      try {
+        await fetch('/api/rider/location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            riderId,
+            lat: latitude,
+            lng: longitude,
+            heading,
+            speed,
+          }),
+        });
+      } catch (err) {
+        console.warn('[GPS Modal] Heartbeat transmit error:', err);
+      }
+    }
+
+    if (onSuccess) {
+      onSuccess({ lat: latitude, lng: longitude });
+    }
+
+    setTimeout(() => {
+      onClose();
+    }, 1200);
+  };
+
+  const handleGpsFailure = (err: GeolocationPositionError) => {
+    setIsVerifying(false);
+    if (err.code === err.PERMISSION_DENIED) {
+      setStatusMessage({
+        type: 'error',
+        text: 'Location is BLOCKED. Please verify: 1) Phone Master Location is ON in top pull-down tray, 2) Android Settings ➔ Apps ➔ Chrome ➔ Permissions ➔ Location is Allowed, 3) Chrome URL lock 🔒 is set to Allow.',
+      });
+    } else if (err.code === err.POSITION_UNAVAILABLE) {
+      setStatusMessage({
+        type: 'error',
+        text: 'Phone GPS is turned OFF. Pull down your phone notification bar and turn ON the "Location" icon.',
+      });
+    } else if (err.code === err.TIMEOUT) {
+      setStatusMessage({
+        type: 'error',
+        text: 'GPS satellite reading timed out. Make sure your phone Location toggle is ON and retry.',
+      });
+    } else {
+      setStatusMessage({
+        type: 'error',
+        text: `GPS Notice: ${err.message || 'Unable to retrieve location.'}`,
+      });
+    }
+  };
+
   const testGpsAccess = () => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
       setStatusMessage({
         type: 'error',
         text: 'Geolocation is not supported on this device/browser.',
+      });
+      return;
+    }
+
+    // Check secure context
+    if (window.isSecureContext === false && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      setStatusMessage({
+        type: 'error',
+        text: '🔒 Insecure Connection: Chrome strictly blocks GPS on unencrypted HTTP addresses (http://...). You must open this site using HTTPS (https://...).',
       });
       return;
     }
@@ -46,65 +115,31 @@ export const GpsPermissionModal: React.FC<GpsPermissionModalProps> = ({
       text: 'Querying device GPS satellite coordinates...',
     });
 
+    // Stage 1: High Accuracy GPS
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        setIsVerifying(false);
-        const { latitude, longitude, heading, speed } = position.coords;
-        setStatusMessage({
-          type: 'success',
-          text: `GPS Connected! Location verified (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`,
-        });
-
-        // Transmit immediately to backend if riderId is present
-        if (riderId) {
-          try {
-            await fetch('/api/rider/location', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                riderId,
-                lat: latitude,
-                lng: longitude,
-                heading,
-                speed,
-              }),
-            });
-          } catch (err) {
-            console.warn('[GPS Modal] Heartbeat transmit error:', err);
-          }
-        }
-
-        if (onSuccess) {
-          onSuccess({ lat: latitude, lng: longitude });
-        }
-
-        setTimeout(() => {
-          onClose();
-        }, 1200);
+      (position) => {
+        handleGpsSuccess(position);
       },
       (err) => {
-        setIsVerifying(false);
-        if (err.code === err.PERMISSION_DENIED) {
+        // Stage 2: Automatic Fallback to Standard/Network location if High Accuracy times out
+        if (err.code === err.TIMEOUT || err.code === err.POSITION_UNAVAILABLE) {
           setStatusMessage({
-            type: 'error',
-            text: 'Location is still BLOCKED. Please complete Step 1 & 2 above in your browser URL bar, then tap this button again.',
+            type: 'info',
+            text: 'Satellite acquiring... Retrying with network location fallback...',
           });
-        } else if (err.code === err.TIMEOUT) {
-          setStatusMessage({
-            type: 'error',
-            text: 'GPS reading timed out. Make sure Device Location / GPS is toggled ON in your phone quick settings.',
-          });
+          navigator.geolocation.getCurrentPosition(
+            (pos) => handleGpsSuccess(pos),
+            (err2) => handleGpsFailure(err2),
+            { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+          );
         } else {
-          setStatusMessage({
-            type: 'error',
-            text: `GPS Error: ${err.message || 'Unable to retrieve location.'}`,
-          });
+          handleGpsFailure(err);
         }
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
+        timeout: 8000,
+        maximumAge: 10000,
       }
     );
   };
@@ -137,11 +172,11 @@ export const GpsPermissionModal: React.FC<GpsPermissionModalProps> = ({
         </div>
 
         {/* Why GPS is needed */}
-        <div className="px-5 pt-3.5 pb-2 bg-amber-50 border-b border-amber-200/60 shrink-0">
+        <div className="px-5 pt-3 pb-2.5 bg-amber-50 border-b border-amber-200/60 shrink-0">
           <div className="flex items-start gap-2.5">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
-              Because <span className="font-bold text-amber-900">&quot;Never / Block&quot;</span> was tapped earlier, your browser permanently locked location. Follow the 2 steps below to unlock it:
+              If GPS shows blocked, check both your <strong>Phone Location switch</strong> and <strong>Browser Permissions</strong>:
             </p>
           </div>
         </div>
@@ -191,38 +226,50 @@ export const GpsPermissionModal: React.FC<GpsPermissionModalProps> = ({
         <div className="p-5 overflow-y-auto space-y-3.5 flex-1">
           {activePlatform === 'android' && (
             <div className="space-y-3">
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="w-6 h-6 rounded-full bg-amber-500 text-white font-black text-xs flex items-center justify-center shrink-0">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50/80 border border-amber-200">
+                <div className="w-6 h-6 rounded-full bg-amber-600 text-white font-black text-xs flex items-center justify-center shrink-0">
                   1
                 </div>
-                <div className="text-xs text-slate-700">
-                  <p className="font-bold text-slate-900">Tap the Lock 🔒 or Tune ⚙️ icon</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Look at the very top of your screen inside the Chrome browser address bar (next to the website link).
+                <div className="text-xs text-amber-900">
+                  <p className="font-bold">Turn ON Phone Master Location</p>
+                  <p className="text-[11px] text-amber-700 mt-0.5">
+                    Pull down your phone top notification tray and tap the <span className="font-bold">Location 📍</span> icon to turn it <span className="font-bold text-emerald-700">ON</span>.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="w-6 h-6 rounded-full bg-amber-500 text-white font-black text-xs flex items-center justify-center shrink-0">
+                <div className="w-6 h-6 rounded-full bg-slate-800 text-white font-black text-xs flex items-center justify-center shrink-0">
                   2
                 </div>
                 <div className="text-xs text-slate-700">
-                  <p className="font-bold text-slate-900">Change Location to &quot;Allow&quot;</p>
+                  <p className="font-bold text-slate-900">Allow in Chrome URL Bar</p>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    Tap <span className="font-semibold text-slate-800">&quot;Permissions&quot;</span> (or <span className="font-semibold text-slate-800">&quot;Site settings&quot;</span>) ➔ <span className="font-semibold text-slate-800">&quot;Location&quot;</span> ➔ Toggle to <span className="font-bold text-emerald-600">Allow</span>.
+                    Tap the <strong>Lock 🔒</strong> or <strong>Tune ⚙️</strong> icon beside the website address ➔ Tap <strong>Permissions / Site settings</strong> ➔ Set Location to <span className="font-bold text-emerald-600">Allow</span>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="w-6 h-6 rounded-full bg-slate-800 text-white font-black text-xs flex items-center justify-center shrink-0">
+                  3
+                </div>
+                <div className="text-xs text-slate-700">
+                  <p className="font-bold text-slate-900">Check Android Chrome App Permission</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    If still blocked: Phone <strong>Settings App ➔ Apps ➔ Chrome ➔ Permissions ➔ Location ➔ Choose &quot;Allow while using app&quot;</strong>.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
                 <div className="w-6 h-6 rounded-full bg-emerald-600 text-white font-black text-xs flex items-center justify-center shrink-0">
-                  3
+                  4
                 </div>
                 <div className="text-xs text-emerald-900">
                   <p className="font-bold">Tap &quot;Test &amp; Enable GPS&quot; below</p>
                   <p className="text-[11px] text-emerald-700 mt-0.5">
-                    Once allowed, click the green button below to immediately verify and activate live dispatch.
+                    Tap the green button below to verify your coordinates and switch to <strong>GPS Live</strong>.
                   </p>
                 </div>
               </div>
@@ -231,29 +278,26 @@ export const GpsPermissionModal: React.FC<GpsPermissionModalProps> = ({
 
           {activePlatform === 'ios' && (
             <div className="space-y-3">
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="w-6 h-6 rounded-full bg-blue-500 text-white font-black text-xs flex items-center justify-center shrink-0">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50/80 border border-blue-200">
+                <div className="w-6 h-6 rounded-full bg-blue-600 text-white font-black text-xs flex items-center justify-center shrink-0">
                   1
                 </div>
-                <div className="text-xs text-slate-700">
-                  <p className="font-bold text-slate-900">Tap the &quot;aA&quot; or Settings icon</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Look at the Safari address bar (top or bottom of Safari) and tap the <span className="font-semibold text-slate-800">&quot;aA&quot;</span> icon.
+                <div className="text-xs text-blue-900">
+                  <p className="font-bold">Enable iPhone Location Services</p>
+                  <p className="text-[11px] text-blue-700 mt-0.5">
+                    iPhone <strong>Settings App ➔ Privacy &amp; Security ➔ Location Services ➔ Turn ON</strong>.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="w-6 h-6 rounded-full bg-blue-500 text-white font-black text-xs flex items-center justify-center shrink-0">
+                <div className="w-6 h-6 rounded-full bg-slate-800 text-white font-black text-xs flex items-center justify-center shrink-0">
                   2
                 </div>
                 <div className="text-xs text-slate-700">
-                  <p className="font-bold text-slate-900">Open Website Settings ➔ Location</p>
+                  <p className="font-bold text-slate-900">Tap &quot;aA&quot; in Safari Address Bar</p>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    Select <span className="font-semibold text-slate-800">&quot;Website Settings&quot;</span> ➔ Tap <span className="font-semibold text-slate-800">&quot;Location&quot;</span> ➔ Choose <span className="font-bold text-emerald-600">&quot;Allow&quot;</span>.
-                  </p>
-                  <p className="text-[10px] text-slate-400 mt-1 italic">
-                    (If still off: iPhone Settings App ➔ Privacy &amp; Security ➔ Location Services ➔ Safari ➔ &quot;While Using the App&quot;).
+                    Tap the <strong>&quot;aA&quot;</strong> icon ➔ <strong>Website Settings ➔ Location ➔ Choose &quot;Allow&quot;</strong>.
                   </p>
                 </div>
               </div>
@@ -274,11 +318,11 @@ export const GpsPermissionModal: React.FC<GpsPermissionModalProps> = ({
 
           {activePlatform === 'desktop' && (
             <div className="space-y-3">
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="w-6 h-6 rounded-full bg-purple-500 text-white font-black text-xs flex items-center justify-center shrink-0">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-purple-50/80 border border-purple-200">
+                <div className="w-6 h-6 rounded-full bg-purple-600 text-white font-black text-xs flex items-center justify-center shrink-0">
                   1
                 </div>
-                <div className="text-xs text-slate-700">
+                <div className="text-xs text-purple-900">
                   <p className="font-bold text-slate-900">Click the 🔒 Padlock icon</p>
                   <p className="text-[11px] text-slate-500 mt-0.5">
                     Click the lock icon on the left side of the website URL in Chrome / Edge.
@@ -287,7 +331,7 @@ export const GpsPermissionModal: React.FC<GpsPermissionModalProps> = ({
               </div>
 
               <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="w-6 h-6 rounded-full bg-purple-500 text-white font-black text-xs flex items-center justify-center shrink-0">
+                <div className="w-6 h-6 rounded-full bg-slate-800 text-white font-black text-xs flex items-center justify-center shrink-0">
                   2
                 </div>
                 <div className="text-xs text-slate-700">
