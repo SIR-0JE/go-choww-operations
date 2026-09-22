@@ -42,7 +42,6 @@ async function handleStatusUpdate(request: NextRequest) {
       where: { id: riderId },
       data: {
         isOnline: Boolean(isOnline),
-        ...(Boolean(isOnline) ? { lastActiveAt: new Date() } : {}),
       },
       select: {
         id: true,
