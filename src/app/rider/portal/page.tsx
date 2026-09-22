@@ -28,9 +28,13 @@ import {
   Filter,
   RotateCcw,
   HandHelping,
+  MapPinOff,
+  HelpCircle,
+  Compass,
 } from 'lucide-react';
 import { pushNotification, buildRiderNotification } from '@/lib/notifications';
 import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner';
+import { GpsPermissionModal } from '@/components/GpsPermissionModal';
 
 interface RiderOrder {
   id: string;
@@ -108,6 +112,8 @@ export default function RiderPortalPage() {
 
   // GPS Telemetry Heartbeat State
   const [gpsStatus, setGpsStatus] = useState<'active' | 'connecting' | 'idle' | 'off' | 'denied'>('off');
+  const [showGpsHelpModal, setShowGpsHelpModal] = useState(false);
+  const [isRetryingGps, setIsRetryingGps] = useState(false);
 
   const prevAvailableIdsRef = useRef<Set<string>>(new Set());
   const prevActiveIdsRef = useRef<Set<string>>(new Set());
@@ -117,6 +123,52 @@ export default function RiderPortalPage() {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setToastMessage({ text, type });
     toastTimeoutRef.current = setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const retryGpsPermission = () => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      showToast('Geolocation is not supported by your browser.', 'error');
+      return;
+    }
+    setIsRetryingGps(true);
+    setGpsStatus('connecting');
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        setIsRetryingGps(false);
+        setGpsStatus('active');
+        setShowGpsHelpModal(false);
+        showToast('📍 GPS Location enabled and transmitting!', 'success');
+        if (rider?.id) {
+          try {
+            await fetch('/api/rider/location', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                riderId: rider.id,
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+                heading: position.coords.heading,
+                speed: position.coords.speed,
+              }),
+            });
+          } catch (err) {
+            console.warn('[GPS Retry] Transmit error:', err);
+          }
+        }
+      },
+      (err) => {
+        setIsRetryingGps(false);
+        if (err.code === err.PERMISSION_DENIED) {
+          setGpsStatus('denied');
+          showToast('GPS is still blocked. Tap "How to Unblock" for steps.', 'error');
+        } else {
+          setGpsStatus('idle');
+          showToast(`GPS Notice: ${err.message}`, 'error');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
   };
 
   // ── Web Audio Chime ──────────────────────────────────────────────────────────
@@ -791,27 +843,34 @@ export default function RiderPortalPage() {
                   {isOnline ? 'On Duty' : 'Off Duty'}
                 </span>
                 {isOnline && (
-                  <span
-                    className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5 ${
+                  <button
+                    onClick={() => setShowGpsHelpModal(true)}
+                    className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5 transition-transform active:scale-95 ${
                       gpsStatus === 'active'
-                        ? 'bg-emerald-100 text-emerald-700'
+                        ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                         : gpsStatus === 'connecting'
                         ? 'bg-amber-100 text-amber-700 animate-pulse'
                         : gpsStatus === 'denied'
-                        ? 'bg-rose-100 text-rose-700'
+                        ? 'bg-rose-100 text-rose-700 hover:bg-rose-200 border border-rose-200 animate-pulse'
                         : 'bg-slate-100 text-slate-600'
                     }`}
-                    title={
-                      gpsStatus === 'active'
-                        ? 'Live GPS Transmitting'
-                        : gpsStatus === 'denied'
-                        ? 'GPS Permission Denied - Please allow location access in your browser'
-                        : 'Transmitting GPS telemetry...'
-                    }
+                    title="Tap to manage GPS permission & status"
                   >
-                    <MapPin className="w-2.5 h-2.5" />
-                    {gpsStatus === 'active' ? 'GPS Live' : gpsStatus === 'denied' ? 'GPS Denied' : 'GPS...'}
-                  </span>
+                    {gpsStatus === 'denied' ? (
+                      <MapPinOff className="w-2.5 h-2.5 text-rose-600" />
+                    ) : (
+                      <MapPin className="w-2.5 h-2.5" />
+                    )}
+                    <span>
+                      {gpsStatus === 'active'
+                        ? 'GPS Live'
+                        : gpsStatus === 'denied'
+                        ? 'GPS Denied ⚠️'
+                        : gpsStatus === 'connecting'
+                        ? 'GPS...'
+                        : 'GPS Off'}
+                    </span>
+                  </button>
                 )}
               </div>
             </div>
@@ -874,6 +933,57 @@ export default function RiderPortalPage() {
             <span>{toastMessage.text}</span>
           </div>
           <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-slate-600 ml-2 shrink-0 font-bold">✕</button>
+        </div>
+      )}
+
+      {/* ── Persistent GPS Denied Banner ──────────────────────────────────────── */}
+      {isOnline && gpsStatus === 'denied' && (
+        <div className="mx-4 mt-3 p-3.5 rounded-2xl bg-gradient-to-br from-rose-50 via-rose-50/80 to-amber-50 border border-rose-200 shadow-sm flex flex-col gap-2.5 animate-fadeIn">
+          <div className="flex items-start gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-rose-600 flex items-center justify-center shrink-0 shadow-sm text-white">
+              <MapPinOff className="w-4 h-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-1">
+                <h4 className="text-xs font-black text-rose-950 flex items-center gap-1.5">
+                  <span>GPS Location is Blocked</span>
+                </h4>
+                <span className="text-[10px] bg-rose-200/70 text-rose-800 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                  Required
+                </span>
+              </div>
+              <p className="text-[11px] text-rose-700 mt-0.5 leading-relaxed font-medium">
+                Continuous GPS telemetry is required for live dispatch radar and proximity order handovers.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1 border-t border-rose-200/60">
+            <button
+              onClick={() => setShowGpsHelpModal(true)}
+              className="flex-1 py-2 px-3 rounded-xl bg-white border border-rose-200 text-rose-800 hover:bg-rose-50 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs"
+            >
+              <HelpCircle className="w-3.5 h-3.5 text-rose-600" />
+              <span>How to Unblock</span>
+            </button>
+            <button
+              onClick={retryGpsPermission}
+              disabled={isRetryingGps}
+              className="flex-1 py-2 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-rose-600/20 disabled:opacity-60"
+            >
+              {isRetryingGps ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Checking...</span>
+                </>
+              ) : (
+                <>
+                  <Compass className="w-3.5 h-3.5" />
+                  <span>Test &amp; Enable GPS</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       )}
 
@@ -1843,6 +1953,19 @@ export default function RiderPortalPage() {
           </div>
         </div>
       )}
+
+      {/* ── GPS Permission Help & Re-test Modal ──────────────────────────────── */}
+      <GpsPermissionModal
+        isOpen={showGpsHelpModal}
+        onClose={() => setShowGpsHelpModal(false)}
+        riderId={rider?.id}
+        onSuccess={(_coords) => {
+          setGpsStatus('active');
+          setShowGpsHelpModal(false);
+          showToast('📍 GPS location verified and live!', 'success');
+        }}
+      />
     </div>
   );
 }
+
