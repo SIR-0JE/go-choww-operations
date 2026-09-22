@@ -459,14 +459,29 @@ export default function RiderPortalPage() {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (localRiderId) headers['x-rider-id'] = localRiderId;
-      await fetch('/api/rider/status', {
+      const res = await fetch('/api/rider/status', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ isOnline: nextStatus }),
+        body: JSON.stringify({ isOnline: nextStatus, riderId: rider?.id || localRiderId }),
       });
-      showToast(nextStatus ? 'You are now On Duty!' : 'You are now Off Duty.', 'success');
-      fetchPortalData(false);
+      const data = await res.json();
+      if (data.success) {
+        setIsOnline(Boolean(data.isOnline));
+        if (rider) {
+          const updated = { ...rider, isOnline: Boolean(data.isOnline) };
+          setRider(updated);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('rider_session', JSON.stringify(updated));
+          }
+        }
+        showToast(nextStatus ? '🟢 You are now On Duty!' : '⏸️ You are now Off Duty.', 'success');
+      } else {
+        setIsOnline(!nextStatus);
+        showToast(data.error || 'Could not update status.', 'error');
+      }
+      await fetchPortalData(true);
     } catch {
+      setIsOnline(!nextStatus);
       showToast('Could not update status. Check your connection.', 'error');
     }
   };

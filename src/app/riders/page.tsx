@@ -199,6 +199,32 @@ export default function RidersPage() {
     }
   };
 
+  const handleToggleRiderOnline = async (rider: RiderItem) => {
+    const nextOnline = !rider.isOnline;
+    // Optimistic update
+    setRiders((prev) =>
+      prev.map((r) => (r.id === rider.id ? { ...r, isOnline: nextOnline } : r))
+    );
+    try {
+      const res = await fetch('/api/riders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: rider.id, isOnline: nextOnline }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        // Revert on failure
+        setRiders((prev) =>
+          prev.map((r) => (r.id === rider.id ? { ...r, isOnline: !nextOnline } : r))
+        );
+      }
+    } catch {
+      setRiders((prev) =>
+        prev.map((r) => (r.id === rider.id ? { ...r, isOnline: !nextOnline } : r))
+      );
+    }
+  };
+
   const handleOpenEdit = (rider: RiderItem) => {
     setEditingRider(rider);
     setEditName(rider.name);
@@ -552,17 +578,24 @@ export default function RidersPage() {
                         <td className="px-5 py-4">
                           <div className="flex flex-col gap-1 items-start">
                             {getStatusBadge(rider.status)}
-                            {rider.isOnline ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                Online
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                                Offline
-                              </span>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleRiderOnline(rider)}
+                              className="group inline-flex items-center gap-1 text-[10px] font-bold rounded-md px-2 py-0.5 border transition-all active:scale-95"
+                              title={`Click to set rider ${rider.isOnline ? 'Offline' : 'Online'}`}
+                            >
+                              {rider.isOnline ? (
+                                <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 group-hover:bg-emerald-100">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  <span>Online</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-slate-400 bg-slate-50 group-hover:bg-slate-100">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                                  <span>Offline</span>
+                                </span>
+                              )}
+                            </button>
                           </div>
                         </td>
 

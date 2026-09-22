@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, status, name, phone, assignedCafeterias, pin } = body;
+    const { id, status, name, phone, assignedCafeterias, pin, isOnline } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -229,6 +229,7 @@ export async function PATCH(request: NextRequest) {
     if (name) updateData.name = name.trim();
     if (phone !== undefined) updateData.phone = phone ? String(phone).trim() : null;
     if (pin) updateData.pin = String(pin).trim();
+    if (isOnline !== undefined) updateData.isOnline = Boolean(isOnline);
     if (assignedCafeterias !== undefined && Array.isArray(assignedCafeterias)) {
       updateData.assignedCafeterias = assignedCafeterias.map((c: string) => String(c).trim()).filter(Boolean);
     }
