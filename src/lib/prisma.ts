@@ -17,6 +17,24 @@ export const prisma =
 
 globalForPrisma.prisma = prisma;
 
+/**
+ * Utility helper to retry database operations on transient pooler / socket disconnects
+ */
+export async function withDbRetry<T>(fn: () => Promise<T>, retries = 2, delayMs = 300): Promise<T> {
+  let lastError: any;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastError = err;
+      if (attempt < retries) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs * (attempt + 1)));
+      }
+    }
+  }
+  throw lastError;
+}
+
 if (!globalForPrisma.mockOrders) {
   globalForPrisma.mockOrders = [];
 }

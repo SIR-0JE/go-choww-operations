@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, getInMemoryOrders, updateInMemoryOrder, updateInMemoryOrderRider } from '@/lib/prisma';
+import { prisma, withDbRetry, getInMemoryOrders, updateInMemoryOrder, updateInMemoryOrderRider } from '@/lib/prisma';
 import { calculateRiderPayout, isSettledOrder } from '@/lib/financials';
 
 export const dynamic = 'force-dynamic';
@@ -19,26 +19,28 @@ export async function GET(request: NextRequest) {
     let rawOrders: any[] = [];
 
     try {
-      try {
-        rawOrders = await prisma.deliveryOrder.findMany({
-          orderBy: { createdAt: 'desc' },
-          include: {
-            rider: {
-              select: {
-                id: true,
-                name: true,
-                phone: true,
-                status: true,
+      rawOrders = await withDbRetry(async () => {
+        try {
+          return await prisma.deliveryOrder.findMany({
+            orderBy: { createdAt: 'desc' },
+            include: {
+              rider: {
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  status: true,
+                },
               },
             },
-          },
-        });
-      } catch {
-        // Safe fallback if riderId relation column is not yet pushed to DB
-        rawOrders = await prisma.deliveryOrder.findMany({
-          orderBy: { createdAt: 'desc' },
-        });
-      }
+          });
+        } catch {
+          // Safe fallback if rider relation column is not yet pushed to DB
+          return await prisma.deliveryOrder.findMany({
+            orderBy: { createdAt: 'desc' },
+          });
+        }
+      }, 2, 250);
     } catch {
       rawOrders = getInMemoryOrders();
     }
@@ -197,28 +199,27 @@ export async function PATCH(request: NextRequest) {
     let updated: any = null;
 
     try {
-      const existing = await prisma.deliveryOrder.findFirst({
-        where: {
-          OR: [{ id: targetKey }, { orderId: targetKey }],
-        },
-      });
-
-      if (!existing) {
-        return NextResponse.json(
-          { success: false, error: 'Order not found' },
-          { status: 404 }
-        );
-      }
-
-      updated = await prisma.deliveryOrder.update({
-        where: { id: existing.id },
-        data: updateData,
-        include: {
-          rider: {
-            select: { id: true, name: true, phone: true, status: true },
+      updated = await withDbRetry(async () => {
+        const existing = await prisma.deliveryOrder.findFirst({
+          where: {
+            OR: [{ id: targetKey }, { orderId: targetKey }],
           },
-        },
-      });
+        });
+
+        if (!existing) {
+          return null;
+        }
+
+        return await prisma.deliveryOrder.update({
+          where: { id: existing.id },
+          data: updateData,
+          include: {
+            rider: {
+              select: { id: true, name: true, phone: true, status: true },
+            },
+          },
+        });
+      }, 2, 250);
     } catch {
       updated = updateInMemoryOrder(targetKey, updateData);
     }

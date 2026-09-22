@@ -32,7 +32,7 @@ export const SPRINT_DEADLINE = new Date('2026-12-10T23:59:59Z');
  * Non-delivered orders (Confirmed, Preparing, Ready, Dispatched, Pending, Cancelled)
  * do NOT enter rider settlement calculations.
  */
-export function isSettledOrder(order: { orderStatus: string; paymentStatus: string }): boolean {
+export function isSettledOrder(order: { orderStatus?: string; paymentStatus?: string }): boolean {
   const status = (order.orderStatus || '').trim().toLowerCase();
   const isDelivered = status === 'delivered' || status === 'completed';
   const isPaid = (order.paymentStatus || '').trim().toLowerCase() === 'success';

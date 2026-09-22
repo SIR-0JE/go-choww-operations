@@ -12,18 +12,12 @@ import {
   PackageCheck,
   AlertOctagon,
   Calendar,
+  Clock,
+  ChevronRight,
+  Flame,
 } from 'lucide-react';
 import { InteractiveDailyTrendChart } from '@/components/charts/InteractiveDailyTrendChart';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts';
+import { IntradayVelocityDrawer, OrderItem } from '@/components/analytics/IntradayVelocityDrawer';
 
 interface DailySummaryRow {
   date: string;
@@ -35,52 +29,21 @@ interface DailySummaryRow {
   differentSide: number;
   pickUp: number;
   other: number;
+  orders: OrderItem[];
 }
-
-const CustomDailyTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    const d = payload[0]?.payload;
-    return (
-      <div className="rounded-xl bg-white border border-slate-200 p-3.5 shadow-xl shadow-slate-200/50 text-xs space-y-1.5 z-50">
-        <div className="font-extrabold text-slate-900 text-sm border-b border-slate-100 pb-1 flex items-center justify-between gap-4">
-          <span>{d.displayDate || label}</span>
-          <span className="px-2 py-0.5 rounded bg-brand-50 text-brand-700 font-bold border border-brand-200">
-            {d.totalOrders} total runs
-          </span>
-        </div>
-        <div className="flex justify-between gap-4 text-slate-600">
-          <span>Delivery Revenue:</span>
-          <span className="font-bold text-brand-600">{formatNaira(d.grossRevenue)}</span>
-        </div>
-        <div className="flex justify-between gap-4 text-slate-600">
-          <span>Same Side (₦50):</span>
-          <span className="font-bold text-slate-900">{d.sameSide} orders</span>
-        </div>
-        <div className="flex justify-between gap-4 text-slate-600">
-          <span>Different Side (₦90):</span>
-          <span className="font-bold text-blue-700">{d.differentSide} orders</span>
-        </div>
-        <div className="flex justify-between gap-4 text-slate-600">
-          <span>Pick Up (₦0):</span>
-          <span className="font-bold text-emerald-700">{d.pickUp} orders</span>
-        </div>
-      </div>
-    );
-  }
-  return null;
-};
 
 export default function DailySummaryPage() {
   const [dailyData, setDailyData] = useState<DailySummaryRow[]>([]);
-  const [chartData, setChartData] = useState<DailySummaryRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedDayRow, setSelectedDayRow] = useState<DailySummaryRow | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const fetchDailySummary = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await fetch('/api/orders?limit=all');
       const data = await res.json();
-      const orders = data.orders || [];
+      const orders: OrderItem[] = data.orders || [];
 
       // Group orders by day
       const dayMap = new Map<string, DailySummaryRow>();
@@ -106,11 +69,13 @@ export default function DailySummaryPage() {
             differentSide: 0,
             pickUp: 0,
             other: 0,
+            orders: [],
           });
         }
 
         const row = dayMap.get(dateKey)!;
         row.totalOrders += 1;
+        row.orders.push(ord);
 
         const isSettled = ord.isSettled || isSettledOrder(ord);
         if (isSettled) {
@@ -133,12 +98,7 @@ export default function DailySummaryPage() {
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       );
 
-      // No slice — show all days from Jan to Aug
-      const chartList = [...sortedList]
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
       setDailyData(sortedList);
-      setChartData(chartList);
     } catch (err) {
       console.error('Failed to load daily summary:', err);
     } finally {
@@ -149,6 +109,15 @@ export default function DailySummaryPage() {
   useEffect(() => {
     fetchDailySummary();
   }, [fetchDailySummary]);
+
+  const handleOpenDrawer = (row: DailySummaryRow) => {
+    setSelectedDayRow(row);
+    setIsDrawerOpen(true);
+  };
+
+  const handleCloseDrawer = () => {
+    setIsDrawerOpen(false);
+  };
 
   return (
     <AppLayout>
@@ -163,7 +132,7 @@ export default function DailySummaryPage() {
               Daily Summary Ledger
             </h1>
             <p className="text-xs text-slate-500 font-medium mt-1">
-              Excel-equivalent day-by-day operational trajectory, order counts, and delivery type breakdowns
+              Excel-equivalent day-by-day operational trajectory, order counts, delivery fees, and clickable intraday rush analytics
             </p>
           </div>
           <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 self-start sm:self-auto">
@@ -178,19 +147,29 @@ export default function DailySummaryPage() {
           data={dailyData}
           isLoading={isLoading}
           title="Daily Delivery Revenue &amp; Order Trajectory"
-          description="Switch between revenue and order counts, filter by date presets, or pick a custom date window"
+          description="Click any day node or pick date presets to inspect daily volume and hourly rush velocity"
+          onSelectDate={(dateKey) => {
+            const found = dailyData.find((d) => d.date === dateKey);
+            if (found) {
+              handleOpenDrawer(found);
+            }
+          }}
         />
 
         {/* ─────────────────────────────────────────────────────────────
-            BOTTOM: MODERN DATA GRID
-            Exact Columns: Date | Total Orders | Delivery Revenue | Same Side | Different Side | Pick Up | Other
+            BOTTOM: MODERN DATA GRID WITH CLICK-TO-INSPECT HOURLY BREAKDOWN
         ───────────────────────────────────────────────────────────── */}
         <div className="rounded-2xl bg-white border border-slate-200/80 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+          <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h3 className="text-base font-bold text-slate-900">Daily Breakdown Ledger</h3>
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span>Daily Breakdown Ledger</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-50 text-brand-700 border border-brand-200">
+                  Click any row for hourly rush breakdown
+                </span>
+              </h3>
               <p className="text-xs text-slate-500 font-normal mt-0.5">
-                Detailed day-by-day settled volume and gross logistics revenues
+                Detailed day-by-day settled volume, gross logistics revenues, and intraday velocity
               </p>
             </div>
             <span className="text-xs font-medium text-slate-400">
@@ -209,29 +188,34 @@ export default function DailySummaryPage() {
                   <th className="px-6 py-4 text-center">Different Side (₦90)</th>
                   <th className="px-6 py-4 text-center">Pick Up (₦0)</th>
                   <th className="px-6 py-4 text-center">Other</th>
+                  <th className="px-6 py-4 text-center">Intraday Analysis</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {isLoading ? (
                   [...Array(6)].map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      <td colSpan={7} className="px-6 py-4 bg-slate-50/40">
+                      <td colSpan={8} className="px-6 py-4 bg-slate-50/40">
                         <div className="h-4 bg-slate-200 rounded w-full" />
                       </td>
                     </tr>
                   ))
                 ) : dailyData.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
+                    <td colSpan={8} className="px-6 py-12 text-center text-slate-400">
                       No daily records found.
                     </td>
                   </tr>
                 ) : (
                   dailyData.map((row) => (
-                    <tr key={row.date} className="hover:bg-slate-50/70 transition-colors">
+                    <tr
+                      key={row.date}
+                      onClick={() => handleOpenDrawer(row)}
+                      className="hover:bg-brand-50/40 cursor-pointer transition-colors group"
+                    >
                       {/* Date */}
-                      <td className="px-6 py-4 font-semibold text-slate-900">
-                        {row.displayDate}
+                      <td className="px-6 py-4 font-semibold text-slate-900 group-hover:text-brand-700 flex items-center gap-2">
+                        <span>{row.displayDate}</span>
                       </td>
 
                       {/* Total Orders */}
@@ -240,7 +224,7 @@ export default function DailySummaryPage() {
                       </td>
 
                       {/* Delivery Revenue */}
-                      <td className="px-6 py-4 text-right font-bold text-slate-900 tabular-nums">
+                      <td className="px-6 py-4 text-right font-bold text-brand-600 tabular-nums">
                         {formatNaira(row.grossRevenue)}
                       </td>
 
@@ -263,6 +247,22 @@ export default function DailySummaryPage() {
                       <td className="px-6 py-4 text-center text-slate-600 tabular-nums font-medium">
                         {row.other}
                       </td>
+
+                      {/* Action Button */}
+                      <td className="px-6 py-4 text-center">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDrawer(row);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-brand-600 hover:text-white text-slate-700 font-bold text-xs transition-all shadow-sm border border-slate-200 hover:border-brand-600"
+                        >
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>Hourly Rate</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -271,6 +271,17 @@ export default function DailySummaryPage() {
           </div>
         </div>
       </main>
+
+      {/* ── INTRADAY VELOCITY & RUSH DRAWER ──────────────────────────────── */}
+      {selectedDayRow && (
+        <IntradayVelocityDrawer
+          isOpen={isDrawerOpen}
+          onClose={handleCloseDrawer}
+          dateStr={selectedDayRow.date}
+          displayDate={selectedDayRow.displayDate}
+          orders={selectedDayRow.orders}
+        />
+      )}
     </AppLayout>
   );
 }

@@ -42,6 +42,7 @@ interface InteractiveDailyTrendChartProps {
   isLoading?: boolean;
   title?: string;
   description?: string;
+  onSelectDate?: (dateKey: string) => void;
 }
 
 type MetricMode = 'revenue' | 'orders';
@@ -109,6 +110,7 @@ export const InteractiveDailyTrendChart: React.FC<InteractiveDailyTrendChartProp
   isLoading = false,
   title = 'Daily Operational Trajectory',
   description = 'Interactive visual trends for gross logistics revenue and order delivery volumes',
+  onSelectDate,
 }) => {
   const [metricMode, setMetricMode] = useState<MetricMode>('revenue');
   const [datePreset, setDatePreset] = useState<DatePreset>('all');
@@ -346,6 +348,15 @@ export const InteractiveDailyTrendChart: React.FC<InteractiveDailyTrendChartProp
           <AreaChart
             data={filteredData}
             margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+            onClick={(state) => {
+              if (state && state.activePayload && state.activePayload.length > 0) {
+                const dateKey = state.activePayload[0]?.payload?.date;
+                if (dateKey && onSelectDate) {
+                  onSelectDate(dateKey);
+                }
+              }
+            }}
+            className={onSelectDate ? 'cursor-pointer' : ''}
           >
             <defs>
               {/* Revenue Gradient */}
