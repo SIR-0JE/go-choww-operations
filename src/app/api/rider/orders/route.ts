@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, getInMemoryOrders, updateInMemoryOrder, updateInMemoryOrderRider } from '@/lib/prisma';
+import { prisma, withDbRetry, getInMemoryOrders, updateInMemoryOrder, updateInMemoryOrderRider } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { sendPushNotification } from '@/lib/pushService';
 import { verifyCafeteriaProximity, calculateDistanceMeters, getCafeteriaCoordinates } from '@/lib/locations';
@@ -27,9 +27,11 @@ async function getAuthenticatedRider(request: NextRequest) {
   if (!riderId) return null;
 
   try {
-    const rider = await prisma.rider.findUnique({
-      where: { id: riderId },
-    });
+    const rider = await withDbRetry(async () => {
+      return await prisma.rider.findUnique({
+        where: { id: riderId },
+      });
+    }, 3, 400);
     if (rider) return rider;
   } catch (err) {
     console.warn('[getAuthenticatedRider] DB lookup warning, using session payload fallback:', err);
@@ -70,112 +72,113 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      // 1. Available Pool:
-      // A) Unassigned orders (riderId: null)
-      // B) Orders claimed by other riders that are still awaiting pickup at cafeteria (not yet In Transit)
-      const availableOrders = await prisma.deliveryOrder.findMany({
-        where: {
-          OR: [
-            {
-              riderId: null,
+      const [availableOrders, activeTasks, completedToday] = await withDbRetry(async () => {
+        const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+        const shiftCutoff = dayAgo < todayMidnight ? dayAgo : todayMidnight;
+
+        return await Promise.all([
+          // 1. Available Pool
+          prisma.deliveryOrder.findMany({
+            where: {
+              OR: [
+                {
+                  riderId: null,
+                  orderStatus: {
+                    notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
+                  },
+                },
+                {
+                  riderId: { not: null, notIn: [rider.id] },
+                  orderStatus: {
+                    notIn: ['In Transit', 'in transit', 'Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
+                  },
+                },
+              ],
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 500,
+            select: {
+              id: true,
+              orderId: true,
+              customerName: true,
+              cafeteriaName: true,
+              deliveryAddress: true,
+              deliveryType: true,
+              orderStatus: true,
+              createdAt: true,
+              time: true,
+              riderId: true,
+              pickupCode: true,
+              handoverRequestedById: true,
+              handoverRequestedByName: true,
+              handoverDistance: true,
+              rider: {
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                },
+              },
+            },
+          }),
+
+          // 2. Active Tasks
+          prisma.deliveryOrder.findMany({
+            where: {
+              riderId: rider.id,
               orderStatus: {
                 notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
               },
             },
-            {
-              riderId: { not: null, notIn: [rider.id] },
-              orderStatus: {
-                notIn: ['In Transit', 'in transit', 'Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
-              },
-            },
-          ],
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 500,
-        select: {
-          id: true,
-          orderId: true,
-          customerName: true,
-          cafeteriaName: true,
-          deliveryAddress: true,
-          deliveryType: true,
-          orderStatus: true,
-          createdAt: true,
-          time: true,
-          riderId: true,
-          pickupCode: true,
-          handoverRequestedById: true,
-          handoverRequestedByName: true,
-          handoverDistance: true,
-          rider: {
+            orderBy: { createdAt: 'desc' },
             select: {
               id: true,
-              name: true,
-              phone: true,
+              orderId: true,
+              customerName: true,
+              cafeteriaName: true,
+              deliveryAddress: true,
+              deliveryType: true,
+              orderStatus: true,
+              createdAt: true,
+              time: true,
+              customerPhone: true,
+              pickupCode: true,
+              handoverRequestedById: true,
+              handoverRequestedByName: true,
+              handoverDistance: true,
             },
-          },
-        },
-      });
+          }),
 
-      // 2. Active Tasks claimed by this rider (Active Log)
-      const activeTasks = await prisma.deliveryOrder.findMany({
-        where: {
-          riderId: rider.id,
-          orderStatus: {
-            notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          orderId: true,
-          customerName: true,
-          cafeteriaName: true,
-          deliveryAddress: true,
-          deliveryType: true,
-          orderStatus: true,
-          createdAt: true,
-          time: true,
-          customerPhone: true,
-          pickupCode: true,
-          handoverRequestedById: true,
-          handoverRequestedByName: true,
-          handoverDistance: true,
-        },
-      });
-
-      // 3. Completed Today / Current Shift by this rider
-      // Use a 24-hour shift window (or midnight, whichever earlier) to reliably capture all delivered runs
-      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const todayMidnight = new Date();
-      todayMidnight.setHours(0, 0, 0, 0);
-      const shiftCutoff = dayAgo < todayMidnight ? dayAgo : todayMidnight;
-
-      const completedToday = await prisma.deliveryOrder.findMany({
-        where: {
-          riderId: rider.id,
-          orderStatus: {
-            in: ['Delivered', 'Completed', 'delivered', 'completed'],
-          },
-          createdAt: {
-            gte: shiftCutoff,
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 500,
-        select: {
-          id: true,
-          orderId: true,
-          customerName: true,
-          cafeteriaName: true,
-          deliveryAddress: true,
-          deliveryType: true,
-          orderStatus: true,
-          createdAt: true,
-          time: true,
-          pickupCode: true,
-        },
-      });
+          // 3. Completed Today
+          prisma.deliveryOrder.findMany({
+            where: {
+              riderId: rider.id,
+              orderStatus: {
+                in: ['Delivered', 'Completed', 'delivered', 'completed'],
+              },
+              createdAt: {
+                gte: shiftCutoff,
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 500,
+            select: {
+              id: true,
+              orderId: true,
+              customerName: true,
+              cafeteriaName: true,
+              deliveryAddress: true,
+              deliveryType: true,
+              orderStatus: true,
+              createdAt: true,
+              time: true,
+              pickupCode: true,
+            },
+          }),
+        ]);
+      }, 3, 400);
 
       // 4. Other active riders available for peer-to-peer transfer (Optimized 1 single query)
       let otherRidersWithCounts: any[] = [];

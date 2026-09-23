@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   prisma,
+  withDbRetry,
   getInMemoryRiders,
   getInMemoryOrders,
 } from '@/lib/prisma';
@@ -22,39 +23,49 @@ export async function GET(
     let isDb = true;
 
     try {
-      rider = await prisma.rider.findUnique({
-        where: { id },
-        include: {
-          orders: {
-            orderBy: { createdAt: 'desc' },
-            select: {
-              id: true,
-              orderId: true,
-              createdAt: true,
-              time: true,
-              customerName: true,
-              cafeteriaName: true,
-              deliveryAddress: true,
-              deliveryFee: true,
-              deliveryType: true,
-              orderStatus: true,
-              paymentStatus: true,
+      rider = await withDbRetry(async () => {
+        return await prisma.rider.findUnique({
+          where: { id },
+          include: {
+            orders: {
+              orderBy: { createdAt: 'desc' },
+              select: {
+                id: true,
+                orderId: true,
+                createdAt: true,
+                time: true,
+                customerName: true,
+                cafeteriaName: true,
+                deliveryAddress: true,
+                deliveryFee: true,
+                deliveryType: true,
+                orderStatus: true,
+                paymentStatus: true,
+              },
             },
           },
-        },
-      });
+        });
+      }, 3, 400);
       isDb = true;
-    } catch {
-      const memRiders = getInMemoryRiders();
-      const memOrders = getInMemoryOrders();
-      const found = memRiders.find((r) => r.id === id);
-      if (found) {
-        rider = {
-          ...found,
-          orders: memOrders.filter((o) => o.riderId === id),
-        };
+    } catch (dbErr) {
+      console.error('[Rider ID GET DB error]:', dbErr);
+      if (process.env.NODE_ENV === 'development') {
+        const memRiders = getInMemoryRiders();
+        const memOrders = getInMemoryOrders();
+        const found = memRiders.find((r) => r.id === id);
+        if (found) {
+          rider = {
+            ...found,
+            orders: memOrders.filter((o) => o.riderId === id),
+          };
+        }
+        isDb = false;
+      } else {
+        return NextResponse.json(
+          { success: false, error: 'Database connection busy. Please refresh.' },
+          { status: 503 }
+        );
       }
-      isDb = false;
     }
 
     if (!rider) {

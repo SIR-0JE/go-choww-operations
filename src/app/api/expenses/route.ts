@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, getInMemoryExpenses, appendMockExpense, deleteMockExpense } from '@/lib/prisma';
+import { prisma, withDbRetry, getInMemoryExpenses, appendMockExpense, deleteMockExpense } from '@/lib/prisma';
 import { GeneratedExpense } from '@/lib/mockData';
 
 export const dynamic = 'force-dynamic';
@@ -12,11 +12,21 @@ export async function GET(request: NextRequest) {
 
     let expenses: any[] = [];
     try {
-      expenses = await prisma.expense.findMany({
-        orderBy: { date: 'desc' },
-      });
-    } catch {
-      expenses = getInMemoryExpenses();
+      expenses = await withDbRetry(async () => {
+        return await prisma.expense.findMany({
+          orderBy: { date: 'desc' },
+        });
+      }, 3, 400);
+    } catch (dbErr) {
+      console.error('[Expenses GET DB error]:', dbErr);
+      if (process.env.NODE_ENV === 'development') {
+        expenses = getInMemoryExpenses();
+      } else {
+        return NextResponse.json(
+          { success: false, error: 'Database connection busy. Please refresh.' },
+          { status: 503 }
+        );
+      }
     }
 
     if (!expenses) expenses = [];

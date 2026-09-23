@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma, getInMemoryOrders, getInMemoryExpenses } from '@/lib/prisma';
+import { prisma, withDbRetry, getInMemoryOrders, getInMemoryExpenses } from '@/lib/prisma';
 import { calculateMetrics, calculateRiderPayout, isSettledOrder, isRevenueOrder } from '@/lib/financials';
 
 export const dynamic = 'force-dynamic';
@@ -11,16 +11,31 @@ export async function GET() {
     let isDbConnected = false;
 
     try {
-      orders = await prisma.deliveryOrder.findMany({
-        orderBy: { createdAt: 'asc' },
-      });
-      expenses = await prisma.expense.findMany({
-        orderBy: { date: 'asc' },
-      });
+      const [fetchedOrders, fetchedExpenses] = await withDbRetry(async () => {
+        return await Promise.all([
+          prisma.deliveryOrder.findMany({
+            orderBy: { createdAt: 'asc' },
+          }),
+          prisma.expense.findMany({
+            orderBy: { date: 'asc' },
+          }),
+        ]);
+      }, 3, 400);
+
+      orders = fetchedOrders;
+      expenses = fetchedExpenses;
       isDbConnected = true;
-    } catch {
-      orders = getInMemoryOrders();
-      expenses = getInMemoryExpenses();
+    } catch (dbErr) {
+      console.error('[Analytics GET DB error]:', dbErr);
+      if (process.env.NODE_ENV === 'development') {
+        orders = getInMemoryOrders();
+        expenses = getInMemoryExpenses();
+      } else {
+        return NextResponse.json(
+          { success: false, error: 'Database connection busy. Please refresh.' },
+          { status: 503 }
+        );
+      }
     }
 
     if (!orders) orders = [];

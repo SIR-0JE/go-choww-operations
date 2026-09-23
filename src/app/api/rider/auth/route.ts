@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, getInMemoryRiders } from '@/lib/prisma';
+import { prisma, withDbRetry } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
@@ -35,19 +35,29 @@ export async function POST(request: NextRequest) {
     let rider: any = null;
 
     try {
-      // Find rider in database
-      const allRiders = await prisma.rider.findMany();
+      // Find rider in database with retries
+      const allRiders = await withDbRetry(async () => {
+        return await prisma.rider.findMany();
+      }, 3, 400);
+
       rider = allRiders.find((r) => {
         const storedClean = normalizePhone(r.phone || '');
-        return storedClean.length >= 7 && (storedClean === cleanInputPhone || cleanInputPhone.includes(storedClean) || storedClean.includes(cleanInputPhone));
+        return (
+          storedClean.length >= 7 &&
+          (storedClean === cleanInputPhone ||
+            cleanInputPhone.includes(storedClean) ||
+            storedClean.includes(cleanInputPhone))
+        );
       });
-    } catch {
-      // Fallback in memory
-      const memRiders = getInMemoryRiders();
-      rider = memRiders.find((r) => {
-        const storedClean = normalizePhone(r.phone || '');
-        return storedClean.length >= 7 && (storedClean === cleanInputPhone || cleanInputPhone.includes(storedClean) || storedClean.includes(cleanInputPhone));
-      });
+    } catch (dbErr: any) {
+      console.error('[Rider Auth DB lookup failed]:', dbErr);
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Database connection busy. Please retry in a few seconds.',
+        },
+        { status: 503 }
+      );
     }
 
     if (!rider) {
@@ -151,16 +161,18 @@ export async function GET(request: NextRequest) {
     let rider: any = null;
 
     try {
-      rider = await prisma.rider.findUnique({
-        where: { id: riderId },
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          status: true,
-          isOnline: true,
-        },
-      });
+      rider = await withDbRetry(async () => {
+        return await prisma.rider.findUnique({
+          where: { id: riderId },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            status: true,
+            isOnline: true,
+          },
+        });
+      }, 3, 400);
     } catch {
       rider = session || { id: riderId, name: 'Rider', phone: '', isOnline: true, status: 'Active' };
     }

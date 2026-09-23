@@ -40,9 +40,17 @@ export async function GET(request: NextRequest) {
             orderBy: { createdAt: 'desc' },
           });
         }
-      }, 2, 250);
-    } catch {
-      rawOrders = getInMemoryOrders();
+      }, 3, 400);
+    } catch (dbErr) {
+      console.error('[Orders GET DB error]:', dbErr);
+      if (process.env.NODE_ENV === 'development') {
+        rawOrders = getInMemoryOrders();
+      } else {
+        return NextResponse.json(
+          { success: false, error: 'Database connection busy. Please refresh.' },
+          { status: 503 }
+        );
+      }
     }
 
     if (!rawOrders) rawOrders = [];

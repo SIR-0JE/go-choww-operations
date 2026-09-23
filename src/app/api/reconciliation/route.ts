@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, getInMemoryOrders, getInMemoryRiders } from '@/lib/prisma';
+import { prisma, withDbRetry, getInMemoryOrders, getInMemoryRiders } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,38 +36,52 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      // 1. Fetch unassigned orders from PostgreSQL
-      unassignedOrders = await prisma.deliveryOrder.findMany({
-        where: {
-          riderId: null,
-          ...(cafeteria && cafeteria !== 'ALL' ? { cafeteriaName: { contains: cafeteria, mode: 'insensitive' } } : {}),
-          ...(dateFilter ? { createdAt: dateFilter } : {}),
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+      const [fetchedOrders, fetchedRiders] = await withDbRetry(async () => {
+        return await Promise.all([
+          // 1. Fetch unassigned orders from PostgreSQL
+          prisma.deliveryOrder.findMany({
+            where: {
+              riderId: null,
+              ...(cafeteria && cafeteria !== 'ALL' ? { cafeteriaName: { contains: cafeteria, mode: 'insensitive' } } : {}),
+              ...(dateFilter ? { createdAt: dateFilter } : {}),
+            },
+            orderBy: { createdAt: 'desc' },
+          }),
 
-      // 2. Fetch active riders for assignment dropdown
-      riders = await prisma.rider.findMany({
-        where: { status: 'Active' },
-        select: { id: true, name: true, phone: true, isOnline: true },
-        orderBy: { name: 'asc' },
-      });
-    } catch {
-      // Fallback in memory
-      const memOrders = getInMemoryOrders();
-      unassignedOrders = memOrders.filter((o) => {
-        if (o.riderId) return false;
-        if (cafeteria && cafeteria !== 'ALL' && !o.cafeteriaName?.toLowerCase().includes(cafeteria.toLowerCase())) {
-          return false;
-        }
-        if (dateParam) {
-          const ordDate = new Date(o.createdAt).toISOString().split('T')[0];
-          if (ordDate !== dateParam) return false;
-        }
-        return true;
-      });
-      const memRiders = getInMemoryRiders();
-      riders = memRiders.filter((r) => r.status === 'Active');
+          // 2. Fetch active riders for assignment dropdown
+          prisma.rider.findMany({
+            where: { status: 'Active' },
+            select: { id: true, name: true, phone: true, isOnline: true },
+            orderBy: { name: 'asc' },
+          }),
+        ]);
+      }, 3, 400);
+
+      unassignedOrders = fetchedOrders;
+      riders = fetchedRiders;
+    } catch (dbErr) {
+      console.error('[Reconciliation GET DB error]:', dbErr);
+      if (process.env.NODE_ENV === 'development') {
+        const memOrders = getInMemoryOrders();
+        unassignedOrders = memOrders.filter((o) => {
+          if (o.riderId) return false;
+          if (cafeteria && cafeteria !== 'ALL' && !o.cafeteriaName?.toLowerCase().includes(cafeteria.toLowerCase())) {
+            return false;
+          }
+          if (dateParam) {
+            const ordDate = new Date(o.createdAt).toISOString().split('T')[0];
+            if (ordDate !== dateParam) return false;
+          }
+          return true;
+        });
+        const memRiders = getInMemoryRiders();
+        riders = memRiders.filter((r) => r.status === 'Active');
+      } else {
+        return NextResponse.json(
+          { success: false, error: 'Database connection busy. Please refresh.' },
+          { status: 503 }
+        );
+      }
     }
 
     // Client search filter if specified

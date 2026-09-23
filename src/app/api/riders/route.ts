@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   prisma,
+  withDbRetry,
   getInMemoryRiders,
   appendMockRider,
   updateMockRiderStatus,
@@ -24,31 +25,41 @@ export async function GET(request: NextRequest) {
     let isDb = true;
 
     try {
-      riders = await prisma.rider.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: {
-          orders: {
-            select: {
-              id: true,
-              orderId: true,
-              createdAt: true,
-              time: true,
-              customerName: true,
-              cafeteriaName: true,
-              deliveryAddress: true,
-              deliveryFee: true,
-              deliveryType: true,
-              orderStatus: true,
-              paymentStatus: true,
+      riders = await withDbRetry(async () => {
+        return await prisma.rider.findMany({
+          orderBy: { createdAt: 'desc' },
+          include: {
+            orders: {
+              select: {
+                id: true,
+                orderId: true,
+                createdAt: true,
+                time: true,
+                customerName: true,
+                cafeteriaName: true,
+                deliveryAddress: true,
+                deliveryFee: true,
+                deliveryType: true,
+                orderStatus: true,
+                paymentStatus: true,
+              },
             },
           },
-        },
-      });
+        });
+      }, 3, 400);
       isDb = true;
-    } catch {
-      riders = getInMemoryRiders();
-      orders = getInMemoryOrders();
-      isDb = false;
+    } catch (dbErr) {
+      console.error('[Riders GET DB error]:', dbErr);
+      if (process.env.NODE_ENV === 'development') {
+        riders = getInMemoryRiders();
+        orders = getInMemoryOrders();
+        isDb = false;
+      } else {
+        return NextResponse.json(
+          { success: false, error: 'Database connection busy. Please refresh.' },
+          { status: 503 }
+        );
+      }
     }
 
     if (!riders) riders = [];
