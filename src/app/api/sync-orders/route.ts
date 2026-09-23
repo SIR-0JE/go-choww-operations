@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, getInMemoryOrders, appendMockOrder, updateInMemoryOrder } from '@/lib/prisma';
+import { prisma, withDbRetry } from '@/lib/prisma';
 import { fetchLiveGoChowOrders, fetchLiveGoChowOrdersWithStatus } from '@/services/gochowApi';
 import { classifyDeliveryType } from '@/lib/locations';
 import { getSyncSettings, isWithinOperatingWindow, getOperationalStatus } from '@/lib/settings';
@@ -175,17 +175,20 @@ async function performSync(force: boolean = false) {
 
   if (orderNumbers.length > 0) {
     try {
-      // ── 2. Batch fetch all existing records in 1 single roundtrip ────
-      const existingDbOrders = await prisma.deliveryOrder.findMany({
-        where: { orderId: { in: orderNumbers } },
-      });
+      // ── 2. Batch fetch all existing records in 1 single roundtrip with retry ────
+      const existingDbOrders = await withDbRetry(async () => {
+        return await prisma.deliveryOrder.findMany({
+          where: { orderId: { in: orderNumbers } },
+        });
+      }, 3, 400);
+
       const existingMap = new Map<string, (typeof existingDbOrders)[0]>();
       for (const edb of existingDbOrders) {
         existingMap.set(edb.orderId, edb);
       }
 
       const toCreate: any[] = [];
-      const toUpdate: { id: string; status: string; pay: string }[] = [];
+      const toUpdate: { id: string; status: string; pay: string; pickupCode?: string | null }[] = [];
 
       for (const order of validLiveOrders) {
         const orderNumber = String(order.orderNumber || order._id || '').trim();
@@ -247,24 +250,28 @@ async function performSync(force: boolean = false) {
               status: updateStatus ? liveOrderStatus : existing.orderStatus,
               pay: updatePay ? livePaymentStatus : existing.paymentStatus,
               ...(updateCode && { pickupCode }),
-            } as any);
+            });
           }
         }
       }
 
-      // Batch insert new orders in a single query (prevents connection pool starvation)
+      // Batch insert new orders in a single query with retry
       if (toCreate.length > 0) {
         try {
-          const result = await prisma.deliveryOrder.createMany({
-            data: toCreate,
-            skipDuplicates: true,
-          });
+          const result = await withDbRetry(async () => {
+            return await prisma.deliveryOrder.createMany({
+              data: toCreate,
+              skipDuplicates: true,
+            });
+          }, 3, 400);
           newlySyncedCount = result.count;
         } catch (insertErr) {
           console.error('[sync-orders] Batch createMany error, falling back to sequential inserts:', insertErr);
           for (const c of toCreate) {
             try {
-              await prisma.deliveryOrder.create({ data: c });
+              await withDbRetry(async () => {
+                return await prisma.deliveryOrder.create({ data: c });
+              }, 2, 200);
               newlySyncedCount++;
             } catch (err: any) {
               console.warn(`[sync-orders] Failed inserting order ${c.orderId}:`, err?.message);
@@ -273,18 +280,20 @@ async function performSync(force: boolean = false) {
         }
       }
 
-      // Update orders with changed status sequentially to prevent connection pool exhaustion
+      // Update orders with changed status
       if (toUpdate.length > 0) {
         for (const u of toUpdate) {
           try {
-            await prisma.deliveryOrder.update({
-              where: { id: u.id },
-              data: {
-                orderStatus: u.status,
-                paymentStatus: u.pay,
-                ...((u as any).pickupCode && { pickupCode: (u as any).pickupCode }),
-              },
-            });
+            await withDbRetry(async () => {
+              return await prisma.deliveryOrder.update({
+                where: { id: u.id },
+                data: {
+                  orderStatus: u.status,
+                  paymentStatus: u.pay,
+                  ...(u.pickupCode && { pickupCode: u.pickupCode }),
+                },
+              });
+            }, 2, 200);
             statusUpdatedCount++;
           } catch (updateErr: any) {
             console.warn(`[sync-orders] Failed updating order ID ${u.id}:`, updateErr?.message);
@@ -292,60 +301,7 @@ async function performSync(force: boolean = false) {
         }
       }
     } catch (dbErr) {
-      console.error('[sync-orders] Database error, falling back to memory:', dbErr);
-      const mem = getInMemoryOrders();
-      for (const order of validLiveOrders) {
-        const orderNumber = String(order.orderNumber || order._id || '').trim();
-        const rawDate = order.createdAt;
-        let parsedDate = rawDate ? new Date(rawDate) : new Date();
-        if (isNaN(parsedDate.getTime())) parsedDate = new Date();
-
-        const h = parsedDate.getHours();
-        const m = parsedDate.getMinutes();
-        const time = `${(h % 12 || 12).toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
-
-        const customerName = String(order.user?.name || order.customerName || 'Student Customer').trim();
-        const cafeteriaName = String(order.vendor?.restaurantName || order.cafeteriaName || 'Campus Cafeteria').trim();
-        const deliveryAddress = String(order.deliveryAddress || 'Campus Hostel Block').trim();
-
-        const deliveryFee = Number(order.deliveryFee ?? 0);
-        const foodTotal = Number(order.subtotal ?? order.foodTotal ?? 0);
-        const totalAmountPaid = Number(order.totalAmount ?? order.totalAmountPaid ?? foodTotal + deliveryFee);
-
-        const deliveryType = classifyDeliveryType(cafeteriaName, deliveryAddress, String(order.orderType || ''));
-        const liveOrderStatus = mapOrderStatus(String(order.orderStatus || 'confirmed'));
-        const livePaymentStatus = 'success';
-
-        const existingMem = mem.find((o) => o.orderId === orderNumber);
-        if (!existingMem) {
-          appendMockOrder({
-            orderId: orderNumber,
-            createdAt: parsedDate,
-            time,
-            customerName,
-            cafeteriaName,
-            deliveryAddress,
-            deliveryFee,
-            foodTotal,
-            totalAmountPaid,
-            deliveryType,
-            orderStatus: liveOrderStatus,
-            paymentStatus: livePaymentStatus,
-          });
-          newlySyncedCount++;
-        } else {
-          const hasRider = Boolean(existingMem.riderId);
-          const updateStatus = shouldSyncUpdateOrderStatus(existingMem.orderStatus, liveOrderStatus, hasRider);
-          const updatePay = (existingMem.paymentStatus || '').toLowerCase() !== livePaymentStatus.toLowerCase();
-          if (updateStatus || updatePay) {
-            updateInMemoryOrder(orderNumber, {
-              orderStatus: updateStatus ? liveOrderStatus : existingMem.orderStatus,
-              paymentStatus: updatePay ? livePaymentStatus : existingMem.paymentStatus,
-            });
-            statusUpdatedCount++;
-          }
-        }
-      }
+      console.error('[sync-orders] Database error during sync execution:', dbErr);
     }
   }
 
