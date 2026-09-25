@@ -61,6 +61,9 @@ async function getAdminToken(): Promise<string> {
   return withRetry('getAdminToken', async () => {
     const email = (process.env.GOCHOW_ADMIN_EMAIL || '').trim();
     const password = (process.env.GOCHOW_ADMIN_PASSWORD || '').trim();
+    if (!email || !password) {
+      throw new Error('GOCHOW_ADMIN_EMAIL and GOCHOW_ADMIN_PASSWORD environment variables must be set.');
+    }
 
     const loginResponse = await axios.post(
       `${BASE_URL}/admin/login`,
