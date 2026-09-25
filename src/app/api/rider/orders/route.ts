@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, withDbRetry, getInMemoryOrders, updateInMemoryOrder, updateInMemoryOrderRider } from '@/lib/prisma';
+import { prisma, withDbRetry } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { sendPushNotification } from '@/lib/pushService';
 import { verifyCafeteriaProximity, calculateDistanceMeters, getCafeteriaCoordinates } from '@/lib/locations';
 import { getGeofenceSettings } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
+
+function dbBusyResponse(message = 'Server is busy — retrying automatically.') {
+  return NextResponse.json(
+    { success: false, busy: true, error: message },
+    { status: 503, headers: { 'Cache-Control': 'no-store' } }
+  );
+}
 
 async function getAuthenticatedRider(request: NextRequest) {
   let riderId = request.headers.get('x-rider-id');
@@ -178,7 +185,7 @@ export async function GET(request: NextRequest) {
             },
           }),
         ]);
-      }, 3, 400);
+      }, 1, 250);
 
       // 4. Other active riders available for peer-to-peer transfer (Optimized 1 single query)
       let otherRidersWithCounts: any[] = [];
@@ -290,52 +297,10 @@ export async function GET(request: NextRequest) {
         }
       );
     } catch (dbErr) {
-      console.warn('[Rider Orders Fetch] DB fallback to memory:', dbErr);
-      const mem = getInMemoryOrders();
-      const availableOrders = mem.filter((o) => {
-        const s = (o.orderStatus || '').toLowerCase();
-        if (['delivered', 'completed', 'cancelled', 'in transit'].includes(s)) return false;
-        if (!o.riderId) return true;
-        if (o.riderId !== rider.id) return true;
-        return false;
-      });
-      const activeTasks = mem.filter(
-        (o) => o.riderId === rider.id && !['delivered', 'completed', 'cancelled'].includes((o.orderStatus || '').toLowerCase())
-      );
-      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const completedToday = mem.filter(
-        (o) =>
-          o.riderId === rider.id &&
-          ['delivered', 'completed'].includes((o.orderStatus || '').toLowerCase()) &&
-          new Date(o.createdAt).getTime() >= dayAgo.getTime()
-      );
-
-      return NextResponse.json(
-        {
-          success: true,
-          rider: {
-            id: rider.id,
-            name: rider.name,
-            phone: rider.phone,
-            isOnline: rider.isOnline,
-          },
-          available: availableOrders,
-          active: activeTasks,
-          completedToday,
-          counts: {
-            available: availableOrders.length,
-            active: activeTasks.length,
-            completedToday: completedToday.length,
-          },
-        },
-        {
-          headers: {
-            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-            Pragma: 'no-cache',
-            Expires: '0',
-          },
-        }
-      );
+      // Never answer with an empty pool when the database is briefly unavailable —
+      // the phone keeps showing its last good list and retries on the next poll.
+      console.warn('[Rider Orders Fetch] Database unavailable:', dbErr);
+      return dbBusyResponse();
     }
   } catch (error: any) {
     console.error('[Rider Orders Fetch Error]:', error);
@@ -362,17 +327,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Find the order
-    let order: any = null;
-    try {
-      order = await prisma.deliveryOrder.findFirst({
-        where: {
-          OR: [{ id: orderId }, { orderId: orderId }],
-        },
-      });
-    } catch {
-      const mem = getInMemoryOrders();
-      order = mem.find((o) => o.id === orderId || o.orderId === orderId);
-    }
+    const order: any = await prisma.deliveryOrder.findFirst({
+      where: {
+        OR: [{ id: orderId }, { orderId: orderId }],
+      },
+    });
 
     if (!order) {
       return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
@@ -418,27 +377,33 @@ export async function POST(request: NextRequest) {
         // If DB check fails, proceed — don't block rider on a transient error
       }
 
-      // Assign to this rider atomically
-      let updated: any;
-      try {
-        updated = await prisma.deliveryOrder.update({
-          where: { id: order.id },
-          data: {
-            riderId: rider.id,
-            // Keep status as Ready so it is clearly awaiting pickup and visible to peers
-            orderStatus: ['in transit', 'delivered', 'completed'].includes((order.orderStatus || '').toLowerCase())
-              ? order.orderStatus
-              : 'Ready',
-          },
-        });
-      } catch {
-        updateInMemoryOrderRider(order.orderId || order.id, rider.id);
-        updated = {
-          ...order,
+      // Assign to this rider atomically: only succeeds if the order is still unclaimed
+      // (or already ours), so two riders tapping Accept together can't both win.
+      const claimResult = await prisma.deliveryOrder.updateMany({
+        where: {
+          id: order.id,
+          OR: [{ riderId: null }, { riderId: rider.id }],
+        },
+        data: {
           riderId: rider.id,
-          orderStatus: 'Ready',
-        };
+          // Keep status as Ready so it is clearly awaiting pickup and visible to peers
+          orderStatus: ['in transit', 'delivered', 'completed'].includes((order.orderStatus || '').toLowerCase())
+            ? order.orderStatus
+            : 'Ready',
+        },
+      });
+
+      if (claimResult.count === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'This order was just accepted by another dispatch rider!',
+          },
+          { status: 409 }
+        );
       }
+
+      const updated = await prisma.deliveryOrder.findUniqueOrThrow({ where: { id: order.id } });
 
       // Dispatch mobile push notification to Dashboard
       sendPushNotification(
@@ -521,23 +486,14 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      let updated: any;
-      try {
-        updated = await prisma.deliveryOrder.update({
-          where: { id: order.id },
-          data: {
-            handoverRequestedById: rider.id,
-            handoverRequestedByName: rider.name,
-            handoverDistance: verifiedDistance,
-          },
-        });
-      } catch {
-        updated = updateInMemoryOrder(order.orderId || order.id, {
+      const updated: any = await prisma.deliveryOrder.update({
+        where: { id: order.id },
+        data: {
           handoverRequestedById: rider.id,
           handoverRequestedByName: rider.name,
           handoverDistance: verifiedDistance,
-        });
-      }
+        },
+      });
 
       return NextResponse.json({
         success: true,
@@ -556,23 +512,14 @@ export async function POST(request: NextRequest) {
 
     // ── ACTION: CANCEL HANDOVER REQUEST ──────────────────────────────────────
     if (action === 'cancel_handover') {
-      let updated: any;
-      try {
-        updated = await prisma.deliveryOrder.update({
-          where: { id: order.id },
-          data: {
-            handoverRequestedById: null,
-            handoverRequestedByName: null,
-            handoverDistance: null,
-          },
-        });
-      } catch {
-        updated = updateInMemoryOrder(order.orderId || order.id, {
+      const updated: any = await prisma.deliveryOrder.update({
+        where: { id: order.id },
+        data: {
           handoverRequestedById: null,
           handoverRequestedByName: null,
           handoverDistance: null,
-        });
-      }
+        },
+      });
 
       return NextResponse.json({
         success: true,
@@ -603,25 +550,15 @@ export async function POST(request: NextRequest) {
       const targetRiderId = order.handoverRequestedById;
       const targetRiderName = order.handoverRequestedByName || 'Peer Rider';
 
-      let updated: any;
-      try {
-        updated = await prisma.deliveryOrder.update({
-          where: { id: order.id },
-          data: {
-            riderId: targetRiderId,
-            handoverRequestedById: null,
-            handoverRequestedByName: null,
-            handoverDistance: null,
-          },
-        });
-      } catch {
-        updateInMemoryOrderRider(order.orderId || order.id, targetRiderId);
-        updated = updateInMemoryOrder(order.orderId || order.id, {
+      const updated: any = await prisma.deliveryOrder.update({
+        where: { id: order.id },
+        data: {
+          riderId: targetRiderId,
           handoverRequestedById: null,
           handoverRequestedByName: null,
           handoverDistance: null,
-        });
-      }
+        },
+      });
 
       return NextResponse.json({
         success: true,
@@ -643,23 +580,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      let updated: any;
-      try {
-        updated = await prisma.deliveryOrder.update({
-          where: { id: order.id },
-          data: {
-            handoverRequestedById: null,
-            handoverRequestedByName: null,
-            handoverDistance: null,
-          },
-        });
-      } catch {
-        updated = updateInMemoryOrder(order.orderId || order.id, {
+      const updated: any = await prisma.deliveryOrder.update({
+        where: { id: order.id },
+        data: {
           handoverRequestedById: null,
           handoverRequestedByName: null,
           handoverDistance: null,
-        });
-      }
+        },
+      });
 
       return NextResponse.json({
         success: true,
@@ -688,28 +616,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      let updated: any;
-      try {
-        updated = await prisma.deliveryOrder.update({
-          where: { id: order.id },
-          data: {
-            riderId: null,
-            orderStatus: 'Ready',
-            handoverRequestedById: null,
-            handoverRequestedByName: null,
-            handoverDistance: null,
-          },
-        });
-      } catch {
-        updateInMemoryOrderRider(order.orderId || order.id, null);
-        updated = updateInMemoryOrder(order.orderId || order.id, {
+      const updated: any = await prisma.deliveryOrder.update({
+        where: { id: order.id },
+        data: {
           riderId: null,
           orderStatus: 'Ready',
           handoverRequestedById: null,
           handoverRequestedByName: null,
           handoverDistance: null,
-        });
-      }
+        },
+      });
 
       return NextResponse.json({
         success: true,
@@ -728,19 +644,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'You are not assigned to this order' }, { status: 403 });
       }
 
-      let updated: any;
-      try {
-        updated = await prisma.deliveryOrder.update({
-          where: { id: order.id },
-          data: {
-            orderStatus: 'In Transit',
-          },
-        });
-      } catch {
-        updated = updateInMemoryOrder(order.orderId || order.id, {
+      const updated: any = await prisma.deliveryOrder.update({
+        where: { id: order.id },
+        data: {
           orderStatus: 'In Transit',
-        });
-      }
+        },
+      });
 
       // Dispatch mobile push notification
       sendPushNotification(
@@ -770,19 +679,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'You are not assigned to this order' }, { status: 403 });
       }
 
-      let updated: any;
-      try {
-        updated = await prisma.deliveryOrder.update({
-          where: { id: order.id },
-          data: {
-            orderStatus: 'Completed',
-          },
-        });
-      } catch {
-        updated = updateInMemoryOrder(order.orderId || order.id, {
+      const updated: any = await prisma.deliveryOrder.update({
+        where: { id: order.id },
+        data: {
           orderStatus: 'Completed',
-        });
-      }
+        },
+      });
 
       // Dispatch mobile push notification
       sendPushNotification(
@@ -881,21 +783,12 @@ export async function POST(request: NextRequest) {
       }
 
       // Update riderId to targetRiderId atomically
-      let updated: any;
-      try {
-        updated = await prisma.deliveryOrder.update({
-          where: { id: order.id },
-          data: {
-            riderId: targetRider.id,
-          },
-        });
-      } catch {
-        updateInMemoryOrderRider(order.orderId || order.id, targetRider.id);
-        updated = {
-          ...order,
+      const updated: any = await prisma.deliveryOrder.update({
+        where: { id: order.id },
+        data: {
           riderId: targetRider.id,
-        };
-      }
+        },
+      });
 
       return NextResponse.json({
         success: true,
@@ -911,7 +804,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: false, error: `Invalid action: ${action}` }, { status: 400 });
   } catch (error: any) {
+    // Report the failure honestly — never tell the rider an action succeeded when it wasn't saved
     console.error('[Rider Order Action Error]:', error);
-    return NextResponse.json({ success: false, error: error?.message || 'Action failed' }, { status: 500 });
+    return dbBusyResponse('Could not save that — the network is busy. Please try again.');
   }
 }

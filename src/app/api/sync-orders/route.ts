@@ -387,11 +387,24 @@ async function performSync(force: boolean = false) {
 
 let inFlightSync: Promise<any> | null = null;
 
+// Several dashboards, rider phones and the scheduled job all call this endpoint;
+// reuse a very recent result instead of hitting GoChow again.
+const MIN_SYNC_GAP_MS = 8000;
+let lastSyncResult: any = null;
+let lastSyncAt = 0;
+
 async function synchronizedSync(force: boolean = false) {
   if (inFlightSync && !force) {
     return inFlightSync;
   }
-  const currentPromise = performSync(force).finally(() => {
+  if (!force && lastSyncResult?.success && Date.now() - lastSyncAt < MIN_SYNC_GAP_MS) {
+    return { ...lastSyncResult, hasChanges: false, newlySyncedCount: 0, syncedCount: 0, statusUpdatedCount: 0, cached: true };
+  }
+  const currentPromise = performSync(force).then((result) => {
+    lastSyncResult = result;
+    lastSyncAt = Date.now();
+    return result;
+  }).finally(() => {
     if (inFlightSync === currentPromise) {
       inFlightSync = null;
     }

@@ -9,10 +9,34 @@ const globalForPrisma = globalThis as unknown as {
   mockSubscriptions: any[] | undefined;
 };
 
+/**
+ * Supabase's transaction pooler (port 6543) does not support prepared statements,
+ * so Prisma must run with `pgbouncer=true`, and each serverless instance should hold
+ * only a few connections. Without these, queries fail at random under concurrent load.
+ */
+function withPoolerParams(rawUrl: string | undefined): string | undefined {
+  if (!rawUrl) return rawUrl;
+  try {
+    const url = new URL(rawUrl);
+    if (url.port === '6543' && !url.searchParams.has('pgbouncer')) {
+      url.searchParams.set('pgbouncer', 'true');
+    }
+    if (!url.searchParams.has('connection_limit')) {
+      url.searchParams.set('connection_limit', '3');
+    }
+    return url.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
+const databaseUrl = withPoolerParams(process.env.DATABASE_URL);
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+    ...(databaseUrl && { datasources: { db: { url: databaseUrl } } }),
   });
 
 globalForPrisma.prisma = prisma;

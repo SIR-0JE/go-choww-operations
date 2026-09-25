@@ -92,6 +92,7 @@ export default function RiderPortalPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [connectionIssue, setConnectionIssue] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
@@ -454,8 +455,14 @@ export default function RiderPortalPage() {
           if (!isBackground && !localRiderId) router.push('/rider/login');
           return;
         }
+        if (!res.ok) {
+          // Server busy: keep the current lists on screen and retry on the next poll
+          setConnectionIssue(true);
+          return;
+        }
         const data = await res.json();
         if (data.success) {
+          setConnectionIssue(false);
           if (data.rider) {
             setRider(data.rider);
             setIsOnline(Boolean(data.rider.isOnline));
@@ -492,6 +499,7 @@ export default function RiderPortalPage() {
         }
       } catch (err: any) {
         console.error('Failed to load rider orders:', err);
+        setConnectionIssue(true);
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
@@ -552,6 +560,30 @@ export default function RiderPortalPage() {
       if (channel) channel.close();
     };
   }, [fetchPortalData]);
+
+  // ── Pull new GoChow orders while this rider is online ──────────────────────
+  // Keeps the pool filling even when no admin dashboard is open; the server
+  // throttles and de-duplicates syncs so several riders don't multiply the load.
+  useEffect(() => {
+    if (!isOnline) return;
+    let inFlight = false;
+    const triggerSync = async () => {
+      if (inFlight || document.visibilityState !== 'visible') return;
+      inFlight = true;
+      try {
+        const res = await fetch('/api/sync-orders', { method: 'POST', cache: 'no-store' });
+        const data = await res.json().catch(() => null);
+        if (data?.hasChanges) fetchPortalData(true);
+      } catch {
+        // ignore — the next tick retries
+      } finally {
+        inFlight = false;
+      }
+    };
+    triggerSync();
+    const syncInterval = setInterval(triggerSync, 15000);
+    return () => clearInterval(syncInterval);
+  }, [isOnline, fetchPortalData]);
 
   // ── Online / Offline Toggle ──────────────────────────────────────────────────
   const toggleOnlineStatus = async () => {
@@ -1184,6 +1216,14 @@ export default function RiderPortalPage() {
 
       {/* ── Main Content ──────────────────────────────────────────────────────── */}
       <main className="flex-1 p-4 space-y-3 pb-10">
+
+        {/* Connection notice: orders below are the last good list while the server catches up */}
+        {connectionIssue && (
+          <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            <span>Reconnecting… showing your last updated orders.</span>
+          </div>
+        )}
 
         {/* Mobile Phone Status Bar Push Notification Activation Banner */}
         <NotificationPermissionBanner userType="rider" riderId={rider?.id} />
