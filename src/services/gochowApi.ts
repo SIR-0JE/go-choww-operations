@@ -93,13 +93,13 @@ export interface FetchLiveOrdersResult {
 }
 
 /**
- * Fetch the latest live orders with full status and transient retry protection.
+ * Fetch a page of live orders (newest first) with full status and transient retry protection.
  */
-export async function fetchLiveGoChowOrdersWithStatus(limit: number = 50): Promise<FetchLiveOrdersResult> {
+export async function fetchLiveGoChowOrdersWithStatus(limit: number = 50, page: number = 1): Promise<FetchLiveOrdersResult> {
   try {
     const orders = await withRetry('fetchLiveOrders', async () => {
       const token = await getAdminToken();
-      const ordersResponse = await axios.get(`${BASE_URL}/admin/orders?page=1&limit=${limit}`, {
+      const ordersResponse = await axios.get(`${BASE_URL}/admin/orders?page=${page}&limit=${limit}`, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 10000,
       });

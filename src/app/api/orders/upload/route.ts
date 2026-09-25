@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma, getInMemoryOrders, appendMockOrder } from '@/lib/prisma';
 import { GeneratedOrder } from '@/lib/mockData';
 import { classifyDeliveryType } from '@/lib/locations';
+import { getCurrentTimeInZone } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,10 +64,8 @@ function parseDateString(dateVal: any): { date: Date; timeStr: string } {
   // 4. Fallback standard parse (covers YYYY-MM-DD, ISO 8601, etc.)
   const fallbackDate = new Date(cleanStr);
   if (!isNaN(fallbackDate.getTime())) {
-    const hours = fallbackDate.getHours();
-    const minutes = fallbackDate.getMinutes();
-    const timeFormatted = `${(hours % 12 || 12).toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${hours >= 12 ? 'PM' : 'AM'}`;
-    return { date: fallbackDate, timeStr: timeFormatted };
+    // ISO timestamps (e.g. GoChow exports) are absolute; show them in Lagos (WAT) time
+    return { date: fallbackDate, timeStr: getCurrentTimeInZone('Africa/Lagos', fallbackDate).timeString12 };
   }
 
   const now = new Date();

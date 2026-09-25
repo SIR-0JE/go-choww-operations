@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma, withDbRetry } from '@/lib/prisma';
 import { fetchLiveGoChowOrders, fetchLiveGoChowOrdersWithStatus } from '@/services/gochowApi';
 import { classifyDeliveryType } from '@/lib/locations';
-import { getSyncSettings, isWithinOperatingWindow, getOperationalStatus } from '@/lib/settings';
+import { getSyncSettings, isWithinOperatingWindow, getOperationalStatus, getCurrentTimeInZone } from '@/lib/settings';
 import { sendPushNotification } from '@/lib/pushService';
 
 export const dynamic = 'force-dynamic';
@@ -109,6 +109,12 @@ function shouldSyncUpdateOrderStatus(
 // MAIN SYNC FUNCTION (HIGH SPEED < 0.5s)
 // ─────────────────────────────────────────────────────────────────────────────
 
+const SYNC_PAGE_SIZE = 50;
+const DEEP_SCAN_INTERVAL_MS = 5 * 60 * 1000; // catch-up scan at most every 5 minutes (or on manual sync)
+const DEEP_SCAN_LOOKBACK_MS = 48 * 60 * 60 * 1000; // look back 48 hours
+const DEEP_SCAN_MAX_PAGES = 10; // hard cap: 500 orders per catch-up scan
+let lastDeepScanAt = 0;
+
 async function performSync(force: boolean = false) {
   // ── 0. Check Operating Schedule Window ───────────────────────────────────────
   const settings = await getSyncSettings();
@@ -131,7 +137,7 @@ async function performSync(force: boolean = false) {
   }
 
   // ── 1. Fetch the latest 50 live orders from GoChow with retry & connection status ────
-  const fetchResult = await fetchLiveGoChowOrdersWithStatus(50);
+  const fetchResult = await fetchLiveGoChowOrdersWithStatus(SYNC_PAGE_SIZE);
 
   if (!fetchResult.success) {
     const status = getOperationalStatus(settings);
@@ -153,6 +159,35 @@ async function performSync(force: boolean = false) {
   }
 
   const liveOrders: any[] = fetchResult.orders;
+
+  // ── 1b. Catch-up scan: page back through the last 48h so orders that fell past
+  // page 1 while nobody was syncing (or were paid late) still get picked up ────
+  if (force || Date.now() - lastDeepScanAt > DEEP_SCAN_INTERVAL_MS) {
+    const cutoff = Date.now() - DEEP_SCAN_LOOKBACK_MS;
+    const seen = new Set(liveOrders.map((o) => String(o.orderNumber || o._id || '')));
+    let lastPage = liveOrders;
+    let completed = true;
+
+    for (let page = 2; page <= DEEP_SCAN_MAX_PAGES; page++) {
+      if (lastPage.length < SYNC_PAGE_SIZE) break;
+      const oldest = new Date(lastPage[lastPage.length - 1]?.createdAt).getTime();
+      if (!isNaN(oldest) && oldest < cutoff) break;
+
+      const pageResult = await fetchLiveGoChowOrdersWithStatus(SYNC_PAGE_SIZE, page);
+      if (!pageResult.success) {
+        completed = false;
+        break;
+      }
+      const fresh = pageResult.orders.filter((o) => !seen.has(String(o.orderNumber || o._id || '')));
+      // Stop if the API ignores paging and keeps returning orders we've already seen
+      if (fresh.length === 0) break;
+      for (const o of fresh) seen.add(String(o.orderNumber || o._id || ''));
+      liveOrders.push(...fresh);
+      lastPage = pageResult.orders;
+    }
+
+    if (completed) lastDeepScanAt = Date.now();
+  }
 
   const orderNumbers: string[] = [];
   const validLiveOrders: any[] = [];
@@ -196,9 +231,8 @@ async function performSync(force: boolean = false) {
         let parsedDate = rawDate ? new Date(rawDate) : new Date();
         if (isNaN(parsedDate.getTime())) parsedDate = new Date();
 
-        const h = parsedDate.getHours();
-        const m = parsedDate.getMinutes();
-        const time = `${(h % 12 || 12).toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+        // Server runs in UTC; record the order time as Lagos (WAT) wall-clock time
+        const time = getCurrentTimeInZone('Africa/Lagos', parsedDate).timeString12;
 
         const customerName = String(order.user?.name || order.customerName || 'Student Customer').trim();
         const cafeteriaName = String(order.vendor?.restaurantName || order.cafeteriaName || 'Campus Cafeteria').trim();
