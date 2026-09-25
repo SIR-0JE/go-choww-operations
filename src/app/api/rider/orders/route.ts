@@ -78,6 +78,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized rider session' }, { status: 401 });
     }
 
+    // Peer riders for transfers — started now so it runs alongside the pool queries
+    const otherRidersPromise = Promise.all([
+      prisma.rider.findMany({
+        where: {
+          id: { not: rider.id },
+          status: 'Active',
+        },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          isOnline: true,
+        },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.deliveryOrder.groupBy({
+        by: ['riderId'],
+        where: {
+          riderId: { not: null },
+          orderStatus: {
+            notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
+          },
+        },
+        _count: { id: true },
+      }),
+    ]).catch((err) => {
+      console.warn('[Rider otherRiders fetch warning]:', err);
+      return null;
+    });
+
     try {
       const [availableOrders, activeTasks, completedToday] = await withDbRetry(async () => {
         const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -187,35 +217,11 @@ export async function GET(request: NextRequest) {
         ]);
       }, 1, 250);
 
-      // 4. Other active riders available for peer-to-peer transfer (Optimized 1 single query)
+      // 4. Other active riders available for peer-to-peer transfer (queried in parallel above)
       let otherRidersWithCounts: any[] = [];
-      try {
-        const [otherRidersList, activeOrderCounts] = await Promise.all([
-          prisma.rider.findMany({
-            where: {
-              id: { not: rider.id },
-              status: 'Active',
-            },
-            select: {
-              id: true,
-              name: true,
-              phone: true,
-              isOnline: true,
-            },
-            orderBy: { name: 'asc' },
-          }),
-          prisma.deliveryOrder.groupBy({
-            by: ['riderId'],
-            where: {
-              riderId: { not: null },
-              orderStatus: {
-                notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
-              },
-            },
-            _count: { id: true },
-          }),
-        ]);
-
+      const otherRidersResult = await otherRidersPromise;
+      if (otherRidersResult) {
+        const [otherRidersList, activeOrderCounts] = otherRidersResult;
         const countMap = new Map(
           activeOrderCounts.map((c) => [c.riderId, c._count.id])
         );
@@ -227,8 +233,6 @@ export async function GET(request: NextRequest) {
           isOnline: r.isOnline,
           activeCount: countMap.get(r.id) || 0,
         }));
-      } catch (err) {
-        console.warn('[Rider otherRiders fetch warning]:', err);
       }
 
       // Cafeteria assignment matching helper
@@ -403,7 +407,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const updated = await prisma.deliveryOrder.findUniqueOrThrow({ where: { id: order.id } });
+      const updated = {
+        ...order,
+        riderId: rider.id,
+        orderStatus: ['in transit', 'delivered', 'completed'].includes((order.orderStatus || '').toLowerCase())
+          ? order.orderStatus
+          : 'Ready',
+      };
 
       // Dispatch mobile push notification to Dashboard
       sendPushNotification(

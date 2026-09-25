@@ -22,7 +22,7 @@ function withPoolerParams(rawUrl: string | undefined): string | undefined {
       url.searchParams.set('pgbouncer', 'true');
     }
     if (!url.searchParams.has('connection_limit')) {
-      url.searchParams.set('connection_limit', '3');
+      url.searchParams.set('connection_limit', '5');
     }
     return url.toString();
   } catch {

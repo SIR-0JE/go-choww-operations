@@ -94,7 +94,7 @@ async function acceptRaceTest(riderIds) {
         body: JSON.stringify({ orderId: testOrder.id, action: 'claim' }),
       }).catch(() => null);
       const data = res ? await res.json().catch(() => ({})) : {};
-      return { riderId, accepted: Boolean(data.success), status: res?.status ?? 0 };
+      return { riderId, accepted: Boolean(data.success), status: res?.status ?? 0, error: res ? data.error : 'no response (network)' };
     })
   );
 
@@ -102,6 +102,12 @@ async function acceptRaceTest(riderIds) {
   console.log(
     `   Told "accepted": ${results.filter((r) => r.accepted).length}   Told "someone else took it": ${results.filter((r) => r.status === 409).length}   Other: ${results.filter((r) => !r.accepted && r.status !== 409).length}`
   );
+  const others = {};
+  for (const r of results.filter((x) => !x.accepted && x.status !== 409)) {
+    const key = `HTTP ${r.status}: ${r.error || 'unknown'}`;
+    others[key] = (others[key] || 0) + 1;
+  }
+  for (const [k, v] of Object.entries(others)) console.log(`     Other → ${k} (x${v})`);
   // Phones share rider accounts when there are fewer riders than phones, so every
   // phone of the single winning rider is legitimately told "accepted".
   const pass = winners.size === 1;
