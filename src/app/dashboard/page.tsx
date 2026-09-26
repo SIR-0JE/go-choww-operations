@@ -449,8 +449,8 @@ export default function ExecutiveDashboardPage() {
             <div className="mt-2 text-xs text-slate-500">
               {targetDaily > 0
                 ? todayPaid >= targetDaily
-                  ? `Target hit · ${todayCompleted} delivered`
-                  : `${targetDaily - todayPaid} more to hit today's target · ${todayCompleted} delivered`
+                  ? `Target hit · paid, not cancelled`
+                  : `${targetDaily - todayPaid} more to hit today's target`
                 : `${todayCompleted} delivered`}
             </div>
           </div>
@@ -466,12 +466,18 @@ export default function ExecutiveDashboardPage() {
           </div>
 
           <div className={`${card} p-5`}>
-            <div className="text-sm text-slate-500">Net profit</div>
-            <div className={`mt-2 text-3xl font-semibold tracking-tight tabular-nums ${(metrics?.netProfit || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-              {formatNaira(metrics?.netProfit || 0)}
+            <div className="text-sm text-slate-500">Net profit · this sprint</div>
+            <div className={`mt-2 text-3xl font-semibold tracking-tight tabular-nums ${(sprint?.earned ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {sprint ? formatNaira(sprint.earned) : '…'}
             </div>
             <div className="mt-3 text-xs text-slate-500">
-              After <span className="font-medium text-slate-700 tabular-nums">{formatNaira(metrics?.totalExpenses || 0)}</span> logged expenses
+              {sprint && (
+                <>
+                  Since {new Date(`${sprint.config.startDate}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })}
+                  {' · '}
+                </>
+              )}
+              All time <span className="font-medium text-slate-700 tabular-nums">{formatNaira(metrics?.netProfit || 0)}</span>
             </div>
           </div>
 
