@@ -1,27 +1,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts';
-import { formatNaira } from '@/lib/financials';
-import {
-  TrendingUp,
-  Activity,
-  Calendar,
-  Layers,
-  Banknote,
-  Package,
-  ArrowRight,
-  ChevronDown,
-} from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { formatNaira, DAILY_ORDER_TARGET } from '@/lib/financials';
 
 export interface DailyDataPoint {
   date: string; // YYYY-MM-DD
@@ -46,393 +27,214 @@ interface InteractiveDailyTrendChartProps {
 }
 
 type MetricMode = 'revenue' | 'orders';
-type DatePreset = '7d' | '14d' | '30d' | 'this_month' | 'all' | 'custom';
+type RangeKey = '7d' | '30d' | 'month' | 'all';
 
-// Custom Tooltip for Revenue & Orders
-const CustomTrendTooltip = ({ active, payload, label, mode }: any) => {
-  if (active && payload && payload.length) {
-    const d: DailyDataPoint = payload[0]?.payload;
-    if (!d) return null;
+const RANGES: { key: RangeKey; label: string; phrase: string }[] = [
+  { key: '7d', label: 'Last 7 days', phrase: 'in the last 7 days' },
+  { key: '30d', label: 'Last 30 days', phrase: 'in the last 30 days' },
+  { key: 'month', label: 'This month', phrase: 'this month' },
+  { key: 'all', label: 'All time', phrase: 'all time' },
+];
 
-    const isRev = mode === 'revenue';
+const BAR_COLOR = '#f97316'; // brand orange — one series, one hue
+const BAR_COLOR_ACTIVE = '#c2410c';
+const INK_MUTED = '#94a3b8';
+const GRID = '#f1f5f9';
 
-    return (
-      <div className="rounded-xl bg-white border border-slate-200 p-3.5 shadow-xl shadow-slate-200/50 text-xs space-y-1.5 z-50 min-w-[210px]">
-        <div className="font-extrabold text-slate-900 text-sm border-b border-slate-100 pb-1 flex items-center justify-between gap-4">
-          <span>{d.displayDate || label}</span>
-          <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
-            isRev ? 'bg-orange-50 text-orange-700 border border-orange-200' : 'bg-blue-50 text-blue-700 border border-blue-200'
-          }`}>
-            {isRev ? formatNaira(d.grossRevenue) : `${d.totalOrders} runs`}
-          </span>
-        </div>
+const shortDate = (dateKey: string) =>
+  new Date(`${dateKey}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 
-        <div className="space-y-1 pt-1">
-          <div className="flex items-center justify-between gap-3 text-slate-600">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-orange-500" />
-              Delivery Revenue:
-            </span>
-            <strong className="text-slate-900 font-bold">{formatNaira(d.grossRevenue)}</strong>
-          </div>
+const compactNaira = (v: number) =>
+  v >= 1_000_000 ? `₦${(v / 1_000_000).toFixed(1)}m` : v >= 1000 ? `₦${Math.round(v / 1000)}k` : `₦${v}`;
 
-          <div className="flex items-center justify-between gap-3 text-slate-600">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-blue-500" />
-              Total Orders:
-            </span>
-            <strong className="text-slate-900 font-bold">{d.totalOrders}</strong>
-          </div>
-
-          {d.completedOrders !== undefined && (
-            <div className="flex items-center justify-between gap-3 text-slate-500 text-[11px]">
-              <span>Settled Completed:</span>
-              <span className="font-semibold text-emerald-700">{d.completedOrders}</span>
-            </div>
-          )}
-
-          {(d.sameSide !== undefined || d.differentSide !== undefined) && (
-            <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
-              <span>Same: <strong className="text-slate-700">{d.sameSide || 0}</strong></span>
-              <span>Diff: <strong className="text-slate-700">{d.differentSide || 0}</strong></span>
-              <span>Pickup: <strong className="text-slate-700">{d.pickUp || 0}</strong></span>
-            </div>
-          )}
-        </div>
+const DayTooltip = ({ active, payload }: any) => {
+  if (!active || !payload?.length) return null;
+  const d: DailyDataPoint = payload[0].payload;
+  return (
+    <div className="rounded-lg bg-white border border-slate-200 px-3 py-2.5 shadow-lg text-xs min-w-[170px]">
+      <div className="font-semibold text-slate-900 mb-1.5">{d.displayDate}</div>
+      <div className="flex justify-between gap-4 text-slate-600">
+        <span>Revenue</span>
+        <span className="font-medium text-slate-900 tabular-nums">{formatNaira(d.grossRevenue)}</span>
       </div>
-    );
-  }
-  return null;
+      <div className="flex justify-between gap-4 text-slate-600">
+        <span>Delivered</span>
+        <span className="font-medium text-slate-900 tabular-nums">{d.completedOrders}</span>
+      </div>
+      <div className="flex justify-between gap-4 text-slate-500">
+        <span>Placed</span>
+        <span className="tabular-nums">{d.totalOrders}</span>
+      </div>
+    </div>
+  );
 };
 
 export const InteractiveDailyTrendChart: React.FC<InteractiveDailyTrendChartProps> = ({
   data,
   isLoading = false,
-  title = 'Daily Operational Trajectory',
-  description = 'Interactive visual trends for gross logistics revenue and order delivery volumes',
+  title = 'Daily trend',
+  description,
   onSelectDate,
 }) => {
-  const [metricMode, setMetricMode] = useState<MetricMode>('revenue');
-  const [datePreset, setDatePreset] = useState<DatePreset>('all');
-  const [customStart, setCustomStart] = useState<string>('');
-  const [customEnd, setCustomEnd] = useState<string>('');
-  const [isCustomExpanded, setIsCustomExpanded] = useState<boolean>(false);
+  const [mode, setMode] = useState<MetricMode>('revenue');
+  const [range, setRange] = useState<RangeKey>('30d');
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
-  // Chronological sorted master data
-  const chronologicalData = useMemo(() => {
-    return [...data].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [data]);
+  const sorted = useMemo(() => [...data].sort((a, b) => a.date.localeCompare(b.date)), [data]);
 
-  // Apply Date Filtering
-  const filteredData = useMemo(() => {
-    if (chronologicalData.length === 0) return [];
-
-    if (datePreset === 'all') {
-      return chronologicalData;
+  const visible = useMemo(() => {
+    if (range === '7d') return sorted.slice(-7);
+    if (range === '30d') return sorted.slice(-30);
+    if (range === 'month') {
+      const prefix = new Date().toISOString().slice(0, 7);
+      return sorted.filter((d) => d.date.startsWith(prefix));
     }
+    return sorted;
+  }, [sorted, range]);
 
-    if (datePreset === '7d') {
-      return chronologicalData.slice(-7);
-    }
+  const totals = useMemo(() => {
+    const revenue = visible.reduce((a, d) => a + (d.grossRevenue || 0), 0);
+    const delivered = visible.reduce((a, d) => a + (d.completedOrders || 0), 0);
+    const days = visible.length || 1;
+    const daysOnTarget = visible.filter((d) => d.completedOrders >= DAILY_ORDER_TARGET).length;
+    return { revenue, delivered, avgRevenue: revenue / days, avgDelivered: delivered / days, daysOnTarget };
+  }, [visible]);
 
-    if (datePreset === '14d') {
-      return chronologicalData.slice(-14);
-    }
-
-    if (datePreset === '30d') {
-      return chronologicalData.slice(-30);
-    }
-
-    if (datePreset === 'this_month') {
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
-
-      return chronologicalData.filter((item) => {
-        const itemDate = new Date(item.date);
-        return (
-          itemDate.getFullYear() === currentYear && itemDate.getMonth() === currentMonth
-        );
-      });
-    }
-
-    if (datePreset === 'custom') {
-      return chronologicalData.filter((item) => {
-        if (customStart && item.date < customStart) return false;
-        if (customEnd && item.date > customEnd) return false;
-        return true;
-      });
-    }
-
-    return chronologicalData;
-  }, [chronologicalData, datePreset, customStart, customEnd]);
-
-  // Filtered Summary Aggregates
-  const stats = useMemo(() => {
-    const totalRev = filteredData.reduce((acc, d) => acc + (d.grossRevenue || 0), 0);
-    const totalRuns = filteredData.reduce((acc, d) => acc + (d.totalOrders || 0), 0);
-    const avgDailyRuns = filteredData.length > 0 ? (totalRuns / filteredData.length).toFixed(1) : '0';
-    const avgDailyRev = filteredData.length > 0 ? totalRev / filteredData.length : 0;
-
-    return { totalRev, totalRuns, avgDailyRuns, avgDailyRev, count: filteredData.length };
-  }, [filteredData]);
+  const dataKey = mode === 'revenue' ? 'grossRevenue' : 'completedOrders';
+  const rangeInfo = RANGES.find((r) => r.key === range)!;
 
   if (isLoading || !data || data.length === 0) {
     return (
-      <div className="rounded-2xl bg-white border border-slate-200 p-8 h-80 flex flex-col items-center justify-center text-slate-400 shadow-sm">
-        <Activity className="w-8 h-8 animate-spin text-brand-500 mb-2" />
-        <p className="text-xs font-semibold">Loading daily operational trends...</p>
+      <div className="rounded-xl bg-white border border-slate-200 p-5">
+        <div className="h-4 w-32 bg-slate-100 rounded animate-pulse" />
+        <div className="mt-6 h-56 bg-slate-50 rounded-lg animate-pulse" />
       </div>
     );
   }
 
   return (
-    <div className="rounded-3xl bg-white border border-slate-200/90 p-5 sm:p-6 shadow-sm space-y-5">
-      {/* ── Top Header & Controls ────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-        {/* Title & Subtitle */}
-        <div>
-          <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-brand-600" />
-            <span>{title}</span>
-          </h3>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">{description}</p>
+    <div className="rounded-xl bg-white border border-slate-200 p-4 sm:p-5">
+      {/* Title + controls */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+          {description && <p className="text-xs text-slate-500 mt-0.5 hidden sm:block">{description}</p>}
         </div>
-
-        {/* Controls Toolbar */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* 1. Metric Mode Segment Switch (Revenue vs. Orders) */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200 text-xs font-bold shadow-inner">
-            <button
-              onClick={() => setMetricMode('revenue')}
-              className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 ${
-                metricMode === 'revenue'
-                  ? 'bg-white text-orange-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Banknote className="w-3.5 h-3.5" />
-              <span>Revenue (₦)</span>
-            </button>
-            <button
-              onClick={() => setMetricMode('orders')}
-              className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 ${
-                metricMode === 'orders'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Package className="w-3.5 h-3.5" />
-              <span>Orders Volume</span>
-            </button>
-          </div>
-
-          {/* 2. Date Range Presets */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200 text-xs font-bold">
-            <button
-              onClick={() => { setDatePreset('7d'); setIsCustomExpanded(false); }}
-              className={`px-2.5 py-1.5 rounded-xl transition-all ${
-                datePreset === '7d' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              7D
-            </button>
-            <button
-              onClick={() => { setDatePreset('14d'); setIsCustomExpanded(false); }}
-              className={`px-2.5 py-1.5 rounded-xl transition-all ${
-                datePreset === '14d' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              14D
-            </button>
-            <button
-              onClick={() => { setDatePreset('30d'); setIsCustomExpanded(false); }}
-              className={`px-2.5 py-1.5 rounded-xl transition-all ${
-                datePreset === '30d' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              30D
-            </button>
-            <button
-              onClick={() => { setDatePreset('this_month'); setIsCustomExpanded(false); }}
-              className={`px-2.5 py-1.5 rounded-xl transition-all ${
-                datePreset === 'this_month' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              This Month
-            </button>
-            <button
-              onClick={() => { setDatePreset('all'); setIsCustomExpanded(false); }}
-              className={`px-2.5 py-1.5 rounded-xl transition-all ${
-                datePreset === 'all' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              All Time
-            </button>
-            <button
-              onClick={() => {
-                setDatePreset('custom');
-                setIsCustomExpanded(!isCustomExpanded || datePreset !== 'custom');
-              }}
-              className={`px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
-                datePreset === 'custom' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="Custom Date Range"
-            >
-              <Calendar className="w-3 h-3" />
-              <span>Custom</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Expandable Custom Date Range Picker ───────────────────────────────── */}
-      {datePreset === 'custom' && isCustomExpanded && (
-        <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center gap-2 font-semibold text-slate-700">
-            <Calendar className="w-4 h-4 text-brand-600" />
-            <span>Select Custom Range:</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={customStart}
-              onChange={(e) => setCustomStart(e.target.value)}
-              className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 shadow-sm"
-              placeholder="Start Date"
-            />
-            <span className="text-slate-400 font-bold">➔</span>
-            <input
-              type="date"
-              value={customEnd}
-              onChange={(e) => setCustomEnd(e.target.value)}
-              className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 shadow-sm"
-              placeholder="End Date"
-            />
-            {(customStart || customEnd) && (
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-lg bg-slate-100 p-0.5 text-xs font-medium" role="tablist" aria-label="Measure">
+            {(['revenue', 'orders'] as MetricMode[]).map((m) => (
               <button
-                onClick={() => { setCustomStart(''); setCustomEnd(''); }}
-                className="px-2.5 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-[11px]"
+                key={m}
+                role="tab"
+                aria-selected={mode === m}
+                onClick={() => setMode(m)}
+                className={`px-3 py-1.5 rounded-md transition-colors ${
+                  mode === m ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                }`}
               >
-                Reset
+                {m === 'revenue' ? 'Revenue' : 'Orders'}
               </button>
-            )}
+            ))}
           </div>
-        </div>
-      )}
-
-      {/* ── Summary Stats Pills for Filtered Range ───────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-        <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-100 flex flex-col justify-between">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Filtered Window</span>
-          <span className="font-extrabold text-slate-900 mt-0.5">{stats.count} Days</span>
-        </div>
-        <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-100 flex flex-col justify-between">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Delivery Fees</span>
-          <span className="font-extrabold text-orange-600 mt-0.5">{formatNaira(stats.totalRev)}</span>
-        </div>
-        <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-100 flex flex-col justify-between">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Deliveries</span>
-          <span className="font-extrabold text-blue-600 mt-0.5">{stats.totalRuns.toLocaleString()} orders</span>
-        </div>
-        <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-100 flex flex-col justify-between">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Daily Volume</span>
-          <span className="font-extrabold text-slate-800 mt-0.5">{stats.avgDailyRuns} orders/day</span>
+          <select
+            value={range}
+            onChange={(e) => {
+              setRange(e.target.value as RangeKey);
+              setActiveIndex(null);
+            }}
+            aria-label="Period"
+            className="h-8 rounded-lg border border-slate-200 bg-white pl-2.5 pr-7 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+          >
+            {RANGES.map((r) => (
+              <option key={r.key} value={r.key}>
+                {r.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* ── Recharts Canvas ─────────────────────────────────────────────────── */}
-      <div className="w-full h-72 sm:h-80">
+      {/* Headline for the chosen period */}
+      <div className="mt-4">
+        <div className="text-2xl font-semibold tracking-tight text-slate-900 tabular-nums">
+          {mode === 'revenue' ? formatNaira(totals.revenue) : `${totals.delivered.toLocaleString()} delivered`}
+        </div>
+        <div className="text-xs text-slate-500 mt-0.5">
+          {rangeInfo.phrase} ·{' '}
+          {mode === 'revenue'
+            ? `${formatNaira(Math.round(totals.avgRevenue))} a day on average`
+            : `${totals.avgDelivered.toFixed(0)} a day on average · target hit on ${totals.daysOnTarget} of ${visible.length} days`}
+        </div>
+        {mode === 'orders' && (
+          <div className="mt-2 inline-flex items-center gap-2 text-xs text-slate-500">
+            <svg width="18" height="2" aria-hidden="true">
+              <line x1="0" y1="1" x2="18" y2="1" stroke="#64748b" strokeWidth="1.5" strokeDasharray="4 3" />
+            </svg>
+            Daily target ({DAILY_ORDER_TARGET} delivered)
+          </div>
+        )}
+      </div>
+
+      {/* Chart */}
+      <div className="mt-4 h-56 sm:h-72 -mx-1">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={filteredData}
-            margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
-            onClick={(state) => {
-              if (state && state.activePayload && state.activePayload.length > 0) {
-                const dateKey = state.activePayload[0]?.payload?.date;
-                if (dateKey && onSelectDate) {
-                  onSelectDate(dateKey);
-                }
-              }
+          <BarChart
+            data={visible}
+            margin={{ top: 8, right: 4, left: 0, bottom: 0 }}
+            barCategoryGap={visible.length > 60 ? 1 : '20%'}
+            onMouseLeave={() => setActiveIndex(null)}
+            onClick={(state: any) => {
+              const d = state?.activePayload?.[0]?.payload as DailyDataPoint | undefined;
+              if (d && onSelectDate) onSelectDate(d.date);
             }}
             className={onSelectDate ? 'cursor-pointer' : ''}
           >
-            <defs>
-              {/* Revenue Gradient */}
-              <linearGradient id="trendRevenueGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#f97316" stopOpacity={0.35} />
-                <stop offset="95%" stopColor="#f97316" stopOpacity={0.0} />
-              </linearGradient>
-
-              {/* Orders Volume Gradient */}
-              <linearGradient id="trendOrdersGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
-                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
-              </linearGradient>
-            </defs>
-
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-
+            <CartesianGrid stroke={GRID} vertical={false} />
             <XAxis
-              dataKey="displayDate"
-              stroke="#94a3b8"
-              fontSize={11}
+              dataKey="date"
+              tickFormatter={shortDate}
+              tick={{ fontSize: 11, fill: INK_MUTED }}
               tickLine={false}
-              axisLine={{ stroke: '#e2e8f0' }}
-              tickFormatter={(str) => {
-                if (!str) return '';
-                // e.g. "Fri, Aug 14" -> "Aug 14"
-                const parts = str.split(',');
-                return parts.length > 1 ? parts[1].trim() : str;
-              }}
+              axisLine={false}
+              minTickGap={24}
+              interval="preserveStartEnd"
             />
-
             <YAxis
-              stroke="#94a3b8"
-              fontSize={11}
+              width={44}
+              tick={{ fontSize: 11, fill: INK_MUTED }}
               tickLine={false}
-              axisLine={{ stroke: '#e2e8f0' }}
-              tickFormatter={(val) => {
-                if (metricMode === 'revenue') {
-                  return val >= 1000 ? `₦${(val / 1000).toFixed(0)}k` : `₦${val}`;
-                }
-                return val.toString();
-              }}
+              axisLine={false}
+              tickCount={4}
+              allowDecimals={false}
+              tickFormatter={(v: number) => (mode === 'revenue' ? compactNaira(v) : String(v))}
             />
-
-            <Tooltip content={<CustomTrendTooltip mode={metricMode} />} />
-
-            <Legend
-              verticalAlign="top"
-              align="right"
-              iconType="circle"
-              iconSize={8}
-              wrapperStyle={{ paddingBottom: '12px', fontSize: '11px', color: '#64748b' }}
-            />
-
-            {metricMode === 'revenue' ? (
-              <Area
-                type="monotone"
-                dataKey="grossRevenue"
-                name="Delivery Revenue (₦)"
-                stroke="#f97316"
-                strokeWidth={2.5}
-                fillOpacity={1}
-                fill="url(#trendRevenueGrad)"
-              />
-            ) : (
-              <Area
-                type="monotone"
-                dataKey="totalOrders"
-                name="Completed Orders Count"
-                stroke="#3b82f6"
-                strokeWidth={2.5}
-                fillOpacity={1}
-                fill="url(#trendOrdersGrad)"
+            <Tooltip content={<DayTooltip />} cursor={{ fill: 'rgba(15, 23, 42, 0.04)' }} />
+            {mode === 'orders' && (
+              <ReferenceLine
+                y={DAILY_ORDER_TARGET}
+                stroke="#64748b"
+                strokeDasharray="4 4"
               />
             )}
-          </AreaChart>
+            <Bar
+              dataKey={dataKey}
+              radius={[4, 4, 0, 0]}
+              maxBarSize={28}
+              onMouseEnter={(_: any, i: number) => setActiveIndex(i)}
+              shape={(props: any) => {
+                const { x, y, width, height, index } = props;
+                if (!height || height <= 0) return <g />;
+                const r = Math.min(4, width / 2, height);
+                const fill = index === activeIndex ? BAR_COLOR_ACTIVE : BAR_COLOR;
+                return (
+                  <path
+                    d={`M${x},${y + height} V${y + r} Q${x},${y} ${x + r},${y} H${x + width - r} Q${x + width},${y} ${x + width},${y + r} V${y + height} Z`}
+                    fill={fill}
+                  />
+                );
+              }}
+            />
+          </BarChart>
         </ResponsiveContainer>
       </div>
     </div>

@@ -50,7 +50,8 @@ export default function DailySummaryPage() {
 
       for (const ord of orders) {
         const d = new Date(ord.createdAt);
-        const dateKey = d.toISOString().split('T')[0];
+        // Group by Lagos calendar day (WAT = UTC+1, no daylight saving)
+        const dateKey = new Date(d.getTime() + 60 * 60 * 1000).toISOString().split('T')[0];
         const displayDate = d.toLocaleDateString('en-US', {
           weekday: 'short',
           month: 'short',
@@ -146,8 +147,8 @@ export default function DailySummaryPage() {
         <InteractiveDailyTrendChart
           data={dailyData}
           isLoading={isLoading}
-          title="Daily Delivery Revenue &amp; Order Trajectory"
-          description="Click any day node or pick date presets to inspect daily volume and hourly rush velocity"
+          title="Daily trend"
+          description="Tap a day to see its hourly breakdown"
           onSelectDate={(dateKey) => {
             const found = dailyData.find((d) => d.date === dateKey);
             if (found) {

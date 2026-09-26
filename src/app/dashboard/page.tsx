@@ -166,7 +166,8 @@ export default function ExecutiveDashboardPage() {
       const dayMap = new Map<string, DailyDataPoint>();
       for (const ord of allOrders) {
         const d = new Date(ord.createdAt);
-        const dateKey = d.toISOString().split('T')[0];
+        // Group by Lagos calendar day (WAT = UTC+1, no daylight saving)
+        const dateKey = new Date(d.getTime() + 60 * 60 * 1000).toISOString().split('T')[0];
         const displayDate = d.toLocaleDateString('en-US', {
           weekday: 'short',
           month: 'short',
@@ -390,8 +391,8 @@ export default function ExecutiveDashboardPage() {
     );
   };
 
-  // Today's figures (days are grouped by UTC date, matching the daily data above)
-  const todayKey = new Date().toISOString().split('T')[0];
+  // Today's figures (Lagos calendar day, matching the daily grouping above)
+  const todayKey = new Date(Date.now() + 60 * 60 * 1000).toISOString().split('T')[0];
   const today = dailyData.find((d) => d.date === todayKey);
   const todayCompleted = today?.completedOrders || 0;
   const todayPlaced = today?.totalOrders || 0;
