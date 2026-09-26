@@ -113,6 +113,7 @@ export default function RiderPortalPage() {
 
   // GPS Telemetry Heartbeat State
   const [isGoingOnline, setIsGoingOnline] = useState(false);
+  const [handoverRadiusMeters, setHandoverRadiusMeters] = useState(200);
   const [gpsStatus, setGpsStatus] = useState<'active' | 'connecting' | 'idle' | 'off' | 'denied'>('off');
   const [showGpsHelpModal, setShowGpsHelpModal] = useState(false);
   const [isRetryingGps, setIsRetryingGps] = useState(false);
@@ -499,6 +500,9 @@ export default function RiderPortalPage() {
           setAvailableOrders(newAvailable);
           setActiveTasks(newActive);
           setCompletedToday(newCompleted);
+          if (typeof data.handoverRadiusMeters === 'number') {
+            setHandoverRadiusMeters(data.handoverRadiusMeters);
+          }
           if (data.otherRiders) {
             setOtherRiders(data.otherRiders);
           }
@@ -1703,51 +1707,51 @@ export default function RiderPortalPage() {
                       </div>
 
                       {/* Incoming Handover Request Banner */}
-                      {ord.handoverRequestedById && (
-                        <div className="p-3.5 rounded-xl bg-amber-500 text-white space-y-2 shadow-sm">
-                          <div className="flex items-start gap-2">
-                            <HandHelping className="w-4 h-4 text-amber-100 shrink-0 mt-0.5" />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <p className="text-xs font-semibold">Handover Requested!</p>
-                                {ord.handoverDistance !== undefined && ord.handoverDistance !== null ? (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-600/90 text-white text-xs font-semibold tracking-tight shadow-sm">
-                                    <MapPin className="w-2.5 h-2.5" />
-                                    📍 GPS Verified ({ord.handoverDistance}m away)
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-600/90 text-white text-xs font-semibold tracking-tight shadow-sm">
-                                    <MapPin className="w-2.5 h-2.5" />
-                                    At Cafeteria
-                                  </span>
-                                )}
+                      {ord.handoverRequestedById && (() => {
+                        const requester = ord.handoverRequestedByName || 'Another rider';
+                        const d = typeof ord.handoverDistance === 'number' ? ord.handoverDistance : null;
+                        const near = d !== null && d <= handoverRadiusMeters;
+                        const away = d === null ? '' : d >= 1000 ? `${(d / 1000).toFixed(1)} km` : `${d} m`;
+                        return (
+                          <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 space-y-3">
+                            <div className="flex items-start gap-2.5">
+                              <HandHelping className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-slate-900">{requester} wants to take this order</p>
+                                <p
+                                  className={`text-sm mt-0.5 ${
+                                    d === null ? 'text-slate-500' : near ? 'text-emerald-700' : 'text-rose-700'
+                                  }`}
+                                >
+                                  {d === null
+                                    ? 'Their location wasn’t shared.'
+                                    : near
+                                    ? `At ${ord.cafeteriaName} (${away} away)`
+                                    : `Not at ${ord.cafeteriaName}: ${away} away`}
+                                </p>
                               </div>
-                              <p className="text-xs text-amber-100 mt-1 leading-snug">
-                                <strong>{ord.handoverRequestedByName || 'Another rider'}</strong> is physically at {ord.cafeteriaName} and requested to take over this order.
-                              </p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleHandoverAction(ord.id || ord.orderId, 'accept_handover')}
+                                disabled={isLoadingAction}
+                                className="h-11 rounded-lg bg-slate-900 text-white text-sm font-medium disabled:opacity-50"
+                              >
+                                Give it to {requester.replace(/^mr\.?\s+/i, '').split(' ')[0]}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleHandoverAction(ord.id || ord.orderId, 'reject_handover')}
+                                disabled={isLoadingAction}
+                                className="h-11 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm font-medium disabled:opacity-50"
+                              >
+                                Keep it
+                              </button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 pt-1">
-                            <button
-                              type="button"
-                              onClick={() => handleHandoverAction(ord.id || ord.orderId, 'accept_handover')}
-                              disabled={isLoadingAction}
-                              className="flex-1 bg-white hover:bg-emerald-50 text-emerald-800 font-semibold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Release to {ord.handoverRequestedByName?.split(' ')[0] || 'Rider'}</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleHandoverAction(ord.id || ord.orderId, 'reject_handover')}
-                              disabled={isLoadingAction}
-                              className="px-3 py-2 rounded-lg bg-amber-600/80 hover:bg-amber-600 text-white text-xs font-semibold transition-colors"
-                            >
-                              Keep Order
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Action Buttons */}
                       {!isDispatched ? (

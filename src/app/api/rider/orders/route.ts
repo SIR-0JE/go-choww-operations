@@ -18,6 +18,20 @@ function orderChangedResponse(message = 'This order was just updated by someone 
   return NextResponse.json({ success: false, changed: true, error: message }, { status: 409 });
 }
 
+// Radius that counts as "at the cafeteria" for handovers. Changes rarely, and this
+// endpoint is polled constantly, so keep it in memory for a minute.
+let radiusCache: { value: number; at: number } | null = null;
+async function getHandoverRadiusMeters() {
+  if (radiusCache && Date.now() - radiusCache.at < 60_000) return radiusCache.value;
+  try {
+    const s = await getGeofenceSettings();
+    radiusCache = { value: s.radiusMeters || 200, at: Date.now() };
+  } catch {
+    radiusCache = { value: radiusCache?.value ?? 200, at: Date.now() };
+  }
+  return radiusCache.value;
+}
+
 function countActiveOrders(riderId: string) {
   return prisma.deliveryOrder.count({
     where: { riderId, orderStatus: { notIn: FINISHED_STATUSES } },
@@ -303,6 +317,7 @@ export async function GET(request: NextRequest) {
           active: activeTasks,
           completedToday,
           otherRiders: otherRidersWithCounts,
+          handoverRadiusMeters: await getHandoverRadiusMeters(),
           counts: {
             available: sortedAvailableOrders.length,
             active: activeTasks.length,

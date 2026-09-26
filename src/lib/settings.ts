@@ -240,6 +240,8 @@ export interface CafeteriaLocationItem {
   lng: number;
   campus?: string;
   description?: string;
+  confirmedAt?: string; // set when someone standing at the cafeteria saved this pin from their phone
+  accuracyMeters?: number; // phone's GPS accuracy at that moment
 }
 
 export interface GeofenceSettings {
@@ -375,17 +377,27 @@ export async function addOrUpdateCafeteria(item: Partial<CafeteriaLocationItem> 
     (c) => c.id === cleanId || c.name.trim().toLowerCase() === item.name.trim().toLowerCase()
   );
 
+  const hasCoords = typeof item.lat === 'number' && typeof item.lng === 'number';
   const fullItem: CafeteriaLocationItem = {
     id: cleanId,
     name: item.name.trim(),
-    lat: typeof item.lat === 'number' ? item.lat : 7.620000,
-    lng: typeof item.lng === 'number' ? item.lng : 4.200000,
+    lat: hasCoords ? item.lat! : 7.620000,
+    lng: hasCoords ? item.lng! : 4.200000,
     campus: item.campus || 'Campus Main',
     description: item.description || '',
   };
 
   if (existingIdx >= 0) {
-    list[existingIdx] = { ...list[existingIdx], ...fullItem };
+    // Re-adding an existing cafeteria by name must not wipe a pin someone set on site
+    const existing = list[existingIdx];
+    list[existingIdx] = {
+      ...existing,
+      ...fullItem,
+      id: existing.id,
+      lat: hasCoords ? fullItem.lat : existing.lat,
+      lng: hasCoords ? fullItem.lng : existing.lng,
+      description: item.description ?? existing.description,
+    };
   } else {
     list.push(fullItem);
   }
