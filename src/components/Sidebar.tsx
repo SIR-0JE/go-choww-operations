@@ -42,87 +42,43 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
     };
   }, []);
 
-  // Exactly mapped to the operational Excel model tabs
-  const navItems = [
+  const is = (...paths: string[]) => paths.includes(pathname);
+
+  const navGroups: { title: string; items: { label: string; href: string; icon: any; active: boolean; unreadCount?: number }[] }[] = [
     {
-      label: 'Executive Dashboard',
-      href: '/dashboard',
-      icon: LayoutDashboard,
-      active: pathname === '/dashboard' || pathname === '/',
-      badge: 'Main',
+      title: 'Overview',
+      items: [
+        { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, active: is('/dashboard', '/') },
+        { label: 'Sprint Target', href: '/target', icon: Target, active: is('/target') },
+      ],
     },
     {
-      label: 'Raw Data',
-      href: '/orders',
-      icon: Database,
-      active: pathname === '/orders' || pathname === '/raw-data',
+      title: 'Operations',
+      items: [
+        { label: 'Orders', href: '/orders', icon: Database, active: is('/orders', '/raw-data') },
+        { label: 'Riders', href: '/riders', icon: Bike, active: is('/riders') },
+        { label: 'Live Fleet', href: '/dashboard/fleet', icon: Radio, active: is('/dashboard/fleet') },
+        { label: 'Reconciliation', href: '/dashboard/reconciliation', icon: ClipboardCheck, active: is('/dashboard/reconciliation') },
+      ],
     },
     {
-      label: 'Riders',
-      href: '/riders',
-      icon: Bike,
-      active: pathname === '/riders',
-      badge: 'Fleet',
+      title: 'Finance',
+      items: [
+        { label: 'Daily Summary', href: '/daily-summary', icon: CalendarDays, active: is('/daily-summary') },
+        { label: 'Monthly Summary', href: '/monthly-summary', icon: CalendarRange, active: is('/monthly-summary') },
+        { label: 'Expenses', href: '/expenses', icon: Receipt, active: is('/expenses') },
+      ],
     },
     {
-      label: 'Live Fleet Radar',
-      href: '/dashboard/fleet',
-      icon: Radio,
-      active: pathname === '/dashboard/fleet',
-      badge: 'Live',
+      title: 'Growth',
+      items: [{ label: 'Broadcast', href: '/broadcast', icon: Megaphone, active: is('/broadcast') }],
     },
     {
-      label: 'Reconciliation',
-      href: '/dashboard/reconciliation',
-      icon: ClipboardCheck,
-      active: pathname === '/dashboard/reconciliation',
-      badge: 'Backlog',
-    },
-    {
-      label: 'Expenses',
-      href: '/expenses',
-      icon: Receipt,
-      active: pathname === '/expenses',
-    },
-    {
-      label: 'Daily Summary',
-      href: '/daily-summary',
-      icon: CalendarDays,
-      active: pathname === '/daily-summary',
-    },
-    {
-      label: 'Monthly Summary',
-      href: '/monthly-summary',
-      icon: CalendarRange,
-      active: pathname === '/monthly-summary',
-    },
-    {
-      label: 'Sprint Target',
-      href: '/target',
-      icon: Target,
-      active: pathname === '/target',
-      badge: 'Sprint',
-    },
-    {
-      label: 'Broadcast & Offers',
-      href: '/broadcast',
-      icon: Megaphone,
-      active: pathname === '/broadcast',
-      badge: 'Promo',
-    },
-    {
-      label: 'Notifications',
-      href: '/notifications',
-      icon: Bell,
-      active: pathname === '/notifications',
-      unreadCount,
-    },
-    {
-      label: 'Settings',
-      href: '/settings',
-      icon: Settings,
-      active: pathname === '/settings',
-      badge: 'Sync',
+      title: 'System',
+      items: [
+        { label: 'Notifications', href: '/notifications', icon: Bell, active: is('/notifications'), unreadCount },
+        { label: 'Settings', href: '/settings', icon: Settings, active: is('/settings') },
+      ],
     },
   ];
 
@@ -132,134 +88,83 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
       {isMobileOpen && (
         <div
           onClick={onCloseMobile}
-          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm lg:hidden transition-opacity"
+          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm lg:hidden transition-opacity"
         />
       )}
 
-      {/* Sidebar Container */}
       <aside
-        className={`fixed top-0 left-0 bottom-0 z-50 w-64 bg-white border-r border-slate-200/80 flex flex-col justify-between transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 left-0 bottom-0 z-50 w-64 bg-white border-r border-slate-200 flex flex-col transition-transform duration-200 ease-in-out lg:translate-x-0 ${
           isMobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
         }`}
       >
-        {/* Brand Header */}
-        <div className="p-5 border-b border-slate-100">
-          <div className="flex items-center justify-between">
-            <Link
-              href="/dashboard"
-              onClick={onCloseMobile}
-              className="flex items-center gap-3 group"
-            >
-              <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-sm ring-1 ring-slate-800 transition-transform group-hover:scale-105">
-                <Flame className="w-5 h-5 text-brand-500" />
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5 font-bold text-base text-slate-900 tracking-tight">
-                  <span>Go Choww</span>
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200/80">
-                    OPS
-                  </span>
-                </div>
-                <div className="text-[11px] font-medium text-slate-500">
-                  Operations &amp; Debt Recovery
-                </div>
-              </div>
-            </Link>
-
-            {/* Mobile close button */}
-            <button
-              onClick={onCloseMobile}
-              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-              aria-label="Close menu"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+        {/* Brand */}
+        <div className="h-16 px-5 flex items-center justify-between border-b border-slate-100">
+          <Link href="/dashboard" onClick={onCloseMobile} className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-brand-500 flex items-center justify-center text-white">
+              <Flame className="w-4 h-4" />
+            </div>
+            <div className="leading-tight">
+              <div className="text-[15px] font-semibold text-slate-900 tracking-tight">Go Choww</div>
+              <div className="text-[11px] text-slate-500">Operations</div>
+            </div>
+          </Link>
+          <button
+            onClick={onCloseMobile}
+            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            aria-label="Close menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* Navigation Items */}
-        <div className="flex-1 py-5 px-3 space-y-1 overflow-y-auto">
-          <div className="px-3 pb-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-            Operations Modules
-          </div>
-
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const hasUnread = 'unreadCount' in item && (item as any).unreadCount > 0;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onCloseMobile}
-                className={`group flex items-center justify-between px-3 py-2.5 rounded-xl font-medium text-xs sm:text-sm transition-all duration-150 ${
-                  item.active
-                    ? 'bg-slate-900 text-white shadow-sm shadow-slate-950/5'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <Icon
-                      className={`w-4 h-4 transition-colors ${
-                        item.active ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-600'
-                      }`}
-                    />
-                    {hasUnread && (
-                      <span className="absolute -top-1.5 -right-1.5 w-2 h-2 rounded-full bg-rose-500" />
-                    )}
-                  </div>
-                  <span className={item.active ? 'font-semibold' : ''}>{item.label}</span>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  {hasUnread ? (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500 text-white min-w-[18px] text-center">
-                      {(item as any).unreadCount}
-                    </span>
-                  ) : item.badge ? (
-                    <span
-                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+          {navGroups.map((group) => (
+            <div key={group.title}>
+              <div className="px-3 pb-1.5 text-[11px] font-medium text-slate-400">{group.title}</div>
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const unread = item.unreadCount || 0;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onCloseMobile}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
                         item.active
-                          ? 'bg-slate-800 text-slate-200 border border-slate-700'
-                          : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
+                          ? 'bg-brand-50 text-brand-700 font-medium'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
-                      {item.badge}
-                    </span>
-                  ) : null}
-                  <ChevronRight
-                    className={`w-3.5 h-3.5 transition-transform ${
-                      item.active
-                        ? 'text-slate-400 translate-x-0.5'
-                        : 'text-transparent group-hover:text-slate-400'
-                    }`}
-                  />
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+                      <Icon className={`w-4 h-4 shrink-0 ${item.active ? 'text-brand-600' : 'text-slate-400'}`} />
+                      <span className="flex-1 truncate">{item.label}</span>
+                      {unread > 0 && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-rose-500 text-white min-w-[18px] text-center">
+                          {unread}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
 
-        {/* Sprint Summary Footer Card */}
-        <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+        {/* Sprint shortcut */}
+        <div className="p-3 border-t border-slate-100">
           <Link
             href="/target"
             onClick={onCloseMobile}
-            className="block p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-sm space-y-2 hover:border-slate-300 hover:shadow-md transition-all group"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors"
           >
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-800">
-              <span className="flex items-center gap-1.5 text-slate-900">
-                <Target className="w-3.5 h-3.5 text-brand-600" />
-                Sprint Recovery
-              </span>
-              <span className="text-[10px] font-medium text-slate-500">Dec 10, 2026</span>
+            <Target className="w-4 h-4 text-brand-600 shrink-0" />
+            <div className="flex-1 min-w-0 leading-tight">
+              <div className="text-xs font-medium text-slate-900">Sprint: ₦3.5M</div>
+              <div className="text-[11px] text-slate-500">Deadline Dec 10, 2026</div>
             </div>
-            <div className="text-[11px] text-slate-500 font-medium flex items-center justify-between">
-              <span>Goal: <strong className="text-slate-900 font-semibold tabular-nums">₦3.5M</strong></span>
-              <span className="text-[10px] font-semibold text-brand-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
-                Manage &rarr;
-              </span>
-            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
           </Link>
         </div>
       </aside>

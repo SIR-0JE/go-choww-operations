@@ -7,21 +7,12 @@ import { Header } from '@/components/Header';
 import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner';
 import { formatNaira, MetricsSummary, isSettledOrder, isRevenueOrder } from '@/lib/financials';
 import {
-  Banknote,
-  Receipt,
-  TrendingUp,
-  RotateCcw,
   CheckCircle2,
-  XCircle,
   Bike,
-  PackageCheck,
   AlertOctagon,
   ChevronDown,
   ChevronRight,
   Target,
-  Layers,
-  Clock,
-  Bell,
   Package,
   Truck,
 } from 'lucide-react';
@@ -63,6 +54,8 @@ export default function ExecutiveDashboardPage() {
     oldestWaitingOrder: { orderId: string; cafeteriaName: string } | null;
     ridersOnline: number;
     thresholdMinutes: number;
+    stuckOrders: { orderId: string; riderName: string; hours: number; status: string }[];
+    stuckAfterHours: number;
   } | null>(null);
 
   // Orders waiting for a rider — refreshed every 20s
@@ -373,266 +366,127 @@ export default function ExecutiveDashboardPage() {
     }));
   };
 
-  const renderStatusBadge = (status: string, payStatus: string) => {
+  const renderStatusBadge = (status: string, _payStatus?: string) => {
     const s = (status || '').toLowerCase().trim();
-    if (s === 'delivered' || s === 'completed') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-          Delivered
-        </span>
-      );
-    }
-    if (s === 'dispatched') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-          <Bike className="w-3 h-3 text-blue-600" />
-          Dispatched
-        </span>
-      );
-    }
-    if (s === 'ready') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
-          <PackageCheck className="w-3 h-3 text-teal-600" />
-          Ready
-        </span>
-      );
-    }
-    if (s === 'preparing') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-          <Clock className="w-3 h-3 text-amber-600" />
-          Preparing
-        </span>
-      );
-    }
-    if (s === 'confirmed' || s === 'pending') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-          <Clock className="w-3 h-3 text-slate-500" />
-          Confirmed
-        </span>
-      );
-    }
-    if (s.includes('canc')) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
-          <XCircle className="w-3 h-3 text-slate-400" />
-          Cancelled
-        </span>
-      );
-    }
+    const [label, dot] =
+      s === 'delivered' || s === 'completed'
+        ? ['Delivered', 'bg-emerald-500']
+        : s === 'in transit' || s === 'dispatched'
+        ? ['In transit', 'bg-blue-500']
+        : s === 'ready'
+        ? ['Ready', 'bg-amber-500']
+        : s === 'preparing'
+        ? ['Preparing', 'bg-amber-400']
+        : s.includes('canc')
+        ? ['Cancelled', 'bg-slate-300']
+        : s === 'confirmed' || s === 'pending'
+        ? ['Confirmed', 'bg-slate-400']
+        : [status, 'bg-slate-400'];
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-        <Clock className="w-3 h-3 text-slate-500" />
-        {status}
+      <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
+        <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+        {label}
       </span>
     );
   };
+
+  // Today's figures (days are grouped by UTC date, matching the daily data above)
+  const todayKey = new Date().toISOString().split('T')[0];
+  const today = dailyData.find((d) => d.date === todayKey);
+  const todayCompleted = today?.completedOrders || 0;
+  const todayPlaced = today?.totalOrders || 0;
+  const todayRevenue = today?.grossRevenue || 0;
+  const targetDaily = metrics?.targetDailyOrders || 126;
+  const sprintPct = Math.max(0, Math.min(100, metrics?.debtProgressPercent || 0));
+
+  const card = 'bg-white rounded-xl border border-slate-200';
 
   return (
     <AppLayout>
       <Header onSyncComplete={fetchData} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-8">
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6">
+        {/* Page title */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-              Executive Overview
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 font-normal mt-1">
-              High-level operational metrics, financial margin analysis, and weekly delivery trajectory.
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Dashboard</h1>
+            <p className="text-sm text-slate-500 mt-1">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </p>
           </div>
-
-          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-            {activeOrdersCount > 0 && (
-              <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200/80 shadow-sm flex items-center gap-1.5 animate-pulse">
-                <Bike className="w-3.5 h-3.5 text-blue-600" />
-                <span>Live Dispatches: <strong className="text-blue-900 font-bold tabular-nums">{activeOrdersCount}</strong> in transit</span>
-              </span>
-            )}
-            <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white text-slate-700 border border-slate-200/80 shadow-sm flex items-center gap-1.5">
-              <Target className="w-3.5 h-3.5 text-brand-600" />
-              <span>Sprint Target: <strong className="text-slate-900 font-bold tabular-nums">₦3,500,000</strong></span>
+          {activeOrdersCount > 0 && (
+            <span className="inline-flex items-center gap-2 text-sm text-slate-600 self-start sm:self-auto">
+              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+              {activeOrdersCount} active {activeOrdersCount === 1 ? 'order' : 'orders'}
             </span>
-          </div>
+          )}
         </div>
 
-        {/* Mobile Phone Push Notification Enablement Banner */}
         <NotificationPermissionBanner userType="admin" />
 
-        {/* Dispatch pressure: orders waiting for a rider */}
-        {dispatch && (
-          <section
-            aria-label="Orders waiting for a rider"
-            className={`rounded-2xl border p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4 ${
-              dispatch.waitingOverThreshold > 0
-                ? 'bg-rose-50 border-rose-200'
-                : 'bg-white border-slate-200/80'
-            }`}
-          >
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div
-                className={`p-2.5 rounded-xl border ${
-                  dispatch.waitingOverThreshold > 0
-                    ? 'bg-rose-100 border-rose-200 text-rose-700'
-                    : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                }`}
-              >
-                {dispatch.waitingOverThreshold > 0 ? <AlertOctagon className="w-5 h-5" /> : <Bike className="w-5 h-5" />}
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-bold text-slate-900">
-                  {dispatch.waitingOverThreshold > 0
-                    ? `${dispatch.waitingOverThreshold} order${dispatch.waitingOverThreshold === 1 ? '' : 's'} waiting over ${dispatch.thresholdMinutes} min for a rider`
-                    : dispatch.waitingCount > 0
-                      ? `${dispatch.waitingCount} order${dispatch.waitingCount === 1 ? '' : 's'} waiting for a rider`
-                      : 'No orders waiting for a rider'}
-                </div>
-                <div className="text-xs text-slate-500 mt-0.5 truncate">
-                  {dispatch.oldestWaitingOrder
-                    ? `Oldest: ${dispatch.oldestWaitingMinutes} min at ${dispatch.oldestWaitingOrder.cafeteriaName}`
-                    : 'Every paid order has a rider.'}
-                </div>
-              </div>
+        {/* Key numbers */}
+        <section aria-label="Key numbers" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className={`${card} p-5`}>
+            <div className="text-sm text-slate-500">Orders today</div>
+            <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">{todayCompleted}</div>
+            <div className="mt-3 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+              <div className="h-full rounded-full bg-brand-500" style={{ width: `${Math.min(100, (todayCompleted / targetDaily) * 100)}%` }} />
             </div>
-            <div className="flex items-center gap-4 text-xs font-semibold text-slate-600">
-              <span className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5" />
-                Waiting: <strong className="text-slate-900 tabular-nums">{dispatch.waitingCount}</strong>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Bike className="w-3.5 h-3.5" />
-                Riders online: <strong className="text-slate-900 tabular-nums">{dispatch.ridersOnline}</strong>
-              </span>
-            </div>
-          </section>
-        )}
-
-        {/* ─────────────────────────────────────────────────────────────
-            SECTION 1: FINANCIAL OVERVIEW (3 MINIMALIST FINTECH CARDS)
-        ───────────────────────────────────────────────────────────── */}
-        <section aria-label="Financial Overview" className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Financial Overview
-            </div>
-            <span className="text-[11px] text-slate-400 font-medium">All figures verified</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
-            {/* Card 1: Gross Delivery Revenue */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm hover:shadow-md hover:border-slate-300/80 transition-all duration-200">
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Gross Delivery Revenue
-                </span>
-                <div className="p-2 rounded-xl bg-slate-50 text-slate-600 border border-slate-200/70">
-                  <Banknote className="w-4 h-4 text-brand-600" />
-                </div>
-              </div>
-              <div className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
-                {formatNaira(metrics?.grossDeliveryRevenue || 0)}
-              </div>
-              <div className="flex items-center justify-between text-xs pt-4 mt-4 border-t border-slate-100">
-                <span className="text-slate-500 font-normal">
-                  <strong className="font-semibold text-slate-800 tabular-nums">{metrics?.settledOrdersCount || 0}</strong> Settled Runs
-                </span>
-                <span className="px-2 py-0.5 rounded-md font-semibold text-[11px] bg-slate-100 text-slate-700 border border-slate-200">
-                  Delivery Fees
-                </span>
-              </div>
-            </div>
-
-            {/* Card 2: Total Expenses (Logged Only) */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm hover:shadow-md hover:border-slate-300/80 transition-all duration-200">
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Total Expenses (Logged)
-                </span>
-                <div className="p-2 rounded-xl bg-slate-50 text-slate-600 border border-slate-200/70">
-                  <Receipt className="w-4 h-4 text-rose-600" />
-                </div>
-              </div>
-              <div className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
-                {formatNaira(metrics?.totalExpenses || 0)}
-              </div>
-              <div className="flex items-center justify-between text-xs pt-4 mt-4 border-t border-slate-100">
-                <span className="text-slate-500 font-normal">
-                  Fuel, software, salaries, misc
-                </span>
-                <span className="px-2 py-0.5 rounded-md font-semibold text-[11px] bg-rose-50 text-rose-700 border border-rose-200/70">
-                  Operational Costs
-                </span>
-              </div>
-            </div>
-
-            {/* Card 3: Net Profit (Logged) */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm hover:shadow-md hover:border-slate-300/80 transition-all duration-200">
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Net Profit (Logged)
-                </span>
-                <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/70">
-                  <TrendingUp className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="text-3xl font-bold text-emerald-700 tracking-tight tabular-nums">
-                {formatNaira(metrics?.netProfit || 0)}
-              </div>
-              <div className="flex items-center justify-between text-xs pt-4 mt-4 border-t border-slate-100">
-                <span className="text-slate-500 font-normal">
-                  Gross Revenue - Logged Expenses
-                </span>
-                <span className="px-2 py-0.5 rounded-md font-semibold text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200/70">
-                  Retained Margin
-                </span>
-              </div>
+            <div className="mt-2 text-xs text-slate-500">
+              {todayPlaced} placed · target {targetDaily}/day
             </div>
           </div>
+
+          <div className={`${card} p-5`}>
+            <div className="text-sm text-slate-500">Delivery revenue today</div>
+            <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">{formatNaira(todayRevenue)}</div>
+            <div className="mt-3 text-xs text-slate-500">
+              All time <span className="font-medium text-slate-700 tabular-nums">{formatNaira(metrics?.grossDeliveryRevenue || 0)}</span>
+              {' · '}
+              {metrics?.settledOrdersCount || 0} deliveries
+            </div>
+          </div>
+
+          <div className={`${card} p-5`}>
+            <div className="text-sm text-slate-500">Net profit</div>
+            <div className={`mt-2 text-3xl font-semibold tracking-tight tabular-nums ${(metrics?.netProfit || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {formatNaira(metrics?.netProfit || 0)}
+            </div>
+            <div className="mt-3 text-xs text-slate-500">
+              After <span className="font-medium text-slate-700 tabular-nums">{formatNaira(metrics?.totalExpenses || 0)}</span> logged expenses
+            </div>
+          </div>
+
+          <Link href="/target" className={`${card} p-5 hover:border-slate-300 transition-colors`}>
+            <div className="flex items-center justify-between text-sm text-slate-500">
+              <span>Sprint recovery</span>
+              <Target className="w-4 h-4 text-brand-500" />
+            </div>
+            <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">{sprintPct.toFixed(1)}%</div>
+            <div className="mt-3 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+              <div className="h-full rounded-full bg-emerald-500" style={{ width: `${sprintPct}%` }} />
+            </div>
+            <div className="mt-2 text-xs text-slate-500">
+              {formatNaira(metrics?.remainingDebt || 0)} to go · {metrics?.daysRemainingInSprint ?? 0} days left
+            </div>
+          </Link>
         </section>
 
-        {/* ─────────────────────────────────────────────────────────────
-            LIVE RIDER ACTIVITY NOTIFICATIONS
-        ───────────────────────────────────────────────────────────── */}
+        {/* Live rider activity */}
         {riderNotifications.length > 0 && (
-          <div className="space-y-2" aria-live="polite" aria-label="Rider activity notifications">
+          <div className="space-y-2" aria-live="polite" aria-label="Rider activity">
             {riderNotifications.map((notif) => {
-              const isAccept = notif.action === 'claim';
-              const isPickup = notif.action === 'pickup';
-              const isDeliver = notif.action === 'deliver';
-              const icon = isAccept ? (
-                <Package className="w-4 h-4 text-amber-600 shrink-0" />
-              ) : isPickup ? (
-                <Truck className="w-4 h-4 text-blue-600 shrink-0" />
-              ) : (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              );
-              const label = isAccept
-                ? 'accepted an order'
-                : isPickup
-                ? 'picked up an order'
-                : 'marked an order as delivered';
-              const bg = isAccept
-                ? 'bg-amber-50 border-amber-200 text-amber-900'
-                : isPickup
-                ? 'bg-blue-50 border-blue-200 text-blue-900'
-                : 'bg-emerald-50 border-emerald-200 text-emerald-900';
+              const label =
+                notif.action === 'claim' ? 'accepted' : notif.action === 'pickup' ? 'picked up' : 'delivered';
+              const Icon = notif.action === 'claim' ? Package : notif.action === 'pickup' ? Truck : CheckCircle2;
               return (
-                <div
-                  key={notif.id}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium shadow-sm animate-pulse-once ${bg}`}
-                >
-                  <Bell className="w-3.5 h-3.5 opacity-60 shrink-0" />
-                  {icon}
-                  <span>
-                    <strong>{notif.riderName}</strong> just {label}
-                    <span className="font-mono text-[11px] ml-2 opacity-70">#{notif.orderId?.slice(-8)}</span>
+                <div key={notif.id} className={`${card} flex items-center gap-3 px-4 py-2.5 text-sm`}>
+                  <Icon className="w-4 h-4 text-slate-400 shrink-0" />
+                  <span className="text-slate-700">
+                    <span className="font-medium text-slate-900">{notif.riderName}</span> {label}{' '}
+                    <span className="font-mono text-xs text-slate-500">#{notif.orderId?.slice(-8)}</span>
                   </span>
-                  <span className="ml-auto text-[11px] opacity-60 tabular-nums">
+                  <span className="ml-auto text-xs text-slate-400 tabular-nums">
                     {notif.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -641,83 +495,53 @@ export default function ExecutiveDashboardPage() {
           </div>
         )}
 
-        {/* ─────────────────────────────────────────────────────────────
-            LIVE INCOMING ORDERS & DISPATCHES (REAL-TIME FEED)
-        ───────────────────────────────────────────────────────────── */}
-        <section aria-label="Live Incoming Orders" className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-600">
-                Live Incoming Orders &amp; Dispatches
+        {/* Latest orders + dispatch */}
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className={`${card} lg:col-span-2 overflow-hidden`}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-slate-900">Latest orders</h2>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Updates automatically" />
               </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Auto-Syncing
-              </span>
+              <Link href="/orders" className="text-sm text-brand-600 hover:text-brand-700 inline-flex items-center gap-1">
+                View all <ChevronRight className="w-4 h-4" />
+              </Link>
             </div>
-            <Link
-              href="/orders"
-              className="text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1 transition-colors"
-            >
-              <span>View full ledger</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-600 whitespace-nowrap">
-                <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-extrabold text-[10px] border-b border-slate-200">
-                  <tr>
-                    <th className="px-4 py-3">Order ID</th>
-                    <th className="px-4 py-3">Time</th>
-                    <th className="px-4 py-3">Customer</th>
-                    <th className="px-4 py-3">Cafeteria</th>
-                    <th className="px-4 py-3">Hostel / Destination</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Assigned Rider</th>
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="text-xs text-slate-500">
+                  <tr className="border-b border-slate-100">
+                    <th className="px-5 py-2.5 font-medium">Order</th>
+                    <th className="px-5 py-2.5 font-medium">Route</th>
+                    <th className="px-5 py-2.5 font-medium">Rider</th>
+                    <th className="px-5 py-2.5 font-medium">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
+                <tbody className="divide-y divide-slate-100">
                   {recentOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                        No orders recorded yet. As orders enter GoChow, they will show here automatically.
+                      <td colSpan={4} className="px-5 py-10 text-center text-slate-400">
+                        No orders yet. New GoChow orders appear here automatically.
                       </td>
                     </tr>
                   ) : (
-                    recentOrders.map((ord: any) => (
-                      <tr key={ord.id || ord.orderId} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="px-4 py-3 font-bold font-mono text-slate-900">
-                          {ord.orderId}
+                    recentOrders.slice(0, 8).map((ord: any) => (
+                      <tr key={ord.id || ord.orderId} className="hover:bg-slate-50/70">
+                        <td className="px-5 py-3">
+                          <div className="font-medium text-slate-900">{ord.customerName}</div>
+                          <div className="text-xs text-slate-500">
+                            {ord.time || (ord.createdAt ? new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}
+                            <span className="font-mono ml-2 text-slate-400">{String(ord.orderId).slice(-6)}</span>
+                          </div>
                         </td>
-                        <td className="px-4 py-3 text-slate-500 text-[11px]">
-                          {ord.time || (ord.createdAt ? new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}
+                        <td className="px-5 py-3">
+                          <div className="text-slate-700 max-w-[220px] truncate">{ord.cafeteriaName}</div>
+                          <div className="text-xs text-slate-500 max-w-[220px] truncate">→ {ord.deliveryAddress}</div>
                         </td>
-                        <td className="px-4 py-3 font-semibold text-slate-800">
-                          {ord.customerName}
+                        <td className="px-5 py-3 text-slate-700">
+                          {ord.rider ? ord.rider.name : <span className="text-slate-400">In pool</span>}
                         </td>
-                        <td className="px-4 py-3 text-amber-700 font-medium">
-                          {ord.cafeteriaName}
-                        </td>
-                        <td className="px-4 py-3 max-w-[200px] truncate text-slate-600">
-                          {ord.deliveryAddress}
-                        </td>
-                        <td className="px-4 py-3">
-                          {renderStatusBadge(ord.orderStatus, ord.paymentStatus)}
-                        </td>
-                        <td className="px-4 py-3">
-                          {ord.rider ? (
-                            <span className="inline-flex items-center gap-1 font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200/60 text-[11px]">
-                              <Bike className="w-3 h-3 text-blue-600" />
-                              {ord.rider.name}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 text-[11px] italic">
-                              Unassigned (In Pool)
-                            </span>
-                          )}
-                        </td>
+                        <td className="px-5 py-3">{renderStatusBadge(ord.orderStatus, ord.paymentStatus)}</td>
                       </tr>
                     ))
                   )}
@@ -725,205 +549,159 @@ export default function ExecutiveDashboardPage() {
               </table>
             </div>
           </div>
-        </section>
 
-        {/* ─────────────────────────────────────────────────────────────
-            SECTION 2: OPERATIONAL VOLUME (7 CLEAN MINIMALIST CARDS)
-        ───────────────────────────────────────────────────────────── */}
-        <section aria-label="Operational Volume" className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Operational Volume &amp; Status Breakdown
-            </div>
-            <span className="text-[11px] text-slate-400 font-medium">1:1 Excel Mapped</span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-            {/* Stat 1: Completed Orders */}
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors">
-              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Completed</div>
-              <div className="text-2xl font-bold text-slate-900 mt-2.5 flex items-center gap-2 tabular-nums">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>{volumeStats.completed}</span>
-              </div>
-              <div className="text-[11px] text-emerald-700 font-medium mt-1.5">Settled &amp; Paid</div>
+          {/* Dispatch panel */}
+          <div className={`${card} p-5 flex flex-col gap-5`}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-900">Dispatch</h2>
+              <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
+                <Bike className="w-3.5 h-3.5" />
+                {dispatch?.ridersOnline ?? 0} online
+              </span>
             </div>
 
-            {/* Stat 2: Refunded Orders */}
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors">
-              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Refunded</div>
-              <div className="text-2xl font-bold text-slate-900 mt-2.5 flex items-center gap-2 tabular-nums">
-                <RotateCcw className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>{volumeStats.refundedFailed}</span>
+            <div>
+              <div className="text-sm text-slate-500">Waiting for a rider</div>
+              <div className={`mt-1 text-3xl font-semibold tracking-tight tabular-nums ${dispatch && dispatch.waitingOverThreshold > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+                {dispatch?.waitingCount ?? 0}
               </div>
-              <div className="text-[11px] text-amber-700 font-medium mt-1.5">Excluded from Net</div>
+              <div className="mt-1 text-xs text-slate-500">
+                {dispatch?.oldestWaitingOrder
+                  ? `Oldest ${dispatch.oldestWaitingMinutes} min · ${dispatch.oldestWaitingOrder.cafeteriaName}`
+                  : 'Every paid order has a rider'}
+              </div>
+              {dispatch && dispatch.waitingOverThreshold > 0 && (
+                <div className="mt-3 flex items-start gap-2 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                  <AlertOctagon className="w-4 h-4 shrink-0" />
+                  {dispatch.waitingOverThreshold} waiting over {dispatch.thresholdMinutes} min — consider calling in another rider.
+                </div>
+              )}
             </div>
 
-            {/* Stat 3: Canceled Orders */}
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors">
-              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Canceled</div>
-              <div className="text-2xl font-bold text-slate-900 mt-2.5 flex items-center gap-2 tabular-nums">
-                <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>{volumeStats.canceled}</span>
+            <div className="border-t border-slate-100 pt-4">
+              <div className="text-sm text-slate-500">
+                Not marked delivered <span className="text-slate-400">({dispatch?.stuckAfterHours ?? 6}h+)</span>
               </div>
-              <div className="text-[11px] text-rose-700 font-medium mt-1.5">Zero Fee</div>
-            </div>
-
-            {/* Stat 4: Same Side */}
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors">
-              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Same Side</div>
-              <div className="text-2xl font-bold text-slate-900 mt-2.5 flex items-center gap-2 tabular-nums">
-                <Bike className="w-4 h-4 text-brand-600 shrink-0" />
-                <span>{volumeStats.sameSide}</span>
-              </div>
-              <div className="text-[11px] text-slate-500 font-medium mt-1.5">₦50 Rider Ref</div>
-            </div>
-
-            {/* Stat 5: Different Side */}
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors">
-              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Different Side</div>
-              <div className="text-2xl font-bold text-slate-900 mt-2.5 flex items-center gap-2 tabular-nums">
-                <Bike className="w-4 h-4 text-blue-600 shrink-0" />
-                <span>{volumeStats.differentSide}</span>
-              </div>
-              <div className="text-[11px] text-slate-500 font-medium mt-1.5">₦90 Rider Ref</div>
-            </div>
-
-            {/* Stat 6: Pick Up */}
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors">
-              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Pick Up</div>
-              <div className="text-2xl font-bold text-slate-900 mt-2.5 flex items-center gap-2 tabular-nums">
-                <PackageCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>{volumeStats.pickUp}</span>
-              </div>
-              <div className="text-[11px] text-slate-500 font-medium mt-1.5">₦0 Rider Ref</div>
-            </div>
-
-            {/* Stat 7: Other */}
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors">
-              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Other</div>
-              <div className="text-2xl font-bold text-slate-900 mt-2.5 flex items-center gap-2 tabular-nums">
-                <AlertOctagon className="w-4 h-4 text-purple-600 shrink-0" />
-                <span>{volumeStats.other}</span>
-              </div>
-              <div className="text-[11px] text-slate-500 font-medium mt-1.5">Custom Order</div>
+              {dispatch && dispatch.stuckOrders.length > 0 ? (
+                <ul className="mt-2 space-y-2">
+                  {dispatch.stuckOrders.slice(0, 5).map((o) => (
+                    <li key={o.orderId} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="font-mono text-slate-700 truncate">{o.orderId}</span>
+                      <span className="text-slate-500 whitespace-nowrap">
+                        {o.riderName} · {o.hours}h
+                      </span>
+                    </li>
+                  ))}
+                  {dispatch.stuckOrders.length > 5 && (
+                    <li className="text-xs text-slate-400">+{dispatch.stuckOrders.length - 5} more</li>
+                  )}
+                </ul>
+              ) : (
+                <div className="mt-1 text-xs text-slate-500">None — all accepted orders are moving.</div>
+              )}
             </div>
           </div>
         </section>
 
-        {/* ─────────────────────────────────────────────────────────────
-            INTERACTIVE DAILY VELOCITY & REVENUE/ORDER TRENDS
-        ───────────────────────────────────────────────────────────── */}
-        <section aria-label="Daily Trends">
+        {/* Trend */}
+        <section aria-label="Daily trends">
           <InteractiveDailyTrendChart
             data={dailyData}
             isLoading={isLoading}
-            title="Daily Velocity &amp; Order Trajectory"
-            description="Switch between revenue and order counts, filter by date presets, or select a custom date window"
+            title="Daily trend"
+            description="Revenue or orders per day — pick a range or click a day for its hourly breakdown"
           />
         </section>
 
-        {/* ─────────────────────────────────────────────────────────────
-            SECTION 3: JOINT MONTHLY & WEEKLY SUMMARY (CLEAN FINTECH TABLE)
-        ───────────────────────────────────────────────────────────── */}
-        <section aria-label="Joint Monthly and Weekly Summary" className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-slate-400" />
-              <span>Joint Monthly &amp; Weekly Summary</span>
-            </div>
-            <span className="text-xs text-slate-400 font-normal">
-              Click month row to toggle weekly breakdown
-            </span>
+        {/* Order mix */}
+        <section aria-label="Order mix" className={`${card} p-5`}>
+          <h2 className="text-sm font-semibold text-slate-900">Order mix (all time)</h2>
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-y-5 divide-slate-100 lg:divide-x">
+            {[
+              { label: 'Delivered & paid', value: volumeStats.completed, note: 'Settled' },
+              { label: 'Same side', value: volumeStats.sameSide, note: '₦50 rider pay' },
+              { label: 'Different side', value: volumeStats.differentSide, note: '₦90 rider pay' },
+              { label: 'Pick up', value: volumeStats.pickUp, note: 'No rider' },
+              { label: 'Cancelled', value: volumeStats.canceled, note: 'No fee' },
+              { label: 'Refunded / failed', value: volumeStats.refundedFailed, note: 'Excluded' },
+            ].map((st) => (
+              <div key={st.label} className="lg:px-5 first:lg:pl-0">
+                <div className="text-xs text-slate-500">{st.label}</div>
+                <div className="mt-1 text-xl font-semibold text-slate-900 tabular-nums">{st.value.toLocaleString()}</div>
+                <div className="text-xs text-slate-400">{st.note}</div>
+              </div>
+            ))}
           </div>
+        </section>
 
-          <div className="rounded-2xl bg-white border border-slate-200/80 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-600">
-                <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider text-[11px] font-semibold border-b border-slate-200/80">
-                  <tr>
-                    <th className="px-6 py-4">Period</th>
-                    <th className="px-6 py-4 text-center">Completed Orders</th>
-                    <th className="px-6 py-4 text-right">Delivery Revenue</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {isLoading ? (
-                    [...Array(3)].map((_, i) => (
-                      <tr key={i} className="animate-pulse">
-                        <td colSpan={3} className="px-6 py-4 bg-slate-50/40">
-                          <div className="h-4 bg-slate-200 rounded w-full" />
-                        </td>
-                      </tr>
-                    ))
-                  ) : monthlyWeeklyData.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} className="px-6 py-12 text-center text-slate-400">
-                        No monthly records found. Click &quot;Sync Orders&quot; in the header to ingest batch data.
+        {/* Monthly & weekly */}
+        <section aria-label="Monthly and weekly summary" className={`${card} overflow-hidden`}>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+            <h2 className="text-sm font-semibold text-slate-900">By month</h2>
+            <span className="text-xs text-slate-400">Click a month for weekly figures</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="text-xs text-slate-500">
+                <tr className="border-b border-slate-100">
+                  <th className="px-5 py-2.5 font-medium">Period</th>
+                  <th className="px-5 py-2.5 font-medium text-right">Delivered</th>
+                  <th className="px-5 py-2.5 font-medium text-right">Delivery revenue</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {isLoading ? (
+                  [...Array(3)].map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td colSpan={3} className="px-5 py-4">
+                        <div className="h-4 bg-slate-100 rounded w-full" />
                       </td>
                     </tr>
-                  ) : (
-                    monthlyWeeklyData.map((m) => {
-                      const isExpanded = !!expandedMonths[m.monthKey];
-                      return (
-                        <React.Fragment key={m.monthKey}>
-                          {/* Month Header Row (Clickable Accordion) */}
-                          <tr
-                            onClick={() => toggleMonth(m.monthKey)}
-                            className="bg-slate-50/70 hover:bg-slate-100/70 cursor-pointer font-semibold text-slate-900 transition-colors select-none border-b border-slate-200/60"
-                          >
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-2.5">
-                                {isExpanded ? (
-                                  <ChevronDown className="w-4 h-4 text-brand-600 shrink-0 transition-transform" />
-                                ) : (
-                                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 transition-transform" />
-                                )}
-                                <span className="text-sm font-semibold">{m.monthName}</span>
-                                <span className="text-[10px] font-medium text-slate-400 ml-1">
-                                  (Monthly Total)
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-center font-bold text-slate-900 tabular-nums">
-                              {m.completedOrders}
-                            </td>
-                            <td className="px-6 py-4 text-right font-bold text-slate-900 text-sm tabular-nums">
-                              {formatNaira(m.grossRevenue)}
-                            </td>
-                          </tr>
-
-                          {/* Nested Week 1–4 Rows */}
-                          {isExpanded &&
-                            m.weeks.map((week) => (
-                              <tr
-                                key={`${m.monthKey}-${week.weekLabel}`}
-                                className="bg-white hover:bg-slate-50/60 transition-colors text-slate-600 text-xs"
-                              >
-                                <td className="px-6 py-3.5 pl-14">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                                    <span className="font-medium text-slate-700">{week.weekLabel}</span>
-                                    <span className="text-[11px] text-slate-400 font-normal">
-                                      ({week.dateRange})
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-3.5 text-center font-medium text-slate-600 tabular-nums">
-                                  {week.completedOrders}
-                                </td>
-                                <td className="px-6 py-3.5 text-right font-medium text-slate-700 tabular-nums">
-                                  {formatNaira(week.grossRevenue)}
-                                </td>
-                              </tr>
-                            ))}
-                        </React.Fragment>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                ) : monthlyWeeklyData.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-5 py-10 text-center text-slate-400">
+                      No monthly records yet.
+                    </td>
+                  </tr>
+                ) : (
+                  monthlyWeeklyData.map((m) => {
+                    const isExpanded = !!expandedMonths[m.monthKey];
+                    return (
+                      <React.Fragment key={m.monthKey}>
+                        <tr
+                          onClick={() => toggleMonth(m.monthKey)}
+                          className="hover:bg-slate-50/70 cursor-pointer select-none"
+                        >
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-2 font-medium text-slate-900">
+                              {isExpanded ? (
+                                <ChevronDown className="w-4 h-4 text-slate-400" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4 text-slate-400" />
+                              )}
+                              {m.monthName}
+                            </div>
+                          </td>
+                          <td className="px-5 py-3 text-right font-medium text-slate-900 tabular-nums">{m.completedOrders}</td>
+                          <td className="px-5 py-3 text-right font-medium text-slate-900 tabular-nums">{formatNaira(m.grossRevenue)}</td>
+                        </tr>
+                        {isExpanded &&
+                          m.weeks.map((week) => (
+                            <tr key={`${m.monthKey}-${week.weekLabel}`} className="bg-slate-50/50 text-slate-600">
+                              <td className="px-5 py-2.5 pl-11">
+                                {week.weekLabel} <span className="text-xs text-slate-400 ml-1">{week.dateRange}</span>
+                              </td>
+                              <td className="px-5 py-2.5 text-right tabular-nums">{week.completedOrders}</td>
+                              <td className="px-5 py-2.5 text-right tabular-nums">{formatNaira(week.grossRevenue)}</td>
+                            </tr>
+                          ))}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </section>
       </main>

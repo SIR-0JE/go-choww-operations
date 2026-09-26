@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { PwaRegister } from "@/components/PwaRegister";
+import "@fontsource-variable/inter";
 import "./globals.css";
 
 export const viewport: Viewport = {

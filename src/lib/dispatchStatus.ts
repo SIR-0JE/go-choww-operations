@@ -8,6 +8,8 @@ const ALERT_COOLDOWN_MINUTES = 10;
 /** Ignore older unaccepted orders (stale records) so they can't trigger alerts forever. */
 const LOOKBACK_HOURS = 12;
 const ALERT_SETTING_KEY = 'dispatch_waiting_alert_last';
+/** Orders a rider has held longer than this without delivering are flagged for follow-up. */
+export const STUCK_AFTER_HOURS = 6;
 
 const PICKED_UP_OR_FINISHED = [
   'In Transit', 'in transit', 'Delivered', 'delivered', 'Completed', 'completed',
@@ -21,12 +23,16 @@ export interface DispatchStatus {
   oldestWaitingOrder: { orderId: string; cafeteriaName: string } | null;
   ridersOnline: number;
   thresholdMinutes: number;
+  /** Accepted but not delivered, placed over STUCK_AFTER_HOURS ago — likely delivered but never tapped "Delivered". */
+  stuckOrders: { orderId: string; riderName: string; hours: number; status: string }[];
+  stuckAfterHours: number;
 }
 
 /** Paid delivery orders from the last 12 hours that no rider has accepted yet. */
 export async function getDispatchStatus(now: Date = new Date()): Promise<DispatchStatus> {
   const since = new Date(now.getTime() - LOOKBACK_HOURS * 60 * 60 * 1000);
-  const [waiting, ridersOnline] = await Promise.all([
+  const stuckBefore = new Date(now.getTime() - STUCK_AFTER_HOURS * 60 * 60 * 1000);
+  const [waiting, ridersOnline, stuck] = await Promise.all([
     prisma.deliveryOrder.findMany({
       where: {
         riderId: null,
@@ -39,6 +45,16 @@ export async function getDispatchStatus(now: Date = new Date()): Promise<Dispatc
       orderBy: { createdAt: 'asc' },
     }),
     prisma.rider.count({ where: { status: 'Active', isOnline: true } }),
+    prisma.deliveryOrder.findMany({
+      where: {
+        riderId: { not: null },
+        createdAt: { lt: stuckBefore },
+        orderStatus: { notIn: PICKED_UP_OR_FINISHED.filter((st) => !/transit/i.test(st)) },
+      },
+      select: { orderId: true, createdAt: true, orderStatus: true, rider: { select: { name: true } } },
+      orderBy: { createdAt: 'asc' },
+      take: 20,
+    }),
   ]);
 
   const thresholdMs = WAITING_ALERT_MINUTES * 60 * 1000;
@@ -50,6 +66,13 @@ export async function getDispatchStatus(now: Date = new Date()): Promise<Dispatc
     oldestWaitingOrder: oldest ? { orderId: oldest.orderId, cafeteriaName: oldest.cafeteriaName } : null,
     ridersOnline,
     thresholdMinutes: WAITING_ALERT_MINUTES,
+    stuckOrders: stuck.map((o) => ({
+      orderId: o.orderId,
+      riderName: o.rider?.name || 'Unknown rider',
+      hours: Math.floor((now.getTime() - o.createdAt.getTime()) / 3600000),
+      status: o.orderStatus,
+    })),
+    stuckAfterHours: STUCK_AFTER_HOURS,
   };
 }
 

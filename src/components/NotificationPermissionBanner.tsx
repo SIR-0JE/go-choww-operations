@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { BellRing, Smartphone, X, Loader2, Sparkles, CheckCircle2 } from 'lucide-react';
+import { BellRing, Smartphone, X, Loader2, CheckCircle2 } from 'lucide-react';
 
 interface NotificationPermissionBannerProps {
   userType?: 'admin' | 'rider';
@@ -211,57 +211,52 @@ export const NotificationPermissionBanner: React.FC<NotificationPermissionBanner
   }
 
   return (
-    <div className="relative bg-gradient-to-r from-brand-600 to-amber-600 rounded-xl p-3 sm:py-2.5 sm:px-4 text-white shadow-md border border-brand-500/30 overflow-hidden mb-4">
-      <div className="relative z-10 flex items-center justify-between gap-3">
-        {/* Left icon + text */}
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="p-1.5 rounded-lg bg-white/20 backdrop-blur-md shrink-0">
-            <Smartphone className="w-4 h-4 text-white" />
+    <div className="rounded-xl border border-slate-200 bg-white p-3 sm:px-4 mb-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="p-2 rounded-lg bg-brand-50 text-brand-600 shrink-0">
+            <Smartphone className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5 truncate">
-              <span>Enable Phone Pop-Up Alerts</span>
-              <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-            </p>
-            <p className="text-[11px] text-orange-100 font-normal truncate hidden sm:block">
-              Get sound & vibration alerts on your phone status bar for new dispatches.
+            <p className="text-sm font-medium text-slate-900 truncate">Turn on phone alerts</p>
+            <p className="text-xs text-slate-500 truncate hidden sm:block">
+              Get a sound and vibration on your phone when something needs attention.
             </p>
           </div>
         </div>
 
-        {/* Right CTA buttons */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={subscribeToPush}
             disabled={isLoading}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-brand-700 font-black text-xs hover:bg-orange-50 active:scale-95 transition-all shadow-xs"
+            className="inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 disabled:opacity-60 transition-colors"
           >
             {isLoading ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-600" />
-                <span>Enabling...</span>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Enabling…</span>
               </>
             ) : (
               <>
-                <BellRing className="w-3.5 h-3.5 text-brand-600" />
-                <span>Turn On 🔔</span>
+                <BellRing className="w-3.5 h-3.5" />
+                <span>Turn on</span>
               </>
             )}
           </button>
           <button
             onClick={() => setIsDismissed(true)}
-            className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/15 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
             title="Dismiss"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
       </div>
 
       {feedback && (
         <div
-          className={`mt-2 text-[11px] font-bold px-2 py-1 rounded-md ${
-            feedback.type === 'success' ? 'bg-emerald-950/40 text-emerald-200' : 'bg-rose-950/40 text-rose-200'
+          className={`mt-2 text-xs font-medium px-2 py-1 rounded-md ${
+            feedback.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
           }`}
         >
           {feedback.text}
