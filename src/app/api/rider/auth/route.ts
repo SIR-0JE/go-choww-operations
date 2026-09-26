@@ -89,16 +89,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Auto set rider online on login
-    try {
-      await prisma.rider.update({
-        where: { id: rider.id },
-        data: { isOnline: true },
-      });
-      rider.isOnline = true;
-    } catch {
-      // ignore if mock
-    }
+    // Signing in no longer puts a rider online: going online needs a working location,
+    // which the rider app checks (and /api/rider/status enforces) when they tap "Go online".
 
     // Set secure cookie
     const sessionData = JSON.stringify({

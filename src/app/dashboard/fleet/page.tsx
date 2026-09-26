@@ -49,14 +49,19 @@ function locationStatus(r: FleetRider) {
   return { dot: 'bg-rose-500', text: `Online · location ${seen}`, hasGps };
 }
 
+// An order still with a rider this long after it was placed is late
+const LATE_AFTER_MINUTES = 30;
+const isLate = (createdAt: string) => (minutesAgo(createdAt) ?? 0) >= LATE_AFTER_MINUTES;
+const lateCount = (r: FleetRider) => r.activeOrders.filter((o) => isLate(o.createdAt)).length;
+
 const whatsappNumber = (phone: string) => {
   const digits = (phone || '').replace(/[^0-9]/g, '');
   return digits.startsWith('0') ? '234' + digits.slice(1) : digits;
 };
 
-// Online riders first, then busiest, then by name
+// Online riders first, then those with late orders, then busiest, then by name
 const riderOrder = (a: FleetRider, b: FleetRider) =>
-  Number(b.isOnline) - Number(a.isOnline) || b.activeOrdersCount - a.activeOrdersCount || a.name.localeCompare(b.name);
+  Number(b.isOnline) - Number(a.isOnline) || lateCount(b) - lateCount(a) || b.activeOrdersCount - a.activeOrdersCount || a.name.localeCompare(b.name);
 
 function RiderDetail({ rider, onClose }: { rider: FleetRider; onClose: () => void }) {
   const status = locationStatus(rider);
@@ -112,8 +117,9 @@ function RiderDetail({ rider, onClose }: { rider: FleetRider; onClose: () => voi
           <ul className="divide-y divide-slate-100">
             {rider.activeOrders.map((o) => {
               const onTheWay = ['in transit', 'dispatched'].includes((o.orderStatus || '').toLowerCase());
+              const late = isLate(o.createdAt);
               return (
-                <li key={o.id} className="px-4 py-3">
+                <li key={o.id} className={`px-4 py-3 ${late ? 'bg-rose-50' : ''}`}>
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm text-slate-900 min-w-0 truncate">
                       {o.cafeteriaName} <span className="text-slate-400">→</span> {o.deliveryAddress}
@@ -122,8 +128,9 @@ function RiderDetail({ rider, onClose }: { rider: FleetRider; onClose: () => voi
                       {onTheWay ? 'On the way' : 'To pick up'}
                     </span>
                   </div>
-                  <div className="text-xs text-slate-500 mt-0.5">
+                  <div className={`text-xs mt-0.5 ${late ? 'text-rose-700 font-medium' : 'text-slate-500'}`}>
                     {o.customerName} · ordered {agoLabel(minutesAgo(o.createdAt))}
+                    {late && ' · late'}
                   </div>
                 </li>
               );
@@ -191,6 +198,7 @@ export default function FleetRadarPage() {
   const handleMapSelect = useCallback((id: string) => selectRider(id, false), [selectRider]);
 
   const sortedRiders = [...riders].sort(riderOrder);
+  const totalLate = riders.reduce((n, r) => n + lateCount(r), 0);
   const selectedRider = riders.find((r) => r.id === selectedRiderId) || null;
 
   return (
@@ -204,6 +212,12 @@ export default function FleetRadarPage() {
               <span className="font-medium text-slate-900 tabular-nums">{summary.onlineRiders}</span> online ·{' '}
               <span className="font-medium text-slate-900 tabular-nums">{summary.totalOrdersInTransit}</span> orders out ·{' '}
               <span className="font-medium text-slate-900 tabular-nums">{summary.freeRiders}</span> free
+              {totalLate > 0 && (
+                <>
+                  {' · '}
+                  <span className="font-medium text-rose-600 tabular-nums">{totalLate} late</span>
+                </>
+              )}
             </p>
           </div>
           <button
@@ -260,6 +274,7 @@ export default function FleetRadarPage() {
                   {sortedRiders.map((r) => {
                     const status = locationStatus(r);
                     const isSelected = r.id === selectedRiderId;
+                    const late = lateCount(r);
                     return (
                       <li key={r.id}>
                         <button
@@ -273,10 +288,11 @@ export default function FleetRadarPage() {
                           </span>
                           <span
                             className={`text-xs tabular-nums shrink-0 px-2 py-0.5 rounded-full ${
-                              r.activeOrdersCount > 0 ? 'bg-orange-50 text-orange-700' : 'text-slate-400'
+                              late > 0 ? 'bg-rose-50 text-rose-700' : r.activeOrdersCount > 0 ? 'bg-orange-50 text-orange-700' : 'text-slate-400'
                             }`}
                           >
                             {r.activeOrdersCount > 0 ? `${r.activeOrdersCount} order${r.activeOrdersCount === 1 ? '' : 's'}` : 'none'}
+                            {late > 0 && ` · ${late} late`}
                           </span>
                         </button>
                       </li>

@@ -4,6 +4,8 @@ import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
+const LOCATION_FRESH_FOR_ONLINE_MS = 3 * 60 * 1000;
+
 async function handleStatusUpdate(request: NextRequest) {
   try {
     let riderId: string | null = null;
@@ -36,6 +38,23 @@ async function handleStatusUpdate(request: NextRequest) {
 
     if (!riderId) {
       return NextResponse.json({ success: false, error: 'Unauthorized rider session' }, { status: 401 });
+    }
+
+    // Going online requires a location from the phone in the last few minutes,
+    // so the dispatch map never shows an online rider it cannot place.
+    if (Boolean(isOnline)) {
+      const current = await prisma.rider.findUnique({
+        where: { id: riderId },
+        select: { lastLocationAt: true },
+      });
+      const fresh =
+        current?.lastLocationAt && Date.now() - new Date(current.lastLocationAt).getTime() <= LOCATION_FRESH_FOR_ONLINE_MS;
+      if (!fresh) {
+        return NextResponse.json(
+          { success: false, needsLocation: true, error: 'Turn on your location to go online.' },
+          { status: 400 }
+        );
+      }
     }
 
     const updated = await prisma.rider.update({

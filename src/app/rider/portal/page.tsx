@@ -112,6 +112,7 @@ export default function RiderPortalPage() {
   const [isTakingOver, setIsTakingOver] = useState(false);
 
   // GPS Telemetry Heartbeat State
+  const [isGoingOnline, setIsGoingOnline] = useState(false);
   const [gpsStatus, setGpsStatus] = useState<'active' | 'connecting' | 'idle' | 'off' | 'denied'>('off');
   const [showGpsHelpModal, setShowGpsHelpModal] = useState(false);
   const [isRetryingGps, setIsRetryingGps] = useState(false);
@@ -586,10 +587,84 @@ export default function RiderPortalPage() {
   }, [isOnline, fetchPortalData]);
 
   // ── Online / Offline Toggle ──────────────────────────────────────────────────
+  // One location reading: precise first, then a quicker network-based fix.
+  // Gives up after 25s, e.g. when the permission prompt is left unanswered.
+  const getPositionOnce = () =>
+    new Promise<GeolocationPosition>((resolveRaw, rejectRaw) => {
+      if (typeof window === 'undefined' || !navigator.geolocation) {
+        rejectRaw(new Error('unsupported'));
+        return;
+      }
+      let settled = false;
+      const giveUp = setTimeout(() => reject(new Error('timeout')), 25000);
+      function resolve(p: GeolocationPosition) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(giveUp);
+        resolveRaw(p);
+      }
+      function reject(e: unknown) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(giveUp);
+        rejectRaw(e);
+      }
+      navigator.geolocation.getCurrentPosition(
+        resolve,
+        (err) => {
+          if (err.code === err.PERMISSION_DENIED) {
+            reject(err);
+            return;
+          }
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: false,
+            timeout: 15000,
+            maximumAge: 60000,
+          });
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    });
+
   const toggleOnlineStatus = async () => {
     const nextStatus = !isOnline;
-    setIsOnline(nextStatus);
     const localRiderId = typeof window !== 'undefined' ? localStorage.getItem('rider_id') : null;
+
+    // Going online needs a working location, so dispatch can see every online rider on the map
+    if (nextStatus) {
+      setIsGoingOnline(true);
+      try {
+        const position = await getPositionOnce();
+        const locRes = await fetch('/api/rider/location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            riderId: rider?.id || localRiderId,
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            heading: position.coords.heading,
+            speed: position.coords.speed,
+          }),
+        });
+        if (!locRes.ok) throw new Error('location not saved');
+        setGpsStatus('active');
+      } catch (err: any) {
+        setIsGoingOnline(false);
+        const denied = err && typeof err.code === 'number' && err.code === 1;
+        setGpsStatus(denied ? 'denied' : 'idle');
+        setShowGpsHelpModal(true);
+        showToast(
+          denied
+            ? 'Location is blocked. Allow location for this site, then tap Go online again.'
+            : 'Could not get your location. Turn on Location on your phone, then try again.',
+          'error'
+        );
+        return;
+      }
+      setIsGoingOnline(false);
+    }
+
+    setIsOnline(nextStatus);
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (localRiderId) headers['x-rider-id'] = localRiderId;
@@ -611,6 +686,7 @@ export default function RiderPortalPage() {
         showToast(nextStatus ? '🟢 You are now On Duty!' : '⏸️ You are now Off Duty.', 'success');
       } else {
         setIsOnline(!nextStatus);
+        if (data.needsLocation) setShowGpsHelpModal(true);
         showToast(data.error || 'Could not update status.', 'error');
       }
       await fetchPortalData(true);
@@ -1044,14 +1120,15 @@ export default function RiderPortalPage() {
             {/* Online toggle */}
             <button
               onClick={toggleOnlineStatus}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 ${
+              disabled={isGoingOnline}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 disabled:opacity-60 ${
                 isOnline
                   ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
                   : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
               }`}
             >
               {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-              <span>{isOnline ? 'Online' : 'Offline'}</span>
+              <span>{isGoingOnline ? 'Checking…' : isOnline ? 'Online' : 'Offline'}</span>
             </button>
 
             {/* Logout */}
@@ -1192,13 +1269,15 @@ export default function RiderPortalPage() {
           <div className="p-4 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-between">
             <div className="flex items-center gap-2 text-slate-600 text-xs">
               <WifiOff className="w-4 h-4 text-slate-400" />
-              <span>You are <strong>Off Duty</strong>. Go online to claim orders.</span>
+              <span>You are off duty. Going online checks your location first.</span>
             </div>
             <button
               onClick={toggleOnlineStatus}
-              className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-semibold text-xs shrink-0 ml-2 hover:bg-emerald-700 transition-colors"
+              disabled={isGoingOnline}
+              className="h-10 px-4 rounded-lg bg-emerald-600 text-white font-semibold text-sm shrink-0 ml-2 hover:bg-emerald-700 disabled:opacity-60 flex items-center gap-1.5"
             >
-              Go Online
+              {isGoingOnline ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
+              {isGoingOnline ? 'Checking location…' : 'Go online'}
             </button>
           </div>
         )}
