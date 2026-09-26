@@ -7,6 +7,23 @@ import { getGeofenceSettings } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 
+// Status groups used as conditions on every write, so an action only applies if the
+// order is still in the state it was checked in (another tap or the GoChow sync may
+// have changed it in between). Stored statuses vary in case.
+const FINISHED_STATUSES = ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled', 'Canceled', 'canceled'];
+const PICKED_UP_OR_FINISHED = [...FINISHED_STATUSES, 'In Transit', 'in transit'];
+const MAX_ACTIVE_ORDERS = 5;
+
+function orderChangedResponse(message = 'This order was just updated by someone else. Refresh and try again.') {
+  return NextResponse.json({ success: false, changed: true, error: message }, { status: 409 });
+}
+
+function countActiveOrders(riderId: string) {
+  return prisma.deliveryOrder.count({
+    where: { riderId, orderStatus: { notIn: FINISHED_STATUSES } },
+  });
+}
+
 function dbBusyResponse(message = 'Server is busy — retrying automatically.') {
   return NextResponse.json(
     { success: false, busy: true, error: message },
@@ -387,13 +404,13 @@ export async function POST(request: NextRequest) {
         where: {
           id: order.id,
           OR: [{ riderId: null }, { riderId: rider.id }],
+          // never resurrect an order that was picked up, delivered or cancelled meanwhile
+          orderStatus: { notIn: PICKED_UP_OR_FINISHED },
         },
         data: {
           riderId: rider.id,
           // Keep status as Ready so it is clearly awaiting pickup and visible to peers
-          orderStatus: ['in transit', 'delivered', 'completed'].includes((order.orderStatus || '').toLowerCase())
-            ? order.orderStatus
-            : 'Ready',
+          orderStatus: 'Ready',
         },
       });
 
@@ -407,13 +424,20 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const updated = {
-        ...order,
-        riderId: rider.id,
-        orderStatus: ['in transit', 'delivered', 'completed'].includes((order.orderStatus || '').toLowerCase())
-          ? order.orderStatus
-          : 'Ready',
-      };
+      // Two accepts at once can both pass the cap check above; re-check now that the
+      // order is ours and give it back if this one took the rider over the limit.
+      if (order.riderId !== rider.id && (await countActiveOrders(rider.id)) > MAX_ACTIVE_ORDERS) {
+        await prisma.deliveryOrder.updateMany({
+          where: { id: order.id, riderId: rider.id },
+          data: { riderId: null, orderStatus: order.orderStatus },
+        });
+        return NextResponse.json(
+          { success: false, error: 'You already have 5 active orders. Deliver one before accepting more.' },
+          { status: 409 }
+        );
+      }
+
+      const updated = { ...order, riderId: rider.id, orderStatus: 'Ready' };
 
       // Dispatch mobile push notification to Dashboard
       sendPushNotification(
@@ -496,14 +520,22 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const updated: any = await prisma.deliveryOrder.update({
-        where: { id: order.id },
+      const requested = await prisma.deliveryOrder.updateMany({
+        where: {
+          id: order.id,
+          riderId: { not: null, notIn: [rider.id] },
+          orderStatus: { notIn: PICKED_UP_OR_FINISHED },
+        },
         data: {
           handoverRequestedById: rider.id,
           handoverRequestedByName: rider.name,
           handoverDistance: verifiedDistance,
         },
       });
+      if (requested.count === 0) {
+        return orderChangedResponse('This order was just picked up or released. Refresh and try again.');
+      }
+      const updated: any = order;
 
       return NextResponse.json({
         success: true,
@@ -522,14 +554,19 @@ export async function POST(request: NextRequest) {
 
     // ── ACTION: CANCEL HANDOVER REQUEST ──────────────────────────────────────
     if (action === 'cancel_handover') {
-      const updated: any = await prisma.deliveryOrder.update({
-        where: { id: order.id },
+      // Only the rider who asked for the handover can withdraw it
+      const cancelled = await prisma.deliveryOrder.updateMany({
+        where: { id: order.id, handoverRequestedById: rider.id },
         data: {
           handoverRequestedById: null,
           handoverRequestedByName: null,
           handoverDistance: null,
         },
       });
+      if (cancelled.count === 0) {
+        return orderChangedResponse('You have no active handover request on this order.');
+      }
+      const updated: any = order;
 
       return NextResponse.json({
         success: true,
@@ -560,8 +597,14 @@ export async function POST(request: NextRequest) {
       const targetRiderId = order.handoverRequestedById;
       const targetRiderName = order.handoverRequestedByName || 'Peer Rider';
 
-      const updated: any = await prisma.deliveryOrder.update({
-        where: { id: order.id },
+      // Release only if we still own it, it isn't picked up, and the same rider is still asking
+      const released = await prisma.deliveryOrder.updateMany({
+        where: {
+          id: order.id,
+          riderId: rider.id,
+          handoverRequestedById: targetRiderId,
+          orderStatus: { notIn: PICKED_UP_OR_FINISHED },
+        },
         data: {
           riderId: targetRiderId,
           handoverRequestedById: null,
@@ -569,6 +612,10 @@ export async function POST(request: NextRequest) {
           handoverDistance: null,
         },
       });
+      if (released.count === 0) {
+        return orderChangedResponse('The handover request changed or the order was picked up. Refresh and try again.');
+      }
+      const updated: any = order;
 
       return NextResponse.json({
         success: true,
@@ -590,14 +637,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const updated: any = await prisma.deliveryOrder.update({
-        where: { id: order.id },
+      const declined = await prisma.deliveryOrder.updateMany({
+        where: { id: order.id, riderId: rider.id },
         data: {
           handoverRequestedById: null,
           handoverRequestedByName: null,
           handoverDistance: null,
         },
       });
+      if (declined.count === 0) {
+        return orderChangedResponse('This order is no longer assigned to you.');
+      }
+      const updated: any = order;
 
       return NextResponse.json({
         success: true,
@@ -626,8 +677,8 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const updated: any = await prisma.deliveryOrder.update({
-        where: { id: order.id },
+      const dropped = await prisma.deliveryOrder.updateMany({
+        where: { id: order.id, riderId: rider.id, orderStatus: { notIn: PICKED_UP_OR_FINISHED } },
         data: {
           riderId: null,
           orderStatus: 'Ready',
@@ -636,6 +687,10 @@ export async function POST(request: NextRequest) {
           handoverDistance: null,
         },
       });
+      if (dropped.count === 0) {
+        return orderChangedResponse('This order was just picked up or reassigned, so it can no longer be dropped.');
+      }
+      const updated: any = order;
 
       return NextResponse.json({
         success: true,
@@ -654,12 +709,20 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'You are not assigned to this order' }, { status: 403 });
       }
 
-      const updated: any = await prisma.deliveryOrder.update({
-        where: { id: order.id },
+      const pickedUp = await prisma.deliveryOrder.updateMany({
+        where: { id: order.id, riderId: rider.id, orderStatus: { notIn: FINISHED_STATUSES } },
         data: {
           orderStatus: 'In Transit',
+          // a pickup settles any pending handover request
+          handoverRequestedById: null,
+          handoverRequestedByName: null,
+          handoverDistance: null,
         },
       });
+      if (pickedUp.count === 0) {
+        return orderChangedResponse('This order was just reassigned or cancelled. Refresh and try again.');
+      }
+      const updated: any = { ...order, orderStatus: 'In Transit' };
 
       // Dispatch mobile push notification
       sendPushNotification(
@@ -689,12 +752,20 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'You are not assigned to this order' }, { status: 403 });
       }
 
-      const updated: any = await prisma.deliveryOrder.update({
-        where: { id: order.id },
+      const deliveredResult = await prisma.deliveryOrder.updateMany({
+        where: {
+          id: order.id,
+          riderId: rider.id,
+          orderStatus: { notIn: ['Cancelled', 'cancelled', 'Canceled', 'canceled'] },
+        },
         data: {
           orderStatus: 'Completed',
         },
       });
+      if (deliveredResult.count === 0) {
+        return orderChangedResponse('This order was just reassigned or cancelled. Refresh and try again.');
+      }
+      const updated: any = { ...order, orderStatus: 'Completed' };
 
       // Dispatch mobile push notification
       sendPushNotification(
@@ -792,13 +863,29 @@ export async function POST(request: NextRequest) {
         // Proceed if DB count check fails
       }
 
-      // Update riderId to targetRiderId atomically
-      const updated: any = await prisma.deliveryOrder.update({
-        where: { id: order.id },
+      // Move only if we still own it and it hasn't been delivered or cancelled meanwhile
+      const transferred = await prisma.deliveryOrder.updateMany({
+        where: { id: order.id, riderId: rider.id, orderStatus: { notIn: FINISHED_STATUSES } },
         data: {
           riderId: targetRider.id,
         },
       });
+      if (transferred.count === 0) {
+        return orderChangedResponse('This order was just delivered or reassigned. Refresh and try again.');
+      }
+
+      // The recipient may have accepted orders at the same moment; undo if now over the cap
+      if ((await countActiveOrders(targetRider.id)) > MAX_ACTIVE_ORDERS) {
+        await prisma.deliveryOrder.updateMany({
+          where: { id: order.id, riderId: targetRider.id },
+          data: { riderId: rider.id },
+        });
+        return NextResponse.json(
+          { success: false, error: `${targetRider.name} just reached 5 active orders. Please select another rider.` },
+          { status: 409 }
+        );
+      }
+      const updated: any = { ...order, riderId: targetRider.id };
 
       return NextResponse.json({
         success: true,

@@ -223,7 +223,14 @@ async function performSync(force: boolean = false) {
       }
 
       const toCreate: any[] = [];
-      const toUpdate: { id: string; status: string; pay: string; pickupCode?: string | null }[] = [];
+      const toUpdate: {
+        id: string;
+        status: string;
+        pay: string;
+        pickupCode?: string | null;
+        seenStatus: string;
+        seenRiderId: string | null;
+      }[] = [];
 
       for (const order of validLiveOrders) {
         const orderNumber = String(order.orderNumber || order._id || '').trim();
@@ -284,6 +291,8 @@ async function performSync(force: boolean = false) {
               status: updateStatus ? liveOrderStatus : existing.orderStatus,
               pay: updatePay ? livePaymentStatus : existing.paymentStatus,
               ...(updateCode && { pickupCode }),
+              seenStatus: existing.orderStatus,
+              seenRiderId: existing.riderId,
             });
           }
         }
@@ -318,9 +327,11 @@ async function performSync(force: boolean = false) {
       if (toUpdate.length > 0) {
         for (const u of toUpdate) {
           try {
-            await withDbRetry(async () => {
-              return await prisma.deliveryOrder.update({
-                where: { id: u.id },
+            // Apply only if a rider hasn't changed the order since we read it (e.g. picked it
+            // up or delivered it a moment ago) — otherwise the next sync re-evaluates it.
+            const result = await withDbRetry(async () => {
+              return await prisma.deliveryOrder.updateMany({
+                where: { id: u.id, orderStatus: u.seenStatus, riderId: u.seenRiderId },
                 data: {
                   orderStatus: u.status,
                   paymentStatus: u.pay,
@@ -328,7 +339,7 @@ async function performSync(force: boolean = false) {
                 },
               });
             }, 2, 200);
-            statusUpdatedCount++;
+            if (result.count > 0) statusUpdatedCount++;
           } catch (updateErr: any) {
             console.warn(`[sync-orders] Failed updating order ID ${u.id}:`, updateErr?.message);
           }
