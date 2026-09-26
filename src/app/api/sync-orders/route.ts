@@ -4,6 +4,7 @@ import { fetchLiveGoChowOrders, fetchLiveGoChowOrdersWithStatus } from '@/servic
 import { classifyDeliveryType } from '@/lib/locations';
 import { getSyncSettings, isWithinOperatingWindow, getOperationalStatus, getCurrentTimeInZone } from '@/lib/settings';
 import { sendPushNotification } from '@/lib/pushService';
+import { alertIfOrdersWaiting } from '@/lib/dispatchStatus';
 
 export const dynamic = 'force-dynamic';
 
@@ -368,6 +369,9 @@ async function performSync(force: boolean = false) {
       { userType: 'all' }
     ).catch((err) => console.warn('Background push dispatch error:', err));
   }
+
+  // Warn admin phones if orders are waiting too long for a rider (throttled inside)
+  await alertIfOrdersWaiting().catch((err) => console.warn('[sync-orders] Waiting-orders alert error:', err?.message));
 
   let message = 'No changes — all orders are up to date.';
   if (hasChanges) {

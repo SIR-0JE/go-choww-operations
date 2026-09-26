@@ -56,6 +56,34 @@ export default function ExecutiveDashboardPage() {
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [activeOrdersCount, setActiveOrdersCount] = useState<number>(0);
   const [dailyData, setDailyData] = useState<DailyDataPoint[]>([]);
+  const [dispatch, setDispatch] = useState<{
+    waitingCount: number;
+    waitingOverThreshold: number;
+    oldestWaitingMinutes: number;
+    oldestWaitingOrder: { orderId: string; cafeteriaName: string } | null;
+    ridersOnline: number;
+    thresholdMinutes: number;
+  } | null>(null);
+
+  // Orders waiting for a rider — refreshed every 20s
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/dispatch/status', { cache: 'no-store' });
+        const data = await res.json();
+        if (!cancelled && data.success) setDispatch(data);
+      } catch {
+        // keep the last reading
+      }
+    };
+    load();
+    const interval = setInterval(load, 20000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Live rider activity notifications (accept / pickup / deliver)
   const [riderNotifications, setRiderNotifications] = useState<
@@ -435,6 +463,54 @@ export default function ExecutiveDashboardPage() {
 
         {/* Mobile Phone Push Notification Enablement Banner */}
         <NotificationPermissionBanner userType="admin" />
+
+        {/* Dispatch pressure: orders waiting for a rider */}
+        {dispatch && (
+          <section
+            aria-label="Orders waiting for a rider"
+            className={`rounded-2xl border p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4 ${
+              dispatch.waitingOverThreshold > 0
+                ? 'bg-rose-50 border-rose-200'
+                : 'bg-white border-slate-200/80'
+            }`}
+          >
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div
+                className={`p-2.5 rounded-xl border ${
+                  dispatch.waitingOverThreshold > 0
+                    ? 'bg-rose-100 border-rose-200 text-rose-700'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                }`}
+              >
+                {dispatch.waitingOverThreshold > 0 ? <AlertOctagon className="w-5 h-5" /> : <Bike className="w-5 h-5" />}
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-bold text-slate-900">
+                  {dispatch.waitingOverThreshold > 0
+                    ? `${dispatch.waitingOverThreshold} order${dispatch.waitingOverThreshold === 1 ? '' : 's'} waiting over ${dispatch.thresholdMinutes} min for a rider`
+                    : dispatch.waitingCount > 0
+                      ? `${dispatch.waitingCount} order${dispatch.waitingCount === 1 ? '' : 's'} waiting for a rider`
+                      : 'No orders waiting for a rider'}
+                </div>
+                <div className="text-xs text-slate-500 mt-0.5 truncate">
+                  {dispatch.oldestWaitingOrder
+                    ? `Oldest: ${dispatch.oldestWaitingMinutes} min at ${dispatch.oldestWaitingOrder.cafeteriaName}`
+                    : 'Every paid order has a rider.'}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 text-xs font-semibold text-slate-600">
+              <span className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" />
+                Waiting: <strong className="text-slate-900 tabular-nums">{dispatch.waitingCount}</strong>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Bike className="w-3.5 h-3.5" />
+                Riders online: <strong className="text-slate-900 tabular-nums">{dispatch.ridersOnline}</strong>
+              </span>
+            </div>
+          </section>
+        )}
 
         {/* ─────────────────────────────────────────────────────────────
             SECTION 1: FINANCIAL OVERVIEW (3 MINIMALIST FINTECH CARDS)
