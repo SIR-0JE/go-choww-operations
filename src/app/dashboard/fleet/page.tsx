@@ -1,67 +1,157 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import {
-  Bike,
-  Radio,
-  RefreshCw,
-  Search,
-  Filter,
-  Phone,
-  MessageSquare,
-  Navigation,
-  CheckCircle2,
-  Clock,
-  MapPin,
-  Flame,
-  AlertCircle,
-  Package,
-} from 'lucide-react';
+import { Radio, RefreshCw, Phone, MessageSquare, MapPinOff, X } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import type { FleetRider, CafeteriaPoint } from '@/components/fleet/LiveFleetMap';
 
-// Dynamically import Leaflet Map with SSR disabled
-const LiveFleetMap = dynamic(
-  () => import('@/components/fleet/LiveFleetMap'),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="w-full h-full min-h-[500px] bg-slate-100 rounded-xl flex flex-col items-center justify-center text-slate-400 gap-3 border border-slate-200">
-        <Radio className="w-8 h-8 animate-pulse text-brand-500" />
-        <span className="text-sm font-semibold">Loading Campus Fleet Radar &amp; Geofences...</span>
+// Leaflet touches `window`, so the map only renders in the browser
+const LiveFleetMap = dynamic(() => import('@/components/fleet/LiveFleetMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full bg-slate-100 rounded-xl flex flex-col items-center justify-center text-slate-400 gap-2 border border-slate-200">
+      <Radio className="w-6 h-6 animate-pulse" />
+      <span className="text-sm">Loading map…</span>
+    </div>
+  ),
+});
+
+type Summary = {
+  totalRiders: number;
+  onlineRiders: number;
+  freeRiders: number;
+  totalOrdersInTransit: number;
+};
+
+const minutesAgo = (iso: string | null | undefined) => {
+  if (!iso) return null;
+  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+};
+
+const agoLabel = (mins: number | null) => {
+  if (mins === null) return 'never';
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const h = Math.floor(mins / 60);
+  if (h < 24) return `${h} h ago`;
+  return `${Math.floor(h / 24)} d ago`;
+};
+
+// What the admin needs to know: can I trust the dot on the map?
+function locationStatus(r: FleetRider) {
+  const hasGps = typeof r.lastLat === 'number' && typeof r.lastLng === 'number';
+  if (!r.isOnline) return { dot: 'bg-slate-300', text: 'Offline', hasGps };
+  if (!hasGps) return { dot: 'bg-rose-500', text: 'Online · no location yet', hasGps };
+  if (r.locationFreshness === 'live') return { dot: 'bg-emerald-500', text: 'Online · location live', hasGps };
+  const seen = agoLabel(r.minutesSinceUpdate);
+  if (r.locationFreshness === 'idle') return { dot: 'bg-amber-500', text: `Online · location ${seen}`, hasGps };
+  return { dot: 'bg-rose-500', text: `Online · location ${seen}`, hasGps };
+}
+
+const whatsappNumber = (phone: string) => {
+  const digits = (phone || '').replace(/[^0-9]/g, '');
+  return digits.startsWith('0') ? '234' + digits.slice(1) : digits;
+};
+
+// Online riders first, then busiest, then by name
+const riderOrder = (a: FleetRider, b: FleetRider) =>
+  Number(b.isOnline) - Number(a.isOnline) || b.activeOrdersCount - a.activeOrdersCount || a.name.localeCompare(b.name);
+
+function RiderDetail({ rider, onClose }: { rider: FleetRider; onClose: () => void }) {
+  const status = locationStatus(rider);
+  return (
+    <div className="rounded-xl bg-white border border-slate-200">
+      <div className="p-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-base font-semibold text-slate-900 truncate">{rider.name}</div>
+          <div className="flex items-center gap-1.5 text-sm text-slate-500 mt-0.5">
+            <span className={`w-2 h-2 rounded-full ${status.dot}`} />
+            {status.text}
+          </div>
+          {!status.hasGps && (
+            <div className="flex items-center gap-1.5 text-xs text-rose-600 mt-1">
+              <MapPinOff className="w-3.5 h-3.5" />
+              Not on the map. Their phone hasn&apos;t shared a location.
+            </div>
+          )}
+        </div>
+        <button onClick={onClose} className="p-2 -m-1 rounded-lg text-slate-400 hover:bg-slate-100" aria-label="Close">
+          <X className="w-4 h-4" />
+        </button>
       </div>
-    ),
-  }
-);
+
+      {rider.phone && (
+        <div className="px-4 pb-4 grid grid-cols-2 gap-2">
+          <a
+            href={`tel:${rider.phone}`}
+            className="h-11 rounded-lg bg-slate-900 text-white text-sm font-medium flex items-center justify-center gap-2"
+          >
+            <Phone className="w-4 h-4" />
+            Call
+          </a>
+          <a
+            href={`https://wa.me/${whatsappNumber(rider.phone)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="h-11 rounded-lg border border-slate-200 text-slate-800 text-sm font-medium flex items-center justify-center gap-2"
+          >
+            <MessageSquare className="w-4 h-4 text-emerald-600" />
+            WhatsApp
+          </a>
+        </div>
+      )}
+
+      <div className="border-t border-slate-100">
+        <div className="px-4 pt-3 pb-1 text-sm font-medium text-slate-900">
+          {rider.activeOrdersCount === 0
+            ? 'No orders with this rider'
+            : `${rider.activeOrdersCount} order${rider.activeOrdersCount === 1 ? '' : 's'} with this rider`}
+        </div>
+        {rider.activeOrders.length > 0 && (
+          <ul className="divide-y divide-slate-100">
+            {rider.activeOrders.map((o) => {
+              const onTheWay = ['in transit', 'dispatched'].includes((o.orderStatus || '').toLowerCase());
+              return (
+                <li key={o.id} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm text-slate-900 min-w-0 truncate">
+                      {o.cafeteriaName} <span className="text-slate-400">→</span> {o.deliveryAddress}
+                    </div>
+                    <span className={`text-xs font-medium shrink-0 ${onTheWay ? 'text-blue-700' : 'text-orange-700'}`}>
+                      {onTheWay ? 'On the way' : 'To pick up'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    {o.customerName} · ordered {agoLabel(minutesAgo(o.createdAt))}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <div className="h-2" />
+      </div>
+    </div>
+  );
+}
 
 export default function FleetRadarPage() {
   const [riders, setRiders] = useState<FleetRider[]>([]);
   const [cafeterias, setCafeterias] = useState<CafeteriaPoint[]>([]);
   const [geofenceRadius, setGeofenceRadius] = useState<number>(200);
-  const [summary, setSummary] = useState({
-    totalRiders: 0,
-    onlineRiders: 0,
-    liveMovingRiders: 0,
-    idleRiders: 0,
-    totalOrdersInTransit: 0,
-  });
-
+  const [summary, setSummary] = useState<Summary>({ totalRiders: 0, onlineRiders: 0, freeRiders: 0, totalOrdersInTransit: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'idle' | 'off'>('all');
   const [selectedRiderId, setSelectedRiderId] = useState<string | null>(null);
   const [focusedCoords, setFocusedCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const mapRef = useRef<HTMLDivElement | null>(null);
 
-  // 1. Fetch Fleet Telemetry Data
   const fetchFleetData = useCallback(async (isBackground = false) => {
     if (!isBackground) setIsRefreshing(true);
     try {
-      const res = await fetch(`/api/fleet/live?_t=${Date.now()}`, {
-        cache: 'no-store',
-      });
+      const res = await fetch(`/api/fleet/live?_t=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
         setRiders(data.riders || []);
@@ -78,317 +168,121 @@ export default function FleetRadarPage() {
     }
   }, []);
 
-  // 2. Initial Fetch & Auto-Polling (every 10s)
+  // Refresh every 10s while the page is open
   useEffect(() => {
     fetchFleetData(false);
-    const interval = setInterval(() => {
-      fetchFleetData(true);
-    }, 10000);
+    const interval = setInterval(() => fetchFleetData(true), 10000);
     return () => clearInterval(interval);
   }, [fetchFleetData]);
 
-  // 3. Filter Riders
-  const filteredRiders = riders.filter((r) => {
-    const matchesSearch =
-      r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.phone.includes(searchQuery);
+  const selectRider = useCallback(
+    (id: string, fromList: boolean) => {
+      setSelectedRiderId(id);
+      const r = riders.find((x) => x.id === id);
+      if (r && typeof r.lastLat === 'number' && typeof r.lastLng === 'number') {
+        setFocusedCoords({ lat: r.lastLat, lng: r.lastLng });
+      }
+      // Tapping a name further down the page brings the map and their details back into view
+      if (fromList) mapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+    [riders]
+  );
 
-    if (!matchesSearch) return false;
+  const handleMapSelect = useCallback((id: string) => selectRider(id, false), [selectRider]);
 
-    if (statusFilter === 'live') return r.isOnline && r.locationFreshness === 'live';
-    if (statusFilter === 'idle') return r.isOnline && r.locationFreshness === 'idle';
-    if (statusFilter === 'off') return !r.isOnline;
-
-    return true;
-  });
-
-  const handleFocusRider = (rider: FleetRider) => {
-    setSelectedRiderId(rider.id);
-    if (typeof rider.lastLat === 'number' && typeof rider.lastLng === 'number') {
-      setFocusedCoords({ lat: rider.lastLat, lng: rider.lastLng });
-    }
-  };
+  const sortedRiders = [...riders].sort(riderOrder);
+  const selectedRider = riders.find((r) => r.id === selectedRiderId) || null;
 
   return (
     <AppLayout>
-      <div className="space-y-6 pb-12">
-        {/* ── Page Header & Metric Bar ─────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Live fleet</h1>
-                <p className="text-sm text-slate-500 mt-1">Where your riders are right now.</p>
-              </div>
-            </div>
+      <div className="space-y-4 pb-12">
+        {/* Header + one-line status */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Live fleet</h1>
+            <p className="text-sm text-slate-500 mt-1">
+              <span className="font-medium text-slate-900 tabular-nums">{summary.onlineRiders}</span> online ·{' '}
+              <span className="font-medium text-slate-900 tabular-nums">{summary.totalOrdersInTransit}</span> orders out ·{' '}
+              <span className="font-medium text-slate-900 tabular-nums">{summary.freeRiders}</span> free
+            </p>
           </div>
-
-          <div className="flex items-center gap-3">
-            <div className="text-right hidden sm:block">
-              <div className="text-xs font-semibold text-slate-400">Auto-Refresh</div>
-              <div className="text-xs font-semibold text-slate-700">
-                {lastSyncTime ? `Updated ${lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Syncing...'}
-              </div>
-            </div>
-
-            <button
-              onClick={() => fetchFleetData(false)}
-              disabled={isRefreshing}
-              className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold text-xs flex items-center gap-2 shadow-sm transition-all disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-emerald-600' : ''}`} />
-              <span>Refresh</span>
-            </button>
-          </div>
+          <button
+            onClick={() => fetchFleetData(false)}
+            disabled={isRefreshing}
+            className="h-9 px-3 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium flex items-center gap-2 shrink-0 disabled:opacity-50"
+            title={lastSyncTime ? `Updated ${lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Updating…'}
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">
+              {lastSyncTime ? `Updated ${lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Refresh'}
+            </span>
+          </button>
         </div>
 
-        {/* ── Metric Cards ──────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-            <div>
-              <div className="text-xs font-semibold text-slate-400">Active Moving</div>
-              <div className="text-2xl font-semibold text-emerald-600 mt-0.5">{summary.liveMovingRiders}</div>
-              <div className="text-xs text-slate-500 mt-0.5">&lt;2 min telemetry</div>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <Bike className="w-5 h-5" />
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+          {/* Map */}
+          <div ref={mapRef} className="lg:col-span-8 h-[55vh] min-h-[320px] lg:h-[640px] scroll-mt-20">
+            <LiveFleetMap
+              riders={riders}
+              cafeterias={cafeterias}
+              geofenceRadiusMeters={geofenceRadius}
+              selectedRiderId={selectedRiderId}
+              onSelectRider={handleMapSelect}
+              focusedCoordinates={focusedCoords}
+            />
           </div>
 
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-            <div>
-              <div className="text-xs font-semibold text-slate-400">Stationary / Idle</div>
-              <div className="text-2xl font-semibold text-amber-600 mt-0.5">{summary.idleRiders}</div>
-              <div className="text-xs text-slate-500 mt-0.5">Waiting at hub</div>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Clock className="w-5 h-5" />
-            </div>
-          </div>
+          <div className="lg:col-span-4 space-y-4">
+            {/* Tapped rider */}
+            {selectedRider ? (
+              <RiderDetail rider={selectedRider} onClose={() => setSelectedRiderId(null)} />
+            ) : (
+              <p className="text-sm text-slate-500 px-1">Tap a rider on the map or in the list to see their orders.</p>
+            )}
 
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-            <div>
-              <div className="text-xs font-semibold text-slate-400">Orders in Transit</div>
-              <div className="text-2xl font-semibold text-brand-600 mt-0.5">{summary.totalOrdersInTransit}</div>
-              <div className="text-xs text-slate-500 mt-0.5">Active delivery load</div>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-rose-50 text-brand-600 flex items-center justify-center">
-              <Package className="w-5 h-5" />
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-            <div>
-              <div className="text-xs font-semibold text-slate-400">Total Fleet</div>
-              <div className="text-2xl font-semibold text-slate-900 mt-0.5">
-                {summary.onlineRiders} <span className="text-xs text-slate-400 font-normal">/ {summary.totalRiders}</span>
+            {/* Everyone */}
+            <div className="rounded-xl bg-white border border-slate-200 overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 text-sm font-medium text-slate-900">
+                Riders <span className="text-slate-400 font-normal">· {riders.length}</span>
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">Riders on duty</div>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
-              <Radio className="w-5 h-5" />
-            </div>
-          </div>
-        </div>
-
-        {/* ── Main Radar Workspace (Map + Roster) ────────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          {/* Left Canvas: Live Map (8 cols) */}
-          <div className="lg:col-span-8 bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col h-[680px]">
-            <div className="flex items-center justify-between pb-2.5 px-1">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-xs font-semibold text-slate-800">Campus Live Radar</span>
-                <span className="text-xs text-slate-400 font-medium">• Bowen University (Iwo)</span>
-              </div>
-              <div className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
-                <span>Active Geofence:</span>
-                <strong className="text-blue-700 font-semibold bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">{geofenceRadius}m</strong>
-              </div>
-            </div>
-
-            <div className="flex-1 w-full h-full relative">
-              <LiveFleetMap
-                riders={riders}
-                cafeterias={cafeterias}
-                geofenceRadiusMeters={geofenceRadius}
-                selectedRiderId={selectedRiderId}
-                onSelectRider={(id) => setSelectedRiderId(id)}
-                focusedCoordinates={focusedCoords}
-              />
-            </div>
-          </div>
-
-          {/* Right Panel: Live Rider Roster (4 cols) */}
-          <div className="lg:col-span-4 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-[680px] overflow-hidden">
-            {/* Header & Search */}
-            <div className="p-4 border-b border-slate-100 space-y-3 bg-slate-50/70">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-sm text-slate-900 flex items-center gap-1.5">
-                  <Bike className="w-4 h-4 text-slate-700" />
-                  <span>Fleet Roster</span>
-                </h3>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-                  {filteredRiders.length} of {riders.length} Riders
-                </span>
-              </div>
-
-              {/* Search Bar */}
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by rider name or phone..."
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
-                />
-              </div>
-
-              {/* Status Filter Tabs */}
-              <div className="grid grid-cols-4 gap-1 bg-slate-200/70 p-1 rounded-xl text-xs font-semibold text-slate-600">
-                <button
-                  onClick={() => setStatusFilter('all')}
-                  className={`py-1 rounded-lg transition-all ${statusFilter === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'hover:text-slate-900'}`}
-                >
-                  All ({riders.length})
-                </button>
-                <button
-                  onClick={() => setStatusFilter('live')}
-                  className={`py-1 rounded-lg transition-all ${statusFilter === 'live' ? 'bg-white text-emerald-700 shadow-sm' : 'hover:text-emerald-700'}`}
-                >
-                  Live ({summary.liveMovingRiders})
-                </button>
-                <button
-                  onClick={() => setStatusFilter('idle')}
-                  className={`py-1 rounded-lg transition-all ${statusFilter === 'idle' ? 'bg-white text-amber-700 shadow-sm' : 'hover:text-amber-700'}`}
-                >
-                  Idle ({summary.idleRiders})
-                </button>
-                <button
-                  onClick={() => setStatusFilter('off')}
-                  className={`py-1 rounded-lg transition-all ${statusFilter === 'off' ? 'bg-white text-slate-800 shadow-sm' : 'hover:text-slate-800'}`}
-                >
-                  Off
-                </button>
-              </div>
-            </div>
-
-            {/* Rider List Scroll Area */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
-              {filteredRiders.length === 0 ? (
-                <div className="text-center py-16 text-slate-400">
-                  <Bike className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                  <p className="text-xs font-semibold text-slate-600">No riders match filter</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Try selecting &quot;All&quot; to view all fleet members</p>
-                </div>
-              ) : (
-                filteredRiders.map((r) => {
-                  const isSelected = selectedRiderId === r.id;
-                  const hasGps = typeof r.lastLat === 'number' && typeof r.lastLng === 'number';
-
-                  let statusBadge = (
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
-                      Off Duty
-                    </span>
-                  );
-
-                  if (r.isOnline) {
-                    if (r.locationFreshness === 'live') {
-                      statusBadge = (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          Live Moving
-                        </span>
-                      );
-                    } else if (r.locationFreshness === 'idle') {
-                      statusBadge = (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                          Idle ({r.minutesSinceUpdate}m)
-                        </span>
-                      );
-                    } else {
-                      statusBadge = (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                          Stale GPS
-                        </span>
-                      );
-                    }
-                  }
-
-                  const phoneClean = (r.phone || '').replace(/[^0-9]/g, '');
-                  const waNumber = phoneClean.startsWith('0') ? '234' + phoneClean.slice(1) : phoneClean;
-
-                  return (
-                    <div
-                      key={r.id}
-                      onClick={() => handleFocusRider(r)}
-                      className={`p-3 rounded-xl border transition-all cursor-pointer ${
-                        isSelected
-                          ? 'border-slate-900 bg-slate-50/90 shadow-sm ring-1 ring-slate-900'
-                          : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="font-semibold text-xs text-slate-900">{r.name}</div>
-                          <div className="text-xs text-slate-500 mt-0.5">{r.phone || 'No phone attached'}</div>
-                        </div>
-                        <div>{statusBadge}</div>
-                      </div>
-
-                      {/* Active Orders Summary */}
-                      <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-1.5 text-slate-600 font-semibold text-xs">
-                          <Package className="w-3.5 h-3.5 text-slate-400" />
-                          {r.activeOrdersCount > 0 ? (
-                            <span className="text-emerald-700 font-semibold">{r.activeOrdersCount} order{r.activeOrdersCount !== 1 ? 's' : ''} on route</span>
-                          ) : (
-                            <span className="text-slate-400 font-medium">Available (No active load)</span>
-                          )}
-                        </div>
-
-                        {hasGps && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleFocusRider(r);
-                            }}
-                            className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center gap-1 transition-colors"
-                          >
-                            <Navigation className="w-3 h-3 text-slate-600" />
-                            <span>Locate</span>
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Quick Contact Bar */}
-                      {r.phone && (
-                        <div className="mt-2 grid grid-cols-2 gap-1.5 pt-1.5 border-t border-slate-100">
-                          <a
-                            href={`https://wa.me/${waNumber}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="py-1 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold text-center flex items-center justify-center gap-1"
-                          >
-                            <MessageSquare className="w-3 h-3" />
-                            <span>WhatsApp</span>
-                          </a>
-                          <a
-                            href={`tel:${r.phone}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="py-1 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold text-center flex items-center justify-center gap-1"
-                          >
-                            <Phone className="w-3 h-3" />
-                            <span>Call</span>
-                          </a>
-                        </div>
-                      )}
+              {isLoading ? (
+                <div className="divide-y divide-slate-100">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="px-4 py-4 animate-pulse">
+                      <div className="h-4 bg-slate-100 rounded w-2/3" />
                     </div>
-                  );
-                })
+                  ))}
+                </div>
+              ) : sortedRiders.length === 0 ? (
+                <p className="px-4 py-10 text-center text-sm text-slate-500">No active riders.</p>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {sortedRiders.map((r) => {
+                    const status = locationStatus(r);
+                    const isSelected = r.id === selectedRiderId;
+                    return (
+                      <li key={r.id}>
+                        <button
+                          onClick={() => selectRider(r.id, true)}
+                          className={`w-full text-left px-4 py-3 flex items-center gap-3 ${isSelected ? 'bg-slate-50' : 'hover:bg-slate-50'}`}
+                        >
+                          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${status.dot}`} />
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-medium text-slate-900 truncate">{r.name}</span>
+                            <span className="block text-xs text-slate-500 truncate">{status.text}</span>
+                          </span>
+                          <span
+                            className={`text-xs tabular-nums shrink-0 px-2 py-0.5 rounded-full ${
+                              r.activeOrdersCount > 0 ? 'bg-orange-50 text-orange-700' : 'text-slate-400'
+                            }`}
+                          >
+                            {r.activeOrdersCount > 0 ? `${r.activeOrdersCount} order${r.activeOrdersCount === 1 ? '' : 's'}` : 'none'}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
             </div>
           </div>

@@ -4,6 +4,8 @@ import { getGeofenceSettings } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 
+const FINISHED_STATUSES = ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled', 'Canceled', 'canceled'];
+
 export async function GET() {
   try {
     // 1. Fetch geofence configuration
@@ -26,8 +28,9 @@ export async function GET() {
         lastSpeed: true,
         lastLocationAt: true,
         orders: {
+          // Same rule as the rider app: anything assigned and not finished is still with the rider
           where: {
-            orderStatus: { in: ['Pending', 'In Transit', 'Assigned', 'pending', 'in transit'] },
+            orderStatus: { notIn: FINISHED_STATUSES },
           },
           select: {
             id: true,
@@ -96,6 +99,7 @@ export async function GET() {
     const idleRiders = enrichedRiders.filter(
       (r) => r.isOnline && r.locationFreshness === 'idle'
     ).length;
+    const freeRiders = enrichedRiders.filter((r) => r.isOnline && r.activeOrdersCount === 0).length;
     const totalOrdersInTransit = enrichedRiders.reduce(
       (acc, r) => acc + r.activeOrdersCount,
       0
@@ -109,6 +113,7 @@ export async function GET() {
         onlineRiders,
         liveMovingRiders,
         idleRiders,
+        freeRiders,
         totalOrdersInTransit,
       },
       cafeterias: geofenceSettings.cafeterias,

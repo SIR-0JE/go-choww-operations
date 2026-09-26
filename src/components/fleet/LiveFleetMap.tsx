@@ -73,6 +73,9 @@ export default function LiveFleetMap({
   const riderMarkersRef = useRef<Map<string, L.Marker>>(new Map());
   const cafeteriaMarkersRef = useRef<L.LayerGroup | null>(null);
   const geofenceCirclesRef = useRef<L.LayerGroup | null>(null);
+  const onSelectRiderRef = useRef(onSelectRider);
+  onSelectRiderRef.current = onSelectRider;
+  const hasAutoFittedRef = useRef(false);
 
   // 1. Initialize Map Instance
   useEffect(() => {
@@ -125,7 +128,7 @@ export default function LiveFleetMap({
     }).addTo(map);
   }, [mapLayer]);
 
-  const [showGeofences, setShowGeofences] = React.useState(true);
+  const showGeofences = true;
 
   // 2. Render Cafeteria Markers & Geofence Perimeters
   useEffect(() => {
@@ -235,13 +238,13 @@ export default function LiveFleetMap({
       const riderIcon = L.divIcon({
         className: 'custom-rider-pin',
         html: `
-          <div class="relative flex flex-col items-center cursor-pointer transition-transform duration-200 ${isSelected ? 'scale-125 z-50' : ''}" style="transform: translate(-50%, -100%);">
+          <div class="relative flex flex-col items-center cursor-pointer" style="transform: translate(-50%, -100%);">
             <div class="px-2 py-0.5 rounded-full text-xs font-semibold text-white shadow-sm border border-white whitespace-nowrap mb-0.5" style="background-color: ${statusColor};">
-              ${rider.name.split(' ')[0]}
+              ${rider.name.replace(/^mr\.?\s+/i, '').split(' ')[0]}
             </div>
             <div class="relative">
               ${isLive ? `<span class="absolute inset-0 rounded-full bg-emerald-400 ${pulseRing}"></span>` : ''}
-              <div class="w-8 h-8 rounded-full border-2 border-white shadow-xl flex items-center justify-center text-white text-sm font-semibold relative z-10" style="background-color: ${statusColor};">
+              <div class="w-8 h-8 rounded-full border-2 ${isSelected ? 'border-slate-900 ring-4 ring-white' : 'border-white'} shadow-xl flex items-center justify-center text-white text-sm font-semibold relative z-10" style="background-color: ${statusColor};">
                 🚴
               </div>
               ${orderBadge}
@@ -260,74 +263,13 @@ export default function LiveFleetMap({
         marker.setIcon(riderIcon);
       } else {
         marker = L.marker([rider.lastLat, rider.lastLng], { icon: riderIcon });
+        const riderId = rider.id;
+        marker.on('click', () => onSelectRiderRef.current?.(riderId));
         marker.addTo(map);
         riderMarkersRef.current.set(rider.id, marker);
       }
+      marker.setZIndexOffset(isSelected ? 1000 : 0);
 
-      // Popup Content
-      const phoneClean = (rider.phone || '').replace(/[^0-9]/g, '');
-      const waNumber = phoneClean.startsWith('0')
-        ? '234' + phoneClean.slice(1)
-        : phoneClean;
-
-      const ordersListHtml = rider.activeOrders.length > 0
-        ? rider.activeOrders.map((o) => `
-            <div class="p-2 rounded-lg bg-slate-50 border border-slate-200 mb-1.5 text-xs">
-              <div class="flex items-center justify-between font-semibold text-slate-800">
-                <span>#${o.orderId}</span>
-                <span class="text-amber-600 font-semibold">₦${Number(o.deliveryFee || 0).toLocaleString()}</span>
-              </div>
-              <div class="text-slate-600 truncate">👤 ${o.customerName}</div>
-              <div class="text-slate-500 text-xs flex items-center justify-between mt-0.5">
-                <span>🏪 ${o.cafeteriaName}</span>
-                <span>📍 ${o.deliveryAddress}</span>
-              </div>
-            </div>
-          `).join('')
-        : '<div class="text-center py-2 text-slate-400 text-xs italic">No active orders assigned</div>';
-
-      const popupHtml = `
-        <div class="p-2.5 font-sans min-w-[240px] max-w-[280px]">
-          <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-            <div>
-              <div class="font-semibold text-sm text-slate-900">${rider.name}</div>
-              <div class="text-xs font-semibold text-slate-500 flex items-center gap-1">
-                <span class="w-2 h-2 rounded-full" style="background-color: ${statusColor};"></span>
-                <span>${statusLabel}</span>
-              </div>
-            </div>
-            <div class="text-right">
-              <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${rider.isOnline ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}">
-                ${rider.isOnline ? 'On Duty' : 'Off Duty'}
-              </span>
-            </div>
-          </div>
-
-          <div class="mb-2">
-            <div class="text-xs font-semibold text-slate-400 mb-1">
-              Active Deliveries (${rider.activeOrdersCount})
-            </div>
-            ${ordersListHtml}
-          </div>
-
-          <div class="grid grid-cols-2 gap-1.5 pt-2 border-t border-slate-100">
-            ${rider.phone ? `
-              <a href="https://wa.me/${waNumber}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold text-center no-underline shadow-sm">
-                💬 WhatsApp
-              </a>
-              <a href="tel:${rider.phone}" class="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold text-center no-underline shadow-sm">
-                📞 Call
-              </a>
-            ` : '<div class="col-span-2 text-center text-xs text-slate-400">No phone attached</div>'}
-          </div>
-        </div>
-      `;
-
-      marker.bindPopup(popupHtml);
-
-      marker.on('click', () => {
-        if (onSelectRider) onSelectRider(rider.id);
-      });
     });
 
     // Remove markers for riders who are no longer active or tracked
@@ -337,7 +279,14 @@ export default function LiveFleetMap({
         riderMarkersRef.current.delete(id);
       }
     });
-  }, [riders, selectedRiderId, onSelectRider]);
+
+    // First time riders arrive, frame all of them so you can see everyone at once
+    if (!hasAutoFittedRef.current && currentRiderIds.size > 0) {
+      hasAutoFittedRef.current = true;
+      fitAllRiders();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [riders, selectedRiderId]);
 
   // 4. Focus / Pan Camera Handler
   useEffect(() => {
@@ -354,7 +303,7 @@ export default function LiveFleetMap({
     mapInstanceRef.current?.flyTo(coords, zoom, { animate: true, duration: 1 });
   };
 
-  const fitAllRiders = () => {
+  function fitAllRiders() {
     const map = mapInstanceRef.current;
     if (!map) return;
 
@@ -364,120 +313,53 @@ export default function LiveFleetMap({
 
     if (validCoords.length > 0) {
       const bounds = L.latLngBounds(validCoords);
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 18 });
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 17 });
     } else {
       map.flyTo(BOWEN_CAMPUS_DEFAULT, 16);
     }
-  };
+  }
 
   return (
-    <div className="relative w-full h-full min-h-[500px] rounded-xl overflow-hidden border border-slate-200">
+    <div className="relative w-full h-full rounded-xl overflow-hidden border border-slate-200">
       {/* Map DOM Canvas */}
-      <div ref={mapContainerRef} className="w-full h-full min-h-[500px] z-0" />
+      <div ref={mapContainerRef} className="w-full h-full z-0" />
 
-      {/* Unified Top Control Bar */}
-      <div className="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-        {/* Left: Campus Focus Jumps */}
-        <div className="flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-1 rounded-xl shadow-sm border border-slate-200 pointer-events-auto">
-          <button
-            onClick={() => jumpToSite(BOWEN_TEMPORARY_CENTER)}
-            className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors flex items-center gap-1"
-          >
-            <span>🏫</span>
-            <span className="hidden sm:inline">Temp Site</span>
+      {/* Controls: a few big, clear buttons so they work with a thumb */}
+      <div className="absolute top-2.5 left-2.5 right-2.5 z-20 flex items-start justify-between gap-2 pointer-events-none">
+        <div className="flex items-center gap-1 bg-white/95 p-1 rounded-lg shadow-sm border border-slate-200 pointer-events-auto text-xs font-medium text-slate-700">
+          <button onClick={fitAllRiders} className="h-8 px-2.5 rounded-md bg-slate-900 text-white">
+            All riders
           </button>
-          <button
-            onClick={() => jumpToSite(BOWEN_PERMANENT_CENTER)}
-            className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors flex items-center gap-1"
-          >
-            <span>🏛️</span>
-            <span className="hidden sm:inline">Perm Site</span>
+          <button onClick={() => jumpToSite(BOWEN_TEMPORARY_CENTER)} className="h-8 px-2.5 rounded-md hover:bg-slate-100">
+            Temp site
           </button>
-          <button
-            onClick={fitAllRiders}
-            className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white transition-colors flex items-center gap-1 shadow-sm"
-          >
-            <span>🎯</span>
-            <span>Fit Fleet</span>
+          <button onClick={() => jumpToSite(BOWEN_PERMANENT_CENTER)} className="h-8 px-2.5 rounded-md hover:bg-slate-100">
+            Perm site
           </button>
         </div>
-
-        {/* Right: Geofences Toggle & Map Layer Switcher */}
-        <div className="flex items-center gap-1.5 pointer-events-auto">
-          {/* Geofence Toggle */}
-          <button
-            onClick={() => setShowGeofences(!showGeofences)}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold shadow-sm border transition-all flex items-center gap-1 backdrop-blur-md ${
-              showGeofences
-                ? 'bg-blue-600 border-blue-500 text-white'
-                : 'bg-white/95 border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-            title="Toggle 200m cafeteria geofence boundary circles"
-          >
-            <span>📍</span>
-            <span className="hidden sm:inline">Geofences</span>
-          </button>
-
-          {/* Layer Selector */}
-          <div className="flex items-center gap-0.5 bg-white/95 backdrop-blur-md p-1 rounded-xl shadow-sm border border-slate-200 text-xs font-semibold">
-            <button
-              onClick={() => setMapLayer('google-hybrid')}
-              className={`px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
-                mapLayer === 'google-hybrid'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-              title="Google Maps Satellite Imagery with Bowen University roads & labels"
-            >
-              <span>🛰️</span>
-              <span className="hidden md:inline">Satellite</span>
-            </button>
-            <button
-              onClick={() => setMapLayer('google-streets')}
-              className={`px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
-                mapLayer === 'google-streets'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-              title="Google Maps Standard Road Map"
-            >
-              <span>🗺️</span>
-              <span className="hidden md:inline">Street</span>
-            </button>
-            <button
-              onClick={() => setMapLayer('osm')}
-              className={`px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
-                mapLayer === 'osm'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-              title="OpenStreetMap Standard"
-            >
-              <span>🌐</span>
-              <span className="hidden md:inline">OSM</span>
-            </button>
-          </div>
-        </div>
+        <button
+          onClick={() => setMapLayer(mapLayer === 'google-hybrid' ? 'google-streets' : 'google-hybrid')}
+          className="h-10 px-3 rounded-lg bg-white/95 shadow-sm border border-slate-200 pointer-events-auto text-xs font-medium text-slate-700"
+          title="Switch between satellite and street map"
+        >
+          {mapLayer === 'google-hybrid' ? 'Street' : 'Satellite'}
+        </button>
       </div>
 
-      {/* Map Legend */}
-      <div className="absolute bottom-4 left-4 z-20 bg-white/95 backdrop-blur-md px-3 py-2 rounded-xl shadow-sm border border-slate-200 text-xs flex items-center gap-3">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="font-semibold text-slate-700">Live Moving</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-          <span className="font-semibold text-slate-700">Idle (&gt;2m)</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
-          <span className="font-semibold text-slate-700">Off-duty/Stale</span>
-        </div>
-        <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
-          <span className="w-2.5 h-2.5 rounded-full border border-blue-500 bg-blue-100"></span>
-          <span className="font-semibold text-slate-700">200m Geofence</span>
-        </div>
+      {/* Legend */}
+      <div className="absolute bottom-2.5 left-2.5 z-20 bg-white/95 px-2.5 py-1.5 rounded-lg shadow-sm border border-slate-200 text-xs text-slate-600 flex items-center gap-3">
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          Live
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-amber-500" />
+          2–10 min ago
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-slate-400" />
+          Older / off
+        </span>
       </div>
     </div>
   );
