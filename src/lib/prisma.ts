@@ -10,14 +10,19 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 /**
- * Supabase's transaction pooler (port 6543) does not support prepared statements,
- * so Prisma must run with `pgbouncer=true`, and each serverless instance should hold
- * only a few connections. Without these, queries fail at random under concurrent load.
+ * Serverless functions must reach Supabase through its transaction pooler (port 6543):
+ * the session pooler (port 5432 on the same host) caps ALL clients at pool_size (15),
+ * and several Vercel instances exhaust that, failing queries with EMAXCONNSESSION.
+ * The transaction pooler doesn't support prepared statements, so Prisma must also run
+ * with `pgbouncer=true`, and each instance should hold only a few connections.
  */
 function withPoolerParams(rawUrl: string | undefined): string | undefined {
   if (!rawUrl) return rawUrl;
   try {
     const url = new URL(rawUrl);
+    if (url.hostname.endsWith('pooler.supabase.com') && url.port === '5432') {
+      url.port = '6543';
+    }
     if (url.port === '6543' && !url.searchParams.has('pgbouncer')) {
       url.searchParams.set('pgbouncer', 'true');
     }
