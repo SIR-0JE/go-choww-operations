@@ -151,7 +151,7 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
   };
 
   return (
-    <div className="rounded-2xl bg-white border border-slate-200/90 p-5 shadow-sm space-y-3.5">
+    <div className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm space-y-3.5">
       {/* Clean Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
@@ -159,9 +159,9 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
             <UploadCloud className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
               <span>Import Orders</span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
                 .CSV / .XLSX
               </span>
             </h3>
@@ -197,7 +197,7 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
         </div>
 
         <div>
-          <p className="text-xs font-bold text-slate-900">
+          <p className="text-xs font-semibold text-slate-900">
             {isUploading ? (
               <span className="flex items-center justify-center gap-2 text-brand-600">
                 <RefreshCw className="w-4 h-4 animate-spin" /> Ingesting &amp; Deduplicating...
@@ -208,7 +208,7 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
               </span>
             )}
           </p>
-          <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+          <p className="text-xs text-slate-400 font-medium mt-0.5">
             Supports .csv and .xlsx files • Automatic deduplication
           </p>
         </div>
@@ -233,7 +233,7 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
                 <AlertCircle className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
               )}
               <div>
-                <p className="font-extrabold text-xs text-slate-900">
+                <p className="font-semibold text-xs text-slate-900">
                   {statusMessage.text}
                 </p>
               </div>
@@ -241,7 +241,7 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
 
             <button
               onClick={() => setStatusMessage(null)}
-              className="text-slate-400 hover:text-slate-700 px-1 py-0.5 text-xs font-bold rounded"
+              className="text-slate-400 hover:text-slate-700 px-1 py-0.5 text-xs font-semibold rounded"
             >
               ✕
             </button>
@@ -250,25 +250,25 @@ export const CsvUploadDropzone: React.FC<CsvUploadDropzoneProps> = ({ onUploadSu
           {/* Breakdown Stat Pills */}
           {statusMessage.summary && (
             <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-emerald-200/60">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-100/80 text-emerald-900 font-extrabold text-[10px]">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-100/80 text-emerald-900 font-semibold text-xs">
                 <CheckCircle2 className="w-3 h-3 text-emerald-700" />
                 {statusMessage.summary.insertedCount} Saved
               </span>
 
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-white/90 border border-slate-200 text-slate-700 font-bold text-[10px]">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-white/90 border border-slate-200 text-slate-700 font-semibold text-xs">
                 <CopyCheck className="w-3 h-3 text-slate-500" />
                 {statusMessage.summary.skippedDuplicates} Duplicates Skipped
               </span>
 
               {Boolean(statusMessage.summary.skippedOldDateCount && statusMessage.summary.skippedOldDateCount > 0) && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-white/90 border border-slate-200 text-slate-700 font-bold text-[10px]">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-white/90 border border-slate-200 text-slate-700 font-semibold text-xs">
                   <CalendarCheck className="w-3 h-3 text-slate-500" />
                   {statusMessage.summary.skippedOldDateCount} Older Records Skipped
                 </span>
               )}
 
               {statusMessage.summary.skippedStatusCount > 0 && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-amber-100/70 border border-amber-200 text-amber-900 font-bold text-[10px]">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-amber-100/70 border border-amber-200 text-amber-900 font-semibold text-xs">
                   <ShieldCheck className="w-3 h-3 text-amber-700" />
                   {statusMessage.summary.skippedStatusCount} Non-Completed Ignored
                 </span>

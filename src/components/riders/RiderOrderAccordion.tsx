@@ -336,7 +336,7 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
 
   if (orders.length === 0) {
     return (
-      <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200/80 text-slate-400">
+      <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200 text-slate-400">
         <Bike className="w-8 h-8 mx-auto mb-2 text-slate-300" />
         <p className="text-sm font-semibold text-slate-600">No delivery orders assigned yet</p>
         <p className="text-xs text-slate-400 mt-1">
@@ -354,7 +354,7 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
         return (
           <div
             key={month.monthKey}
-            className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-sm transition-all"
+            className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm transition-all"
           >
             {/* ─────────────────────────────────────────────────────────────
                 LEVEL 1: MONTH ACCORDION HEADER
@@ -368,13 +368,13 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
                   <Calendar className="w-4 h-4 text-brand-400" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                  <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                     <span>{month.monthName}</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                       {month.totalOrders} runs
                     </span>
                   </h4>
-                  <p className="text-[11px] text-slate-500 font-medium">
+                  <p className="text-xs text-slate-500 font-medium">
                     {month.sameSideCount} Same Side (₦50) • {month.differentSideCount} Different Side (₦90)
                   </p>
                 </div>
@@ -382,10 +382,10 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
 
               <div className="flex items-center justify-between sm:justify-end gap-3">
                 <div className="text-right">
-                  <span className="text-[10px] uppercase font-extrabold text-slate-400 block tracking-wider">
+                  <span className="text-xs font-semibold text-slate-400 block">
                     Monthly Payout
                   </span>
-                  <span className="text-sm font-black text-emerald-700 tabular-nums">
+                  <span className="text-sm font-semibold text-emerald-700 tabular-nums">
                     {formatNaira(month.totalEarnings)}
                   </span>
                 </div>
@@ -408,7 +408,7 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
                   return (
                     <div
                       key={week.weekKey}
-                      className="rounded-xl border border-slate-200/80 bg-white overflow-hidden shadow-xs"
+                      className="rounded-xl border border-slate-200 bg-white overflow-hidden"
                     >
                       {/* ─────────────────────────────────────────────────────────────
                           LEVEL 2: WEEK ACCORDION HEADER
@@ -419,17 +419,17 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
                       >
                         <div className="flex items-center gap-2.5">
                           <div className="w-2 h-2 rounded-full bg-brand-500" />
-                          <span className="text-xs font-bold text-slate-900">
+                          <span className="text-xs font-semibold text-slate-900">
                             {week.weekLabel}
                           </span>
-                          <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                          <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
                             {week.totalOrders} runs
                           </span>
                         </div>
 
                         <div className="flex items-center justify-between sm:justify-end gap-2.5">
                           <div className="text-right text-xs">
-                            <span className="font-extrabold text-emerald-700 tabular-nums">
+                            <span className="font-semibold text-emerald-700 tabular-nums">
                               {formatNaira(week.totalEarnings)}
                             </span>
                           </div>
@@ -462,26 +462,26 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
                                   className="w-full px-3.5 py-2.5 flex items-center justify-between gap-2 text-left hover:bg-slate-50/80 transition-colors cursor-pointer"
                                 >
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-xs font-extrabold text-slate-800">
+                                    <span className="text-xs font-semibold text-slate-800">
                                       {day.displayDate}
                                     </span>
-                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                                    <span className="text-xs font-semibold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
                                       {day.totalOrders} orders
                                     </span>
                                     {day.sameSideCount > 0 && (
-                                      <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-200">
+                                      <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-200">
                                         {day.sameSideCount} Same (₦50)
                                       </span>
                                     )}
                                     {day.differentSideCount > 0 && (
-                                      <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                                      <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
                                         {day.differentSideCount} Diff (₦90)
                                       </span>
                                     )}
                                   </div>
 
                                   <div className="flex items-center gap-2 shrink-0">
-                                    <span className="text-xs font-black text-emerald-700 tabular-nums">
+                                    <span className="text-xs font-semibold text-emerald-700 tabular-nums">
                                       {formatNaira(day.totalEarnings)}
                                     </span>
                                     <div className="text-slate-400">
@@ -500,7 +500,7 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
                                 {isDayExpanded && (
                                   <div className="border-t border-slate-100 overflow-x-auto">
                                     <table className="w-full text-left text-xs text-slate-600 whitespace-nowrap">
-                                      <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-extrabold text-[10px] border-b border-slate-200">
+                                      <thead className="bg-slate-50 text-slate-500 font-semibold text-xs border-b border-slate-200">
                                         <tr>
                                           <th className="px-3 py-2">Time</th>
                                           <th className="px-3 py-2">Order ID</th>
@@ -508,7 +508,7 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
                                           <th className="px-3 py-2">Cafeteria</th>
                                           <th className="px-3 py-2">Destination</th>
                                           <th className="px-3 py-2">Type</th>
-                                          <th className="px-3 py-2 text-right font-bold">Rider Pay</th>
+                                          <th className="px-3 py-2 text-right font-semibold">Rider Pay</th>
                                           <th className="px-3 py-2 text-center">Action</th>
                                         </tr>
                                       </thead>
@@ -530,7 +530,7 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
                                                   {ord.time || '12:00 PM'}
                                                 </span>
                                               </td>
-                                              <td className="px-3 py-2 font-bold font-mono text-slate-900 text-[11px]">
+                                              <td className="px-3 py-2 font-semibold font-mono text-slate-900 text-xs">
                                                 {ord.orderId}
                                               </td>
                                               <td className="px-3 py-2 font-semibold text-slate-800">
@@ -553,7 +553,7 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
                                               </td>
                                               <td className="px-3 py-2">
                                                 <span
-                                                  className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                                                  className={`px-2 py-0.5 rounded text-xs font-semibold ${
                                                     isSame
                                                       ? 'bg-orange-50 text-orange-700 border border-orange-200'
                                                       : isDiff
@@ -564,7 +564,7 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
                                                   {ord.deliveryType}
                                                 </span>
                                               </td>
-                                              <td className="px-3 py-2 text-right font-black text-slate-900">
+                                              <td className="px-3 py-2 text-right font-semibold text-slate-900">
                                                 {formatNaira(pay)}
                                               </td>
                                               <td className="px-3 py-2 text-center">
@@ -576,7 +576,7 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
                                                     setSelectedNewRiderId('unassigned');
                                                     setReassignError(null);
                                                   }}
-                                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold border border-blue-200 transition-colors"
+                                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200 transition-colors"
                                                   title="Reassign to another rider"
                                                 >
                                                   <ArrowRightLeft className="w-3 h-3" />
@@ -609,7 +609,7 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
       ───────────────────────────────────────────────────────────── */}
       {reassignOrder && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white border border-slate-200 rounded-xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2.5">
@@ -617,14 +617,14 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
                   <ArrowRightLeft className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900">Reassign Delivery Order</h3>
+                  <h3 className="text-base font-semibold text-slate-900">Reassign Delivery Order</h3>
                   <p className="text-xs text-slate-500 font-mono">Order #{reassignOrder.orderId}</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setReassignOrder(null)}
-                className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold transition-colors"
+                className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -638,24 +638,24 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
             )}
 
             {/* Order Details Brief */}
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-xs space-y-1.5">
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">Customer:</span>
-                <span className="font-bold text-slate-800">{reassignOrder.customerName}</span>
+                <span className="font-semibold text-slate-800">{reassignOrder.customerName}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">Cafeteria:</span>
-                <span className="font-bold text-slate-800">{reassignOrder.cafeteriaName}</span>
+                <span className="font-semibold text-slate-800">{reassignOrder.cafeteriaName}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">Destination:</span>
-                <span className="font-bold text-slate-800">{reassignOrder.deliveryAddress}</span>
+                <span className="font-semibold text-slate-800">{reassignOrder.deliveryAddress}</span>
               </div>
             </div>
 
             {/* Reassign Selector */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700">
+              <label className="block text-xs font-semibold text-slate-700">
                 Assign to Rider:
               </label>
               <select
@@ -672,7 +672,7 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
                     </option>
                   ))}
               </select>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-xs text-slate-400">
                 Selecting &quot;Unassign&quot; will place this order back in the Available Pool for any rider to claim.
               </p>
             </div>
@@ -683,7 +683,7 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
                 type="button"
                 disabled={isReassigning}
                 onClick={() => setReassignOrder(null)}
-                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
               >
                 Cancel
               </button>
@@ -691,7 +691,7 @@ export const RiderOrderAccordion: React.FC<RiderOrderAccordionProps> = ({
                 type="button"
                 disabled={isReassigning}
                 onClick={handleConfirmReassign}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition-all flex items-center gap-2 disabled:opacity-50"
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm shadow-blue-500/20 transition-all flex items-center gap-2 disabled:opacity-50"
               >
                 {isReassigning ? (
                   <>

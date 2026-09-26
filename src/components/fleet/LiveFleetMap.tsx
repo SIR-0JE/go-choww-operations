@@ -160,10 +160,10 @@ export default function LiveFleetMap({
         className: 'custom-cafeteria-pin',
         html: `
           <div class="flex flex-col items-center group cursor-pointer" style="transform: translate(-50%, -100%);">
-            <div class="px-2 py-0.5 rounded-full text-[10px] font-black text-white ${badgeBg} shadow-md border border-white/90 whitespace-nowrap mb-0.5 tracking-tight">
+            <div class="px-2 py-0.5 rounded-full text-xs font-semibold text-white ${badgeBg} shadow-sm border border-white/90 whitespace-nowrap mb-0.5 tracking-tight">
               ${shortName}
             </div>
-            <div class="w-6 h-6 rounded-full ${badgeBg} border-2 border-white shadow-md flex items-center justify-center text-white text-[11px]">
+            <div class="w-6 h-6 rounded-full ${badgeBg} border-2 border-white shadow-sm flex items-center justify-center text-white text-xs">
               🏪
             </div>
             <div class="w-1.5 h-1.5 bg-slate-900 rounded-full mt-0.5"></div>
@@ -178,13 +178,13 @@ export default function LiveFleetMap({
         <div class="p-2.5 font-sans min-w-[210px]">
           <div class="flex items-center gap-1.5 mb-1">
             <span class="text-sm">🏪</span>
-            <strong class="text-sm font-bold text-slate-900">${caf.name}</strong>
+            <strong class="text-sm font-semibold text-slate-900">${caf.name}</strong>
           </div>
-          <div class="text-[11px] text-slate-600 mb-2">
+          <div class="text-xs text-slate-600 mb-2">
             <span class="font-semibold text-slate-700">${caf.campus || 'Campus Cafeteria'}</span>
             ${caf.description ? ` • ${caf.description}` : ''}
           </div>
-          <div class="bg-blue-50 border border-blue-200 rounded-lg p-1.5 text-[10px] text-blue-800 flex items-center justify-between">
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-1.5 text-xs text-blue-800 flex items-center justify-between">
             <span>📍 Geofence Radius:</span>
             <strong>${geofenceRadiusMeters}m</strong>
           </div>
@@ -229,19 +229,19 @@ export default function LiveFleetMap({
       }
 
       const orderBadge = rider.activeOrdersCount > 0
-        ? `<span class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-600 text-white rounded-full text-[10px] font-black flex items-center justify-center border-2 border-white shadow">${rider.activeOrdersCount}</span>`
+        ? `<span class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-600 text-white rounded-full text-xs font-semibold flex items-center justify-center border-2 border-white shadow">${rider.activeOrdersCount}</span>`
         : '';
 
       const riderIcon = L.divIcon({
         className: 'custom-rider-pin',
         html: `
-          <div class="relative flex flex-col items-center cursor-pointer transition-transform duration-200 ${isSelected ? 'scale-125 z-50' : 'hover:scale-110'}" style="transform: translate(-50%, -100%);">
-            <div class="px-2 py-0.5 rounded-full text-[10px] font-black text-white shadow-md border border-white whitespace-nowrap mb-0.5" style="background-color: ${statusColor};">
+          <div class="relative flex flex-col items-center cursor-pointer transition-transform duration-200 ${isSelected ? 'scale-125 z-50' : ''}" style="transform: translate(-50%, -100%);">
+            <div class="px-2 py-0.5 rounded-full text-xs font-semibold text-white shadow-sm border border-white whitespace-nowrap mb-0.5" style="background-color: ${statusColor};">
               ${rider.name.split(' ')[0]}
             </div>
             <div class="relative">
               ${isLive ? `<span class="absolute inset-0 rounded-full bg-emerald-400 ${pulseRing}"></span>` : ''}
-              <div class="w-8 h-8 rounded-full border-2 border-white shadow-xl flex items-center justify-center text-white text-sm font-bold relative z-10" style="background-color: ${statusColor};">
+              <div class="w-8 h-8 rounded-full border-2 border-white shadow-xl flex items-center justify-center text-white text-sm font-semibold relative z-10" style="background-color: ${statusColor};">
                 🚴
               </div>
               ${orderBadge}
@@ -272,13 +272,13 @@ export default function LiveFleetMap({
 
       const ordersListHtml = rider.activeOrders.length > 0
         ? rider.activeOrders.map((o) => `
-            <div class="p-2 rounded-lg bg-slate-50 border border-slate-200 mb-1.5 text-[11px]">
-              <div class="flex items-center justify-between font-bold text-slate-800">
+            <div class="p-2 rounded-lg bg-slate-50 border border-slate-200 mb-1.5 text-xs">
+              <div class="flex items-center justify-between font-semibold text-slate-800">
                 <span>#${o.orderId}</span>
-                <span class="text-amber-600 font-extrabold">₦${Number(o.deliveryFee || 0).toLocaleString()}</span>
+                <span class="text-amber-600 font-semibold">₦${Number(o.deliveryFee || 0).toLocaleString()}</span>
               </div>
               <div class="text-slate-600 truncate">👤 ${o.customerName}</div>
-              <div class="text-slate-500 text-[10px] flex items-center justify-between mt-0.5">
+              <div class="text-slate-500 text-xs flex items-center justify-between mt-0.5">
                 <span>🏪 ${o.cafeteriaName}</span>
                 <span>📍 ${o.deliveryAddress}</span>
               </div>
@@ -290,21 +290,21 @@ export default function LiveFleetMap({
         <div class="p-2.5 font-sans min-w-[240px] max-w-[280px]">
           <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
             <div>
-              <div class="font-black text-sm text-slate-900">${rider.name}</div>
-              <div class="text-[10px] font-semibold text-slate-500 flex items-center gap-1">
+              <div class="font-semibold text-sm text-slate-900">${rider.name}</div>
+              <div class="text-xs font-semibold text-slate-500 flex items-center gap-1">
                 <span class="w-2 h-2 rounded-full" style="background-color: ${statusColor};"></span>
                 <span>${statusLabel}</span>
               </div>
             </div>
             <div class="text-right">
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${rider.isOnline ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}">
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${rider.isOnline ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}">
                 ${rider.isOnline ? 'On Duty' : 'Off Duty'}
               </span>
             </div>
           </div>
 
           <div class="mb-2">
-            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+            <div class="text-xs font-semibold text-slate-400 mb-1">
               Active Deliveries (${rider.activeOrdersCount})
             </div>
             ${ordersListHtml}
@@ -312,13 +312,13 @@ export default function LiveFleetMap({
 
           <div class="grid grid-cols-2 gap-1.5 pt-2 border-t border-slate-100">
             ${rider.phone ? `
-              <a href="https://wa.me/${waNumber}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold text-center no-underline shadow-sm">
+              <a href="https://wa.me/${waNumber}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold text-center no-underline shadow-sm">
                 💬 WhatsApp
               </a>
-              <a href="tel:${rider.phone}" class="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold text-center no-underline shadow-sm">
+              <a href="tel:${rider.phone}" class="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold text-center no-underline shadow-sm">
                 📞 Call
               </a>
-            ` : '<div class="col-span-2 text-center text-[10px] text-slate-400">No phone attached</div>'}
+            ` : '<div class="col-span-2 text-center text-xs text-slate-400">No phone attached</div>'}
           </div>
         </div>
       `;
@@ -371,31 +371,31 @@ export default function LiveFleetMap({
   };
 
   return (
-    <div className="relative w-full h-full min-h-[500px] rounded-2xl overflow-hidden shadow-inner border border-slate-200">
+    <div className="relative w-full h-full min-h-[500px] rounded-xl overflow-hidden border border-slate-200">
       {/* Map DOM Canvas */}
       <div ref={mapContainerRef} className="w-full h-full min-h-[500px] z-0" />
 
       {/* Unified Top Control Bar */}
       <div className="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
         {/* Left: Campus Focus Jumps */}
-        <div className="flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-1 rounded-2xl shadow-md border border-slate-200/80 pointer-events-auto">
+        <div className="flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-1 rounded-xl shadow-sm border border-slate-200 pointer-events-auto">
           <button
             onClick={() => jumpToSite(BOWEN_TEMPORARY_CENTER)}
-            className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors flex items-center gap-1"
+            className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors flex items-center gap-1"
           >
             <span>🏫</span>
             <span className="hidden sm:inline">Temp Site</span>
           </button>
           <button
             onClick={() => jumpToSite(BOWEN_PERMANENT_CENTER)}
-            className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors flex items-center gap-1"
+            className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors flex items-center gap-1"
           >
             <span>🏛️</span>
             <span className="hidden sm:inline">Perm Site</span>
           </button>
           <button
             onClick={fitAllRiders}
-            className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white transition-colors flex items-center gap-1 shadow-sm"
+            className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white transition-colors flex items-center gap-1 shadow-sm"
           >
             <span>🎯</span>
             <span>Fit Fleet</span>
@@ -407,10 +407,10 @@ export default function LiveFleetMap({
           {/* Geofence Toggle */}
           <button
             onClick={() => setShowGeofences(!showGeofences)}
-            className={`px-2.5 py-1.5 rounded-2xl text-xs font-bold shadow-md border transition-all flex items-center gap-1 backdrop-blur-md ${
+            className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold shadow-sm border transition-all flex items-center gap-1 backdrop-blur-md ${
               showGeofences
                 ? 'bg-blue-600 border-blue-500 text-white'
-                : 'bg-white/95 border-slate-200/80 text-slate-600 hover:bg-slate-50'
+                : 'bg-white/95 border-slate-200 text-slate-600 hover:bg-slate-50'
             }`}
             title="Toggle 200m cafeteria geofence boundary circles"
           >
@@ -419,7 +419,7 @@ export default function LiveFleetMap({
           </button>
 
           {/* Layer Selector */}
-          <div className="flex items-center gap-0.5 bg-white/95 backdrop-blur-md p-1 rounded-2xl shadow-md border border-slate-200/80 text-xs font-bold">
+          <div className="flex items-center gap-0.5 bg-white/95 backdrop-blur-md p-1 rounded-xl shadow-sm border border-slate-200 text-xs font-semibold">
             <button
               onClick={() => setMapLayer('google-hybrid')}
               className={`px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
@@ -461,7 +461,7 @@ export default function LiveFleetMap({
       </div>
 
       {/* Map Legend */}
-      <div className="absolute bottom-4 left-4 z-20 bg-white/95 backdrop-blur-md px-3 py-2 rounded-xl shadow-md border border-slate-200/80 text-[11px] flex items-center gap-3">
+      <div className="absolute bottom-4 left-4 z-20 bg-white/95 backdrop-blur-md px-3 py-2 rounded-xl shadow-sm border border-slate-200 text-xs flex items-center gap-3">
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
           <span className="font-semibold text-slate-700">Live Moving</span>

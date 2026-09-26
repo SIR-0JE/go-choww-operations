@@ -86,6 +86,7 @@ export async function GET(request: NextRequest) {
           o.customerName.toLowerCase().includes(search) ||
           o.cafeteriaName.toLowerCase().includes(search) ||
           o.deliveryAddress.toLowerCase().includes(search) ||
+          (o.pickupCode && String(o.pickupCode).toLowerCase().includes(search)) ||
           (o.rider?.name && o.rider.name.toLowerCase().includes(search))
       );
     }

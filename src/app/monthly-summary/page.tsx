@@ -48,23 +48,23 @@ const CustomMonthlyTooltip = ({ active, payload, label }: any) => {
     const d = payload[0]?.payload;
     return (
       <div className="rounded-xl bg-white border border-slate-200 p-3.5 shadow-xl shadow-slate-200/50 text-xs space-y-1.5 z-50">
-        <div className="font-extrabold text-slate-900 text-sm border-b border-slate-100 pb-1 flex items-center justify-between gap-4">
+        <div className="font-semibold text-slate-900 text-sm border-b border-slate-100 pb-1 flex items-center justify-between gap-4">
           <span>{d.monthName || label}</span>
-          <span className="px-2 py-0.5 rounded bg-brand-50 text-brand-700 font-bold border border-brand-200">
+          <span className="px-2 py-0.5 rounded bg-brand-50 text-brand-700 font-semibold border border-brand-200">
             {d.totalOrders} orders
           </span>
         </div>
         <div className="flex justify-between gap-4 text-slate-600">
           <span>Delivery Revenue:</span>
-          <span className="font-bold text-brand-600">{formatNaira(d.grossRevenue)}</span>
+          <span className="font-semibold text-brand-600">{formatNaira(d.grossRevenue)}</span>
         </div>
         <div className="flex justify-between gap-4 text-slate-600">
           <span>Food Value Handled:</span>
-          <span className="font-bold text-slate-900">{formatNaira(d.foodValueHandled)}</span>
+          <span className="font-semibold text-slate-900">{formatNaira(d.foodValueHandled)}</span>
         </div>
         <div className="flex justify-between gap-4 text-slate-600 pt-1 border-t border-slate-100">
           <span>Same Side / Diff Side:</span>
-          <span className="font-bold text-slate-700">{d.sameSide} / {d.differentSide}</span>
+          <span className="font-semibold text-slate-700">{d.sameSide} / {d.differentSide}</span>
         </div>
       </div>
     );
@@ -158,13 +158,8 @@ export default function MonthlySummaryPage() {
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-2.5">
-              <CalendarRange className="w-7 h-7 text-brand-600" />
-              Monthly Summary Ledger
-            </h1>
-            <p className="text-xs text-slate-500 font-medium mt-1">
-              Excel-equivalent month-by-month financial performance, gross food value handled, and cafeteria partner breakdowns
-            </p>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Monthly summary</h1>
+            <p className="text-sm text-slate-500 mt-1">Revenue, food value and cafeteria breakdown, month by month.</p>
           </div>
           <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 self-start sm:self-auto">
             {monthlyData.length} Calendar Months
@@ -174,10 +169,10 @@ export default function MonthlySummaryPage() {
         {/* ─────────────────────────────────────────────────────────────
             TOP: RECHARTS MONTHLY PERFORMANCE GRAPH
         ───────────────────────────────────────────────────────────── */}
-        <div className="rounded-2xl bg-white border border-slate-200/90 p-5 sm:p-6 shadow-sm space-y-4">
+        <div className="rounded-xl bg-white border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+              <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-brand-600" />
                 Monthly Delivery Revenue &amp; Food Value Handled
               </h3>
@@ -242,10 +237,10 @@ export default function MonthlySummaryPage() {
             BODY: MONTHLY BREAKDOWN TABLE
             Exact Columns: Month | Total Orders | Delivery Revenue | Food Value Handled | Same Side | Different Side | Pick Up | Other
         ───────────────────────────────────────────────────────────── */}
-        <div className="rounded-2xl bg-white border border-slate-200/80 shadow-sm overflow-hidden">
+        <div className="rounded-xl bg-white border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex items-center justify-between">
             <div>
-              <h3 className="text-base font-bold text-slate-900">Monthly Ledger Table</h3>
+              <h3 className="text-base font-semibold text-slate-900">Monthly Ledger Table</h3>
               <p className="text-xs text-slate-500 font-normal mt-0.5">
                 Exact mapped columns from the Excel Monthly Summary worksheet
               </p>
@@ -257,7 +252,7 @@ export default function MonthlySummaryPage() {
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-600 whitespace-nowrap">
-              <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider text-[11px] font-semibold border-b border-slate-200/80">
+              <thead className="bg-slate-50/80 text-slate-500 text-xs font-semibold border-b border-slate-200">
                 <tr>
                   <th className="px-6 py-4">Month</th>
                   <th className="px-6 py-4 text-center">Total Orders</th>
@@ -293,12 +288,12 @@ export default function MonthlySummaryPage() {
                       </td>
 
                       {/* Total Orders */}
-                      <td className="px-6 py-4 text-center font-bold text-slate-900 tabular-nums">
+                      <td className="px-6 py-4 text-center font-semibold text-slate-900 tabular-nums">
                         {m.totalOrders}
                       </td>
 
                       {/* Delivery Revenue */}
-                      <td className="px-6 py-4 text-right font-bold text-slate-900 text-sm tabular-nums">
+                      <td className="px-6 py-4 text-right font-semibold text-slate-900 text-sm tabular-nums">
                         {formatNaira(m.grossRevenue)}
                       </td>
 
@@ -337,9 +332,9 @@ export default function MonthlySummaryPage() {
         {/* ─────────────────────────────────────────────────────────────
             TOP CAFETERIAS BREAKDOWN
         ───────────────────────────────────────────────────────────── */}
-        <div className="rounded-2xl bg-white border border-slate-200/90 shadow-sm overflow-hidden">
+        <div className="rounded-xl bg-white border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-5 border-b border-slate-100">
-            <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+            <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
               <Store className="w-5 h-5 text-amber-600" />
               Top Cafeteria Partners Performance
             </h3>
@@ -350,12 +345,12 @@ export default function MonthlySummaryPage() {
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-600 whitespace-nowrap">
-              <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-extrabold text-[10px] border-b border-slate-200">
+              <thead className="bg-slate-50/80 text-slate-500 font-semibold text-xs border-b border-slate-200">
                 <tr>
                   <th className="px-5 py-3.5">Rank &amp; Cafeteria</th>
                   <th className="px-4 py-3.5 text-center">Total Orders</th>
                   <th className="px-4 py-3.5 text-right">Total Food Gross Value</th>
-                  <th className="px-4 py-3.5 text-right font-black text-brand-700">Delivery Fees Generated</th>
+                  <th className="px-4 py-3.5 text-right font-semibold text-brand-700">Delivery Fees Generated</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -370,19 +365,19 @@ export default function MonthlySummaryPage() {
                 ) : (
                   topCafeterias.map((cat, idx) => (
                     <tr key={cat.cafeteriaName} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-5 py-3.5 font-bold text-slate-900 flex items-center gap-3">
-                        <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[11px] font-black">
+                      <td className="px-5 py-3.5 font-semibold text-slate-900 flex items-center gap-3">
+                        <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-semibold">
                           #{idx + 1}
                         </span>
                         <span>{cat.cafeteriaName}</span>
                       </td>
-                      <td className="px-4 py-3.5 text-center font-extrabold text-blue-600">
+                      <td className="px-4 py-3.5 text-center font-semibold text-blue-600">
                         {cat.orderCount} orders
                       </td>
                       <td className="px-4 py-3.5 text-right font-medium text-slate-800">
                         {formatNaira(cat.totalFoodValue)}
                       </td>
-                      <td className="px-4 py-3.5 text-right font-black text-brand-600">
+                      <td className="px-4 py-3.5 text-right font-semibold text-brand-600">
                         {formatNaira(cat.totalDeliveryFees)}
                       </td>
                     </tr>

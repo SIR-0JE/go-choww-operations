@@ -262,7 +262,7 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
       {/* Slide-over panel */}
       <div className="relative z-10 w-full max-w-4xl h-full bg-slate-50 border-l border-slate-200 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-300">
         {/* ── Drawer Header ────────────────────────────────────────────── */}
-        <div className="bg-white px-6 py-5 border-b border-slate-200/90 flex items-center justify-between shrink-0">
+        <div className="bg-white px-6 py-5 border-b border-slate-200 flex items-center justify-between shrink-0">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-brand-50 text-brand-600 border border-brand-200">
@@ -270,10 +270,10 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-black text-slate-900">
+                  <h2 className="text-xl font-semibold text-slate-900">
                     Intraday Order Velocity &amp; Rush Breakdown
                   </h2>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-slate-100 text-slate-700 border border-slate-200">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                     {displayDate}
                   </span>
                 </div>
@@ -298,20 +298,20 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
           {/* 1. Key Metrics & Rush Insights Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Peak Rush Banner */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/80 shadow-sm flex flex-col justify-between">
+            <div className="p-4 rounded-xl bg-white border border-slate-200 flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-amber-800 flex items-center gap-1.5">
                   <Flame className="w-3.5 h-3.5 text-amber-600" />
                   Peak Rush Hour
                 </span>
                 {peakBucket && (
-                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900">
+                  <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900">
                     {((peakBucket.orderCount / (dayStats.totalOrders || 1)) * 100).toFixed(0)}% Day Vol
                   </span>
                 )}
               </div>
               <div className="mt-2">
-                <p className="text-sm font-extrabold text-amber-950">
+                <p className="text-sm font-semibold text-amber-950">
                   {peakBucket && peakBucket.orderCount > 0 ? peakBucket.label : 'No Peak Detected'}
                 </p>
                 <p className="text-xs font-semibold text-amber-700 mt-0.5">
@@ -323,16 +323,16 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
             </div>
 
             {/* Quiet / Dull Period Banner */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200/60 border border-slate-300/80 shadow-sm flex flex-col justify-between">
+            <div className="p-4 rounded-xl bg-white border border-slate-200 flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                   <Moon className="w-3.5 h-3.5 text-slate-500" />
                   Slowest Window
                 </span>
-                <span className="text-[10px] font-semibold text-slate-500">8am - 9pm</span>
+                <span className="text-xs font-semibold text-slate-500">8am - 9pm</span>
               </div>
               <div className="mt-2">
-                <p className="text-sm font-extrabold text-slate-800">
+                <p className="text-sm font-semibold text-slate-800">
                   {quietBucket ? quietBucket.label : 'N/A'}
                 </p>
                 <p className="text-xs font-semibold text-slate-600 mt-0.5">
@@ -342,15 +342,15 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
             </div>
 
             {/* Intake Velocity */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200/80 shadow-sm flex flex-col justify-between">
+            <div className="p-4 rounded-xl bg-white border border-slate-200 flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-blue-800 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-blue-800 flex items-center gap-1.5">
                   <Zap className="w-3.5 h-3.5 text-blue-600" />
                   Average Velocity
                 </span>
               </div>
               <div className="mt-2">
-                <p className="text-xl font-black text-blue-950">
+                <p className="text-xl font-semibold text-blue-950">
                   {avgOrdersPerHour}{' '}
                   <span className="text-xs font-semibold text-blue-600">orders / hr</span>
                 </p>
@@ -361,15 +361,15 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
             </div>
 
             {/* Total Day Logistics Revenue */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/80 shadow-sm flex flex-col justify-between">
+            <div className="p-4 rounded-xl bg-white border border-slate-200 flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
                   <Package className="w-3.5 h-3.5 text-emerald-600" />
                   Daily Gross Total
                 </span>
               </div>
               <div className="mt-2">
-                <p className="text-xl font-black text-emerald-950">
+                <p className="text-xl font-semibold text-emerald-950">
                   {formatNaira(dayStats.deliveryRev)}
                 </p>
                 <p className="text-xs font-semibold text-emerald-700 mt-0.5">
@@ -381,13 +381,13 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
 
           {/* 2. Top Cafeteria Surge Leaderboard for this Day */}
           {dayStats.topVendors.length > 0 && (
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm space-y-2.5">
+            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2.5">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                <span className="font-semibold text-slate-900 flex items-center gap-1.5">
                   <Store className="w-4 h-4 text-brand-600" />
                   Cafeteria Surge Leaderboard (Full Day)
                 </span>
-                <span className="text-[11px] text-slate-400 font-medium">
+                <span className="text-xs text-slate-400 font-medium">
                   Highest volume order origins
                 </span>
               </div>
@@ -397,11 +397,11 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
                     key={vendor}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs"
                   >
-                    <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 font-extrabold text-[10px] flex items-center justify-center">
+                    <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center">
                       #{idx + 1}
                     </span>
-                    <span className="font-bold text-slate-800">{vendor}</span>
-                    <span className="font-extrabold text-brand-600 px-1.5 py-0.5 rounded bg-brand-50 border border-brand-200/60 text-[11px]">
+                    <span className="font-semibold text-slate-800">{vendor}</span>
+                    <span className="font-semibold text-brand-600 px-1.5 py-0.5 rounded bg-brand-50 border border-brand-200/60 text-xs">
                       {count} orders
                     </span>
                   </div>
@@ -411,10 +411,10 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
           )}
 
           {/* 3. Intraday Velocity Bar Chart & Granularity Switcher */}
-          <div className="p-5 rounded-3xl bg-white border border-slate-200/90 shadow-sm space-y-4">
+          <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
               <div>
-                <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-brand-600" />
                   Order Velocity Intake Curve
                 </h4>
@@ -426,7 +426,7 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
               {/* Granularity & View Controls */}
               <div className="flex items-center gap-2 self-start sm:self-auto">
                 {/* Granularity Switcher */}
-                <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200 text-xs font-bold shadow-inner">
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
                   <button
                     onClick={() => setGranularity('1hour')}
                     className={`px-3 py-1 rounded-xl transition-all ${
@@ -504,10 +504,10 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
 
                         return (
                           <div className="rounded-xl bg-white border border-slate-200 p-3 shadow-xl text-xs space-y-1.5 z-50 min-w-[200px]">
-                            <div className="font-extrabold text-slate-900 border-b border-slate-100 pb-1 flex items-center justify-between">
+                            <div className="font-semibold text-slate-900 border-b border-slate-100 pb-1 flex items-center justify-between">
                               <span>{b.label}</span>
                               <span
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold ${
+                                className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
                                   b.rushLevel === 'peak'
                                     ? 'bg-amber-100 text-amber-800'
                                     : b.rushLevel === 'high'
@@ -522,16 +522,16 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
                             </div>
                             <div className="flex justify-between text-slate-600">
                               <span>Orders Placed:</span>
-                              <strong className="text-slate-900 font-bold">{b.orderCount}</strong>
+                              <strong className="text-slate-900 font-semibold">{b.orderCount}</strong>
                             </div>
                             <div className="flex justify-between text-slate-600">
                               <span>Delivery Fees:</span>
-                              <strong className="text-brand-600 font-bold">
+                              <strong className="text-brand-600 font-semibold">
                                 {formatNaira(b.grossDeliveryRev)}
                               </strong>
                             </div>
                             {topVendorsSlot.length > 0 && (
-                              <div className="pt-1 border-t border-slate-100 text-[10px] text-slate-500">
+                              <div className="pt-1 border-t border-slate-100 text-xs text-slate-500">
                                 <span>Top Vendors: </span>
                                 {topVendorsSlot.map(([v, c]) => `${v} (${c})`).join(', ')}
                               </div>
@@ -566,10 +566,10 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
           </div>
 
           {/* 4. Time Window Breakdown Table & Order Inspector */}
-          <div className="rounded-3xl bg-white border border-slate-200/90 shadow-sm overflow-hidden">
+          <div className="rounded-xl bg-white border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h4 className="text-sm font-extrabold text-slate-900">
+                <h4 className="text-sm font-semibold text-slate-900">
                   Time Slot Velocity Ledger
                 </h4>
                 <p className="text-xs text-slate-500 font-normal">
@@ -621,28 +621,28 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
                         />
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-extrabold text-slate-900 text-xs">
+                            <span className="font-semibold text-slate-900 text-xs">
                               {bucket.label}
                             </span>
                             {bucket.rushLevel === 'peak' && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
+                              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
                                 <Flame className="w-3 h-3 text-amber-600" />
                                 PEAK RUSH
                               </span>
                             )}
                             {bucket.rushLevel === 'high' && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-orange-100 text-orange-800 border border-orange-200">
+                              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-800 border border-orange-200">
                                 HIGH RUSH
                               </span>
                             )}
                           </div>
                           {topVendorsSlot.length > 0 ? (
-                            <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                            <p className="text-xs text-slate-500 font-medium mt-0.5">
                               Surge:{' '}
                               {topVendorsSlot.map(([v, c]) => `${v} (${c})`).join(', ')}
                             </p>
                           ) : (
-                            <p className="text-[11px] text-slate-400 font-normal mt-0.5">
+                            <p className="text-xs text-slate-400 font-normal mt-0.5">
                               No orders in this slot
                             </p>
                           )}
@@ -653,20 +653,20 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
                       <div className="flex items-center gap-4 sm:gap-6 self-end sm:self-auto text-xs">
                         {/* Order Count & Progress */}
                         <div className="text-right">
-                          <span className="font-extrabold text-slate-900 text-sm">
+                          <span className="font-semibold text-slate-900 text-sm">
                             {bucket.orderCount}
                           </span>
-                          <span className="text-[10px] text-slate-400 block font-medium">
+                          <span className="text-xs text-slate-400 block font-medium">
                             {percentOfDay}% of day
                           </span>
                         </div>
 
                         {/* Revenue */}
                         <div className="text-right min-w-[70px]">
-                          <span className="font-extrabold text-brand-600">
+                          <span className="font-semibold text-brand-600">
                             {formatNaira(bucket.grossDeliveryRev)}
                           </span>
-                          <span className="text-[10px] text-slate-400 block font-medium">
+                          <span className="text-xs text-slate-400 block font-medium">
                             logistics fee
                           </span>
                         </div>
@@ -690,8 +690,8 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
 
                     {/* Expanded Order Inspector Accordion */}
                     {isExpanded && bucket.orders.length > 0 && (
-                      <div className="bg-white px-4 py-3 border-t border-slate-200/70 space-y-2 animate-in fade-in duration-150">
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-1">
+                      <div className="bg-white px-4 py-3 border-t border-slate-200 space-y-2 animate-in fade-in duration-150">
+                        <div className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
                           <span className="flex items-center gap-1.5">
                             <Package className="w-3.5 h-3.5 text-brand-600" />
                             {bucket.orders.length} Orders Placed during {bucket.label}
@@ -700,7 +700,7 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
 
                         <div className="overflow-x-auto rounded-xl border border-slate-200">
                           <table className="w-full text-left text-xs text-slate-600 whitespace-nowrap">
-                            <thead className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                            <thead className="bg-slate-50 text-xs font-semibold text-slate-500 border-b border-slate-200">
                               <tr>
                                 <th className="px-3 py-2">Order ID</th>
                                 <th className="px-3 py-2">Time</th>
@@ -712,7 +712,7 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
                                 <th className="px-3 py-2 text-center">Status</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 font-medium text-[11px]">
+                            <tbody className="divide-y divide-slate-100 font-medium text-xs">
                               {bucket.orders.map((ord) => {
                                 const ordTime = ord.createdAt
                                   ? new Date(ord.createdAt).toLocaleTimeString('en-US', {
@@ -724,7 +724,7 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
 
                                 return (
                                   <tr key={ord.orderId} className="hover:bg-slate-50/60">
-                                    <td className="px-3 py-2 font-bold text-slate-900">
+                                    <td className="px-3 py-2 font-semibold text-slate-900">
                                       #{ord.orderId}
                                     </td>
                                     <td className="px-3 py-2 text-slate-500">{ordTime}</td>
@@ -736,7 +736,7 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
                                     </td>
                                     <td className="px-3 py-2">
                                       <span
-                                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                        className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
                                           (ord.deliveryType || '')
                                             .toLowerCase()
                                             .includes('same')
@@ -751,7 +751,7 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
                                         {ord.deliveryType}
                                       </span>
                                     </td>
-                                    <td className="px-3 py-2 text-right font-bold text-slate-900">
+                                    <td className="px-3 py-2 text-right font-semibold text-slate-900">
                                       {formatNaira(Number(ord.deliveryFee) || 0)}
                                     </td>
                                     <td className="px-3 py-2">
@@ -766,7 +766,7 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
                                     </td>
                                     <td className="px-3 py-2 text-center">
                                       <span
-                                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                        className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
                                           (ord.orderStatus || '')
                                             .toLowerCase()
                                             .includes('deliv') ||
@@ -806,7 +806,7 @@ export const IntradayVelocityDrawer: React.FC<IntradayVelocityDrawerProps> = ({
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all shadow-sm"
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition-all shadow-sm"
           >
             Close Breakdown
           </button>

@@ -294,23 +294,16 @@ export default function BacklogReconciliationPage() {
     <AppLayout>
       <div className="space-y-6 pb-12">
         {/* Top Header Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm">
+        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600">
-                  <Bike className="w-5 h-5 stroke-[2.5]" />
-                </div>
                 <div>
-                  <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2 flex-wrap">
-                    Backlog Reconciliation Ledger
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                      {filteredOrders.length} Unassigned
-                    </span>
-                  </h1>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Filter by date, cafeteria, or search keywords to allocate historical deliveries to riders.
-                  </p>
+                  <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Reconciliation
+                    <span className="ml-2 align-middle inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">
+                      {filteredOrders.length} unassigned
+                    </span></h1>
+                  <p className="text-sm text-slate-500 mt-1">Assign past deliveries that have no rider.</p>
                 </div>
               </div>
             </div>
@@ -320,14 +313,14 @@ export default function BacklogReconciliationPage() {
               <button
                 onClick={() => fetchBacklog(true)}
                 disabled={isRefreshing}
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all active:scale-[0.98]"
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-brand-600' : ''}`} />
                 <span>Refresh</span>
               </button>
               <Link
                 href="/riders"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm transition-all active:scale-[0.98]"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm transition-all"
               >
                 <span>Manage Fleet</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -337,31 +330,31 @@ export default function BacklogReconciliationPage() {
 
           {/* Quick Metrics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-5 border-t border-slate-100">
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/60">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Filtered Backlog</p>
-              <p className="text-lg font-black text-slate-900 mt-0.5">{filteredOrders.length}</p>
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+              <p className="text-xs font-semibold text-slate-400">Filtered Backlog</p>
+              <p className="text-lg font-semibold text-slate-900 mt-0.5">{filteredOrders.length}</p>
             </div>
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/60">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Filtered Gross Value</p>
-              <p className="text-lg font-black text-slate-900 mt-0.5">₦{totalValue.toLocaleString()}</p>
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+              <p className="text-xs font-semibold text-slate-400">Filtered Gross Value</p>
+              <p className="text-lg font-semibold text-slate-900 mt-0.5">₦{totalValue.toLocaleString()}</p>
             </div>
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/60">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Delivery Fees</p>
-              <p className="text-lg font-black text-emerald-600 mt-0.5">₦{totalDeliveryFees.toLocaleString()}</p>
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+              <p className="text-xs font-semibold text-slate-400">Delivery Fees</p>
+              <p className="text-lg font-semibold text-emerald-600 mt-0.5">₦{totalDeliveryFees.toLocaleString()}</p>
             </div>
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/60">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Riders Available</p>
-              <p className="text-lg font-black text-blue-600 mt-0.5">{riders.length} Riders</p>
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+              <p className="text-xs font-semibold text-slate-400">Active Riders Available</p>
+              <p className="text-lg font-semibold text-blue-600 mt-0.5">{riders.length} Riders</p>
             </div>
           </div>
         </div>
 
         {/* Date Filter & Preset Toolbar */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm space-y-3.5">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-3.5">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             {/* Date Preset Buttons */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] font-bold text-slate-500 mr-1 flex items-center gap-1">
+              <span className="text-xs font-semibold text-slate-500 mr-1 flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
                 <span>Date Range:</span>
               </span>
@@ -401,7 +394,7 @@ export default function BacklogReconciliationPage() {
             {datePreset === 'CUSTOM' && (
               <div className="flex items-center gap-2 flex-wrap animate-in fade-in duration-200">
                 <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Specific Date:</span>
+                  <span className="text-xs font-semibold text-slate-400">Specific Date:</span>
                   <input
                     type="date"
                     value={customDate}
@@ -417,7 +410,7 @@ export default function BacklogReconciliationPage() {
                 <span className="text-xs text-slate-400 font-medium">or</span>
 
                 <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">From:</span>
+                  <span className="text-xs font-semibold text-slate-400">From:</span>
                   <input
                     type="date"
                     value={customStartDate}
@@ -427,7 +420,7 @@ export default function BacklogReconciliationPage() {
                     }}
                     className="bg-transparent text-xs font-semibold text-slate-800 focus:outline-none"
                   />
-                  <span className="text-[10px] font-bold text-slate-400 uppercase ml-1">To:</span>
+                  <span className="text-xs font-semibold text-slate-400 ml-1">To:</span>
                   <input
                     type="date"
                     value={customEndDate}
@@ -459,7 +452,7 @@ export default function BacklogReconciliationPage() {
           {/* Quick Date Chips from Loaded Backlog */}
           {datePreset === 'ALL' && uniqueDatesInOrders.length > 1 && (
             <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-slate-100 pb-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
+              <span className="text-xs font-semibold text-slate-400 shrink-0 mr-1">
                 Jump to Day:
               </span>
               {uniqueDatesInOrders.slice(0, 8).map(([dStr, count]) => {
@@ -472,7 +465,7 @@ export default function BacklogReconciliationPage() {
                       setDatePreset('CUSTOM');
                       setCustomDate(dStr);
                     }}
-                    className="shrink-0 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-brand-50 hover:text-brand-700 border border-slate-200/80 text-[11px] font-semibold text-slate-700 transition-colors"
+                    className="shrink-0 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-brand-50 hover:text-brand-700 border border-slate-200 text-xs font-semibold text-slate-700 transition-colors"
                   >
                     {label} <span className="text-slate-400 font-normal">({count})</span>
                   </button>
@@ -484,9 +477,9 @@ export default function BacklogReconciliationPage() {
 
         {/* Bulk Action Sticky Bar (Appears when rows are selected) */}
         {selectedOrderIds.size > 0 && (
-          <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-lg border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in duration-200 sticky top-16 z-20">
+          <div className="bg-slate-900 text-white rounded-xl p-4 shadow-lg border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in duration-200 sticky top-16 z-20">
             <div className="flex items-center gap-2.5">
-              <span className="w-6 h-6 rounded-full bg-brand-500 text-slate-900 font-black text-xs flex items-center justify-center">
+              <span className="w-6 h-6 rounded-full bg-brand-500 text-slate-900 font-semibold text-xs flex items-center justify-center">
                 {selectedOrderIds.size}
               </span>
               <span className="text-xs font-medium">orders selected for bulk assignment</span>
@@ -509,7 +502,7 @@ export default function BacklogReconciliationPage() {
               <button
                 onClick={handleBulkAssign}
                 disabled={isBulkAssigning || !bulkRiderId}
-                className="bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all active:scale-[0.98] disabled:opacity-50"
+                className="bg-brand-500 hover:bg-brand-400 text-slate-950 font-semibold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all disabled:opacity-50"
               >
                 {isBulkAssigning ? (
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -530,7 +523,7 @@ export default function BacklogReconciliationPage() {
         )}
 
         {/* Search & Cafeteria Toolbar */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm space-y-3">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-3">
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <div className="relative flex-1 w-full">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -561,7 +554,7 @@ export default function BacklogReconciliationPage() {
         </div>
 
         {/* Ledger Table */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           {isLoading ? (
             <div className="py-20 flex flex-col items-center justify-center gap-3">
               <RefreshCw className="w-6 h-6 text-brand-600 animate-spin" />
@@ -572,7 +565,7 @@ export default function BacklogReconciliationPage() {
               <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
-              <h3 className="text-sm font-bold text-slate-900">
+              <h3 className="text-sm font-semibold text-slate-900">
                 {orders.length === 0 ? '🎉 No Unassigned Orders for this Date!' : 'No matching unassigned orders'}
               </h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
@@ -590,7 +583,7 @@ export default function BacklogReconciliationPage() {
                     setCustomStartDate('');
                     setCustomEndDate('');
                   }}
-                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
                 >
                   Reset All Filters
                 </button>
@@ -599,7 +592,7 @@ export default function BacklogReconciliationPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold text-xs">
                   <tr>
                     <th className="py-3 px-4 w-10">
                       <button
@@ -652,10 +645,10 @@ export default function BacklogReconciliationPage() {
 
                         {/* Order ID & Time */}
                         <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-900 font-mono">
+                          <div className="font-semibold text-slate-900 font-mono">
                             #{ord.orderId.replace(/^ORD-/, '')}
                           </div>
-                          <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                          <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                             <Calendar className="w-3 h-3" />
                             <span>
                               {new Date(ord.createdAt).toLocaleDateString('en-GB', {
@@ -673,7 +666,7 @@ export default function BacklogReconciliationPage() {
                             <Store className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             <span className="font-semibold text-slate-800">{ord.cafeteriaName}</span>
                           </div>
-                          <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-slate-100 text-slate-600">
+                          <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-slate-100 text-slate-600">
                             {ord.deliveryType || 'Standard'}
                           </span>
                         </td>
@@ -684,12 +677,12 @@ export default function BacklogReconciliationPage() {
                           {ord.customerPhone ? (
                             <a
                               href={`tel:${ord.customerPhone.replace(/\D/g, '')}`}
-                              className="text-[10px] text-brand-600 hover:underline flex items-center gap-1 mt-0.5"
+                              className="text-xs text-brand-600 hover:underline flex items-center gap-1 mt-0.5"
                             >
                               <span>{ord.customerPhone}</span>
                             </a>
                           ) : (
-                            <span className="text-[10px] text-slate-400 italic">No phone</span>
+                            <span className="text-xs text-slate-400 italic">No phone</span>
                           )}
                         </td>
 
@@ -703,8 +696,8 @@ export default function BacklogReconciliationPage() {
 
                         {/* Fee / Total */}
                         <td className="py-3.5 px-4 text-right">
-                          <div className="font-bold text-emerald-600">₦{Number(ord.deliveryFee).toLocaleString()}</div>
-                          <div className="text-[10px] text-slate-400">Total: ₦{Number(ord.totalAmountPaid).toLocaleString()}</div>
+                          <div className="font-semibold text-emerald-600">₦{Number(ord.deliveryFee).toLocaleString()}</div>
+                          <div className="text-xs text-slate-400">Total: ₦{Number(ord.totalAmountPaid).toLocaleString()}</div>
                         </td>
 
                         {/* Inline Rider Selector */}

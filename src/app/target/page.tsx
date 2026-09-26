@@ -179,20 +179,15 @@ export default function TargetPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2.5">
-              <Target className="w-6 h-6 text-brand-600" />
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-                Sprint Target &amp; Debt Recovery
-              </h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Sprint target</h1>
             </div>
-            <p className="text-xs sm:text-sm text-slate-500 font-normal mt-1">
-              Configure debt settlement milestones, sprint deadlines, and monitor payoff velocity.
-            </p>
+            <p className="text-sm text-slate-500 mt-1">Progress toward the ₦3.5M recovery goal.</p>
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
-            <span className="text-xs font-semibold px-3.5 py-1.5 rounded-xl bg-white text-slate-700 border border-slate-200/80 shadow-sm flex items-center gap-2">
+            <span className="text-xs font-semibold px-3.5 py-1.5 rounded-xl bg-white text-slate-700 border border-slate-200 shadow-sm flex items-center gap-2">
               <Clock className="w-3.5 h-3.5 text-slate-400" />
-              <span><strong className="text-slate-900 font-bold tabular-nums">{calculations.daysRemaining}</strong> Days to Deadline</span>
+              <span><strong className="text-slate-900 font-semibold tabular-nums">{calculations.daysRemaining}</strong> Days to Deadline</span>
             </span>
           </div>
         </div>
@@ -200,15 +195,14 @@ export default function TargetPage() {
         {/* ─────────────────────────────────────────────────────────────
             SECTION 1: THE RE-INTEGRATED GORGEOUS DEBT RECOVERY CARD
         ───────────────────────────────────────────────────────────── */}
-        <div className="relative overflow-hidden rounded-2xl bg-white border border-slate-200/80 p-6 sm:p-8 shadow-sm">
+        <div className="relative overflow-hidden rounded-xl bg-white border border-slate-200 p-6 sm:p-8 shadow-sm">
           {/* Subtle Background Accent */}
-          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-orange-50/40 via-amber-50/20 to-transparent rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
 
           {/* Top Row: Title + Progress Badge */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 relative z-10">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200 uppercase tracking-wide">
+                <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200">
                   Active Recovery Sprint
                 </span>
                 <span className="text-xs text-slate-300">•</span>
@@ -217,15 +211,15 @@ export default function TargetPage() {
                   Ends {new Date(config.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </span>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+              <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">
                 {formatNaira(calculations.target)} Target Velocity
               </h2>
             </div>
 
             {/* Large Progress Percentage Pill */}
-            <div className="flex items-baseline gap-2.5 bg-slate-50 px-5 py-2.5 rounded-2xl border border-slate-200/80 self-start sm:self-auto">
-              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Settled</span>
-              <span className="text-2xl sm:text-3xl font-bold text-slate-900 tabular-nums">
+            <div className="flex items-baseline gap-2.5 bg-slate-50 px-5 py-2.5 rounded-xl border border-slate-200 self-start sm:self-auto">
+              <span className="text-xs text-slate-400 font-semibold">Settled</span>
+              <span className="text-2xl sm:text-3xl font-semibold text-slate-900 tabular-nums">
                 {calculations.progressPercent.toFixed(2)}%
               </span>
             </div>
@@ -237,7 +231,7 @@ export default function TargetPage() {
               <span className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 True Net Profit Recovered:{' '}
-                <span className="text-slate-900 font-bold tabular-nums">
+                <span className="text-slate-900 font-semibold tabular-nums">
                   {formatNaira(calculations.netProfit)}
                 </span>
               </span>
@@ -246,14 +240,14 @@ export default function TargetPage() {
               </span>
             </div>
 
-            <div className="w-full h-3.5 rounded-full bg-slate-100 border border-slate-200/80 overflow-hidden p-0.5 relative">
+            <div className="w-full h-3.5 rounded-full bg-slate-100 border border-slate-200 overflow-hidden p-0.5 relative">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-brand-500 via-amber-500 to-emerald-500 transition-all duration-1000 ease-out"
+                className="h-full rounded-full bg-emerald-500 transition-all duration-1000 ease-out"
                 style={{ width: `${Math.max(1.5, calculations.progressPercent)}%` }}
               />
             </div>
 
-            <div className="flex justify-between text-[11px] text-slate-400 font-medium pt-0.5">
+            <div className="flex justify-between text-xs text-slate-400 font-medium pt-0.5">
               <span>Sprint Started: {new Date(config.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
               <span>Remaining to Clear: <strong className="text-slate-700 tabular-nums">{formatNaira(calculations.remainingDebt)}</strong></span>
             </div>
@@ -262,30 +256,30 @@ export default function TargetPage() {
           {/* Quick Metrics 4-Col Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10 pt-6 border-t border-slate-100">
             {/* 1. Remaining Debt */}
-            <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 flex items-center gap-3.5">
-              <div className="p-2.5 rounded-lg bg-white text-rose-600 border border-slate-200/80 shrink-0 shadow-sm">
+            <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 flex items-center gap-3.5">
+              <div className="p-2.5 rounded-lg bg-white text-rose-600 border border-slate-200 shrink-0 shadow-sm">
                 <ShieldAlert className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <div className="text-xs font-semibold text-slate-400">
                   Remaining Debt
                 </div>
-                <div className="text-base sm:text-lg font-bold text-slate-900 mt-0.5 tabular-nums">
+                <div className="text-base sm:text-lg font-semibold text-slate-900 mt-0.5 tabular-nums">
                   {formatNaira(calculations.remainingDebt)}
                 </div>
               </div>
             </div>
 
             {/* 2. Required Daily Run Rate */}
-            <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 flex items-center gap-3.5">
-              <div className="p-2.5 rounded-lg bg-white text-amber-600 border border-slate-200/80 shrink-0 shadow-sm">
+            <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 flex items-center gap-3.5">
+              <div className="p-2.5 rounded-lg bg-white text-amber-600 border border-slate-200 shrink-0 shadow-sm">
                 <Zap className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <div className="text-xs font-semibold text-slate-400">
                   Required Daily Run-Rate
                 </div>
-                <div className="text-base sm:text-lg font-bold text-slate-900 mt-0.5 tabular-nums">
+                <div className="text-base sm:text-lg font-semibold text-slate-900 mt-0.5 tabular-nums">
                   {formatNaira(calculations.requiredDailyRunRate)}
                   <span className="text-xs font-normal text-slate-400 ml-1">/ day</span>
                 </div>
@@ -293,15 +287,15 @@ export default function TargetPage() {
             </div>
 
             {/* 3. Required Daily Orders */}
-            <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 flex items-center gap-3.5">
-              <div className="p-2.5 rounded-lg bg-white text-blue-600 border border-slate-200/80 shrink-0 shadow-sm">
+            <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 flex items-center gap-3.5">
+              <div className="p-2.5 rounded-lg bg-white text-blue-600 border border-slate-200 shrink-0 shadow-sm">
                 <TrendingUp className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <div className="text-xs font-semibold text-slate-400">
                   Target Daily Volume
                 </div>
-                <div className="text-base sm:text-lg font-bold text-slate-900 mt-0.5 tabular-nums">
+                <div className="text-base sm:text-lg font-semibold text-slate-900 mt-0.5 tabular-nums">
                   {calculations.requiredDailyOrders}
                   <span className="text-xs font-normal text-slate-400 ml-1">orders/day</span>
                 </div>
@@ -309,15 +303,15 @@ export default function TargetPage() {
             </div>
 
             {/* 4. Days Remaining */}
-            <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 flex items-center gap-3.5">
-              <div className="p-2.5 rounded-lg bg-white text-emerald-600 border border-slate-200/80 shrink-0 shadow-sm">
+            <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 flex items-center gap-3.5">
+              <div className="p-2.5 rounded-lg bg-white text-emerald-600 border border-slate-200 shrink-0 shadow-sm">
                 <Compass className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <div className="text-xs font-semibold text-slate-400">
                   Sprint Runway
                 </div>
-                <div className="text-base sm:text-lg font-bold text-slate-900 mt-0.5 tabular-nums">
+                <div className="text-base sm:text-lg font-semibold text-slate-900 mt-0.5 tabular-nums">
                   {calculations.daysRemaining}
                   <span className="text-xs font-normal text-slate-400 ml-1">days left</span>
                 </div>
@@ -331,12 +325,12 @@ export default function TargetPage() {
         ───────────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left: Sprint Parameters Editor Form (7 cols) */}
-          <div className="lg:col-span-7 rounded-2xl bg-white border border-slate-200/80 p-6 shadow-sm space-y-6">
+          <div className="lg:col-span-7 rounded-xl bg-white border border-slate-200 p-6 shadow-sm space-y-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2.5">
                 <BarChart3 className="w-5 h-5 text-slate-500" />
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">
+                  <h3 className="text-base font-semibold text-slate-900">
                     Sprint Parameters &amp; Target Controls
                   </h3>
                   <p className="text-xs text-slate-500 font-normal">
@@ -356,9 +350,9 @@ export default function TargetPage() {
             <form onSubmit={handleSaveConfig} className="space-y-5">
               {/* Field 1: Target Amount */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
                   <span>Sprint Target Amount (₦)</span>
-                  <span className="text-slate-900 font-bold tabular-nums">{formatNaira(tempConfig.targetAmount)}</span>
+                  <span className="text-slate-900 font-semibold tabular-nums">{formatNaira(tempConfig.targetAmount)}</span>
                 </label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-sm">₦</span>
@@ -370,12 +364,12 @@ export default function TargetPage() {
                     onChange={(e) =>
                       setTempConfig({ ...tempConfig, targetAmount: parseFloat(e.target.value) || 0 })
                     }
-                    className="w-full pl-8 pr-4 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white transition-all tabular-nums"
+                    className="w-full pl-8 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white transition-all tabular-nums"
                   />
                 </div>
                 {/* Quick Presets */}
                 <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  <span className="text-[11px] text-slate-400 font-medium mr-1">Presets:</span>
+                  <span className="text-xs text-slate-400 font-medium mr-1">Presets:</span>
                   <button
                     type="button"
                     onClick={() => setTempConfig({ ...tempConfig, targetAmount: 3500000 })}
@@ -416,7 +410,7 @@ export default function TargetPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                 {/* Field 2: Start Date */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                     <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
                     <span>Sprint Start Date</span>
                   </label>
@@ -424,13 +418,13 @@ export default function TargetPage() {
                     type="date"
                     value={tempConfig.startDate}
                     onChange={(e) => setTempConfig({ ...tempConfig, startDate: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white transition-all"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white transition-all"
                   />
                 </div>
 
                 {/* Field 3: End Date */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                     <CalendarDays className="w-3.5 h-3.5 text-brand-600" />
                     <span>Sprint Deadline (End Date)</span>
                   </label>
@@ -438,7 +432,7 @@ export default function TargetPage() {
                     type="date"
                     value={tempConfig.endDate}
                     onChange={(e) => setTempConfig({ ...tempConfig, endDate: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white transition-all"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white transition-all"
                   />
                 </div>
               </div>
@@ -456,7 +450,7 @@ export default function TargetPage() {
 
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs tracking-wide shadow-sm flex items-center gap-2 active:scale-[0.98] transition-all"
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs tracking-wide shadow-sm flex items-center gap-2 transition-all"
                 >
                   <Save className="w-4 h-4" />
                   Save Sprint Parameters
@@ -466,11 +460,11 @@ export default function TargetPage() {
           </div>
 
           {/* Right: Milestone Trajectory & Forecast (5 cols) */}
-          <div className="lg:col-span-5 rounded-2xl bg-white border border-slate-200/80 p-6 shadow-sm space-y-4">
+          <div className="lg:col-span-5 rounded-xl bg-white border border-slate-200 p-6 shadow-sm space-y-4">
             <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
               <Sparkles className="w-5 h-5 text-slate-500" />
               <div>
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 className="text-base font-semibold text-slate-900">
                   Milestone Forecast
                 </h3>
                 <p className="text-xs text-slate-500 font-normal">
@@ -480,10 +474,10 @@ export default function TargetPage() {
             </div>
 
             {/* Projection Summary Box */}
-            <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 space-y-2.5">
+            <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 space-y-2.5">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-medium text-slate-500">Projected Completion:</span>
-                <span className="font-semibold text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200/80 shadow-sm">
+                <span className="font-semibold text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-sm">
                   {calculations.projectedCompletionDate}
                 </span>
               </div>
@@ -525,7 +519,7 @@ export default function TargetPage() {
                         ? 'bg-emerald-50/40 border-emerald-200/60 text-slate-800'
                         : isCurrent
                         ? 'bg-amber-50/40 border-amber-200 text-slate-900 ring-1 ring-amber-200/60'
-                        : 'bg-white border-slate-200/80 text-slate-600'
+                        : 'bg-white border-slate-200 text-slate-600'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -538,14 +532,14 @@ export default function TargetPage() {
                       )}
                       <div>
                         <div className="font-semibold text-xs text-slate-900">{m.label}</div>
-                        <div className="text-[11px] text-slate-500 font-normal tabular-nums mt-0.5">
+                        <div className="text-xs text-slate-500 font-normal tabular-nums mt-0.5">
                           {formatNaira(milestoneAmount)}
                         </div>
                       </div>
                     </div>
 
                     <span
-                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
+                      className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
                         isPassed
                           ? 'bg-emerald-100/80 text-emerald-800'
                           : isCurrent

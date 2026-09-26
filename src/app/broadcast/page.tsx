@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
-  Megaphone,
   Search,
   Calendar,
   Phone,
@@ -31,6 +30,8 @@ import {
   WifiOff,
   Flame,
 } from 'lucide-react';
+import { AppLayout } from '@/components/AppLayout';
+import { Header } from '@/components/Header';
 import { CustomerAudienceMember, BroadcastCustomersResponse } from '../api/broadcast/customers/route';
 
 // Pre-configured marketing offer templates
@@ -619,15 +620,18 @@ export default function BroadcastMarketingPage() {
   const progressPercent = broadcastQueue.total > 0 ? Math.round((broadcastQueue.currentIndex / broadcastQueue.total) * 100) : 0;
 
   return (
+    <AppLayout>
+      <Header onSyncComplete={() => fetchAudience(false)} />
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8">
     <div className="space-y-6 pb-20">
       {/* ── Toast Alert Banner ──────────────────────────────────────────────── */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 border border-slate-700 animate-in fade-in slide-in-from-bottom-3 duration-200">
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-2xl flex items-center gap-3 border border-slate-700 animate-in fade-in slide-in-from-bottom-3 duration-200">
           <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           <span className="text-sm font-semibold">{toastMessage}</span>
           <button
             onClick={() => setToastMessage(null)}
-            className="text-slate-400 hover:text-white ml-2 text-xs font-bold"
+            className="text-slate-400 hover:text-white ml-2 text-xs font-semibold"
           >
             ✕
           </button>
@@ -638,16 +642,9 @@ export default function BroadcastMarketingPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm">
-              <Megaphone className="w-5 h-5" />
-            </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                Customer Broadcast & Offers
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 font-medium">
-                Auto-aggregated customer directory, 30-day date filters, and 1-click automated bulk WhatsApp campaigns.
-              </p>
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Broadcast</h1>
+              <p className="text-sm text-slate-500 mt-1">Message your customers on WhatsApp or email.</p>
             </div>
           </div>
         </div>
@@ -655,18 +652,18 @@ export default function BroadcastMarketingPage() {
         {/* WhatsApp Device Connection Pill */}
         <div className="flex items-center gap-2.5 self-start md:self-auto">
           {waConnection.status === 'connected' ? (
-            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-2xl px-3.5 py-2 text-emerald-950 shadow-xs">
+            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3.5 py-2 text-emerald-950">
               <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
               <div className="text-xs">
-                <span className="font-bold text-emerald-900">WhatsApp Linked: </span>
-                <span className="font-mono font-black text-emerald-800">
+                <span className="font-semibold text-emerald-900">WhatsApp Linked: </span>
+                <span className="font-mono font-semibold text-emerald-800">
                   +{waConnection.user?.phone || 'Connected'}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={handleLogoutWhatsApp}
-                className="text-[10px] text-red-600 hover:text-red-800 font-bold ml-1 p-1 hover:bg-red-100 rounded-md transition-all flex items-center gap-0.5"
+                className="text-xs text-red-600 hover:text-red-800 font-semibold ml-1 p-1 hover:bg-red-100 rounded-md transition-all flex items-center gap-0.5"
                 title="Unlink WhatsApp"
               >
                 <Unlink className="w-3 h-3" />
@@ -678,7 +675,7 @@ export default function BroadcastMarketingPage() {
               type="button"
               onClick={() => handleConnectWhatsApp(true)}
               disabled={isConnectingWa}
-              className="px-4 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center gap-2 shadow-sm transition-all animate-pulse"
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center gap-2 shadow-sm transition-all animate-pulse"
             >
               <QrCode className="w-4 h-4 text-emerald-200" />
               <span>📲 Link WhatsApp (1-Click Auto-Pilot)</span>
@@ -688,7 +685,7 @@ export default function BroadcastMarketingPage() {
           <button
             onClick={() => fetchAudience(false)}
             disabled={isRefreshing}
-            className="px-3 py-2 rounded-2xl bg-white border border-slate-200 hover:border-slate-300 text-slate-700 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all"
+            className="px-3 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 text-slate-700 font-semibold text-xs flex items-center gap-1.5 transition-all"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span>{isRefreshing ? 'Updating...' : 'Refresh'}</span>
@@ -699,82 +696,82 @@ export default function BroadcastMarketingPage() {
       {/* ── Top Metric KPI Cards ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
         {/* Total Customers */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-1">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Total Audience</span>
+            <span className="text-xs font-semibold">Total Audience</span>
             <Users className="w-4 h-4 text-blue-500" />
           </div>
-          <div className="text-2xl font-black text-slate-900">
+          <div className="text-2xl font-semibold text-slate-900">
             {metrics.totalCustomers.toLocaleString()}
           </div>
-          <p className="text-[10px] text-slate-500 font-medium">
+          <p className="text-xs text-slate-500 font-medium">
             Unique in {metrics.activeTimeframeLabel}
           </p>
         </div>
 
         {/* WhatsApp Reachable */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-1">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">WhatsApp Reach</span>
+            <span className="text-xs font-semibold text-emerald-700">WhatsApp Reach</span>
             <Phone className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="text-2xl font-black text-emerald-700">
+          <div className="text-2xl font-semibold text-emerald-700">
             {metrics.totalPhones.toLocaleString()}
           </div>
-          <p className="text-[10px] text-emerald-600/80 font-medium">
+          <p className="text-xs text-emerald-600/80 font-medium">
             Verified phone numbers
           </p>
         </div>
 
         {/* Email Reachable */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-1">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">Email Reach</span>
+            <span className="text-xs font-semibold text-indigo-700">Email Reach</span>
             <Mail className="w-4 h-4 text-indigo-600" />
           </div>
-          <div className="text-2xl font-black text-indigo-700">
+          <div className="text-2xl font-semibold text-indigo-700">
             {metrics.totalEmails.toLocaleString()}
           </div>
-          <p className="text-[10px] text-indigo-600/80 font-medium">
+          <p className="text-xs text-indigo-600/80 font-medium">
             Available email contacts
           </p>
         </div>
 
         {/* Total Orders */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-1">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Orders in Period</span>
+            <span className="text-xs font-semibold">Orders in Period</span>
             <ShoppingBag className="w-4 h-4 text-amber-500" />
           </div>
-          <div className="text-2xl font-black text-slate-900">
+          <div className="text-2xl font-semibold text-slate-900">
             {metrics.totalOrdersInPeriod.toLocaleString()}
           </div>
-          <p className="text-[10px] text-slate-500 font-medium">
+          <p className="text-xs text-slate-500 font-medium">
             Completed delivery orders
           </p>
         </div>
 
         {/* Total Spend Volume */}
-        <div className="col-span-2 lg:col-span-1 bg-gradient-to-br from-slate-900 to-slate-800 text-white p-4 rounded-2xl shadow-xs space-y-1">
+        <div className="col-span-2 lg:col-span-1 bg-slate-900 text-white p-4 rounded-xl space-y-1">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400">Spend Volume</span>
+            <span className="text-xs font-semibold text-amber-400">Spend Volume</span>
             <Sparkles className="w-4 h-4 text-amber-400" />
           </div>
-          <div className="text-2xl font-black text-white">
+          <div className="text-2xl font-semibold text-white">
             ₦{metrics.totalSpentInPeriod.toLocaleString()}
           </div>
-          <p className="text-[10px] text-slate-400 font-medium">
+          <p className="text-xs text-slate-400 font-medium">
             Revenue generated in window
           </p>
         </div>
       </div>
 
       {/* ── Date Range & Audience Filters Bar ───────────────────────────────── */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+      <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Timeframe selector pills */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
-            <span className="text-xs font-black text-slate-400 uppercase tracking-wider mr-1 flex items-center gap-1 shrink-0">
+            <span className="text-xs font-semibold text-slate-400 mr-1 flex items-center gap-1 shrink-0">
               <Calendar className="w-3.5 h-3.5" />
               Window:
             </span>
@@ -790,9 +787,9 @@ export default function BroadcastMarketingPage() {
                 key={btn.id}
                 type="button"
                 onClick={() => setTimeframe(btn.id as any)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border ${
                   timeframe === btn.id
-                    ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                    ? 'bg-amber-500 text-white border-amber-500'
                     : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
@@ -810,7 +807,7 @@ export default function BroadcastMarketingPage() {
         {/* Custom date range pickers */}
         {timeframe === 'custom' && (
           <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 flex flex-wrap items-center gap-3 animate-in fade-in duration-150">
-            <span className="text-xs font-bold text-amber-900">Custom Date Boundaries:</span>
+            <span className="text-xs font-semibold text-amber-900">Custom Date Boundaries:</span>
             <div className="flex items-center gap-2">
               <label className="text-xs font-semibold text-amber-800">From:</label>
               <input
@@ -832,7 +829,7 @@ export default function BroadcastMarketingPage() {
             <button
               type="button"
               onClick={() => fetchAudience(true)}
-              className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs"
+              className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs"
             >
               Apply Filter
             </button>
@@ -859,7 +856,7 @@ export default function BroadcastMarketingPage() {
             <select
               value={selectedCafeteria}
               onChange={(e) => setSelectedCafeteria(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-amber-500 appearance-none"
+              className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-amber-500 appearance-none"
             >
               <option value="all">All Cafeterias (Any Vendor)</option>
               {availableCafeterias.map((caf) => (
@@ -877,14 +874,14 @@ export default function BroadcastMarketingPage() {
 
         {/* Left Side: Campaign Composer (7 Cols) */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-4">
             {/* Channel Tabs */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setActiveChannel('whatsapp')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all ${
                     activeChannel === 'whatsapp'
                       ? 'bg-emerald-600 text-white shadow-sm'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -896,7 +893,7 @@ export default function BroadcastMarketingPage() {
                 <button
                   type="button"
                   onClick={() => setActiveChannel('email')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all ${
                     activeChannel === 'email'
                       ? 'bg-indigo-600 text-white shadow-sm'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -907,14 +904,14 @@ export default function BroadcastMarketingPage() {
                 </button>
               </div>
 
-              <span className="text-[11px] font-bold text-slate-400">
+              <span className="text-xs font-semibold text-slate-400">
                 Targeting <strong className="text-slate-900">{targetCustomers.length}</strong> recipients
               </span>
             </div>
 
             {/* Campaign Preset Templates */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                 Select Offer Preset:
               </label>
@@ -926,7 +923,7 @@ export default function BroadcastMarketingPage() {
                       key={p.id}
                       type="button"
                       onClick={() => handleSelectPreset(p.id)}
-                      className={`p-2.5 rounded-xl text-left border transition-all text-xs font-bold flex items-start justify-between gap-2 ${
+                      className={`p-2.5 rounded-xl text-left border transition-all text-xs font-semibold flex items-start justify-between gap-2 ${
                         isSelected
                           ? 'border-amber-500 bg-amber-50/70 text-amber-950 ring-1 ring-amber-400'
                           : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-white'
@@ -944,7 +941,7 @@ export default function BroadcastMarketingPage() {
 
             {/* Dynamic Placeholder Tag Insert Buttons */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <label className="text-xs font-semibold text-slate-500">
                 Click to Insert Personalization Tag:
               </label>
               <div className="flex flex-wrap items-center gap-1.5">
@@ -959,7 +956,7 @@ export default function BroadcastMarketingPage() {
                     key={t.tag}
                     type="button"
                     onClick={() => handleInsertTag(t.tag)}
-                    className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-amber-100 hover:text-amber-900 border border-slate-200 text-slate-700 text-[11px] font-mono font-bold transition-all"
+                    className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-amber-100 hover:text-amber-900 border border-slate-200 text-slate-700 text-xs font-mono font-semibold transition-all"
                   >
                     + {`{{${t.tag}}}`}
                   </button>
@@ -970,7 +967,7 @@ export default function BroadcastMarketingPage() {
             {/* Composer Input Area */}
             {activeChannel === 'whatsapp' ? (
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">WhatsApp Message Content:</label>
+                <label className="text-xs font-semibold text-slate-700">WhatsApp Message Content:</label>
                 <textarea
                   rows={5}
                   value={customWhatsappMsg}
@@ -978,24 +975,24 @@ export default function BroadcastMarketingPage() {
                   className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 leading-relaxed font-sans"
                   placeholder="Type your WhatsApp broadcast message here..."
                 />
-                <p className="text-[10px] text-slate-400">
+                <p className="text-xs text-slate-400">
                   Tip: Use WhatsApp markdown such as <code className="font-mono text-slate-600">*bold*</code>, <code className="font-mono text-slate-600">_italics_</code>, and emojis.
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700">Email Subject Line:</label>
+                  <label className="text-xs font-semibold text-slate-700">Email Subject Line:</label>
                   <input
                     type="text"
                     value={customEmailSubject}
                     onChange={(e) => setCustomEmailSubject(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                     placeholder="Enter email subject..."
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700">Email Body:</label>
+                  <label className="text-xs font-semibold text-slate-700">Email Body:</label>
                   <textarea
                     rows={6}
                     value={customEmailBody}
@@ -1017,7 +1014,7 @@ export default function BroadcastMarketingPage() {
                       type="button"
                       onClick={handleLaunchAutomatedBroadcast}
                       disabled={targetWhatsAppCustomers.length === 0}
-                      className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center gap-2 shadow-md transition-all disabled:opacity-50 ring-2 ring-emerald-300"
+                      className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center gap-2 shadow-sm transition-all disabled:opacity-50 ring-2 ring-emerald-300"
                     >
                       <Send className="w-4 h-4" />
                       <span>🚀 Launch 1-Click Broadcast ({targetWhatsAppCustomers.length} People)</span>
@@ -1030,7 +1027,7 @@ export default function BroadcastMarketingPage() {
                         setQueueIndex(0);
                         setQueueModalOpen(true);
                       }}
-                      className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all"
+                      className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center gap-1.5 transition-all"
                       title="Step through sending manually"
                     >
                       <span>Manual Step Queue</span>
@@ -1039,7 +1036,7 @@ export default function BroadcastMarketingPage() {
                     <button
                       type="button"
                       onClick={() => handleCopyNumbers(',')}
-                      className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all"
+                      className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center gap-1.5 transition-all"
                     >
                       <Copy className="w-3.5 h-3.5" />
                       <span>Copy Numbers</span>
@@ -1048,7 +1045,7 @@ export default function BroadcastMarketingPage() {
                     <button
                       type="button"
                       onClick={handleExportVCF}
-                      className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all"
+                      className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center gap-1.5 transition-all"
                     >
                       <Phone className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Export VCF</span>
@@ -1060,7 +1057,7 @@ export default function BroadcastMarketingPage() {
                       type="button"
                       onClick={handleOpenBCCEmail}
                       disabled={targetEmailCustomers.length === 0}
-                      className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center gap-2 shadow-sm transition-all disabled:opacity-50"
+                      className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs flex items-center gap-2 shadow-sm transition-all disabled:opacity-50"
                     >
                       <Mail className="w-3.5 h-3.5" />
                       <span>Open 1-Click BCC in Mail App ({targetEmailCustomers.length})</span>
@@ -1069,7 +1066,7 @@ export default function BroadcastMarketingPage() {
                     <button
                       type="button"
                       onClick={handleExportCSV}
-                      className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all"
+                      className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center gap-1.5 transition-all"
                     >
                       <FileSpreadsheet className="w-3.5 h-3.5 text-indigo-600" />
                       <span>Export Email List (CSV)</span>
@@ -1081,7 +1078,7 @@ export default function BroadcastMarketingPage() {
               <button
                 type="button"
                 onClick={handleExportCSV}
-                className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1"
+                className="text-xs font-semibold text-amber-700 hover:underline flex items-center gap-1"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Full Directory CSV</span>
@@ -1092,26 +1089,26 @@ export default function BroadcastMarketingPage() {
 
         {/* Right Side: Live Interactive Phone Preview (5 Cols) */}
         <div className="lg:col-span-5 space-y-4">
-          <div className="bg-slate-900 rounded-3xl p-4 shadow-xl border-4 border-slate-800 text-white space-y-3">
+          <div className="bg-slate-900 rounded-xl p-4 shadow-xl border-4 border-slate-800 text-white space-y-3">
             {/* Phone notch header */}
-            <div className="flex items-center justify-between text-slate-400 text-[10px] px-2">
-              <span className="font-mono font-bold">GoChow Campaign Preview</span>
+            <div className="flex items-center justify-between text-slate-400 text-xs px-2">
+              <span className="font-mono font-semibold">GoChow Campaign Preview</span>
               <div className="w-16 h-3 bg-slate-800 rounded-full mx-auto" />
-              <span className="text-emerald-400 font-bold">Live</span>
+              <span className="text-emerald-400 font-semibold">Live</span>
             </div>
 
             {/* Target Sample Customer Header */}
             {customers.length > 0 && (
-              <div className="bg-slate-800/80 rounded-2xl p-2.5 border border-slate-700/80 flex items-center justify-between text-xs">
+              <div className="bg-slate-800/80 rounded-xl p-2.5 border border-slate-700/80 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 rounded-xl bg-amber-500 text-white font-black flex items-center justify-center shrink-0 text-xs">
+                  <div className="w-7 h-7 rounded-xl bg-amber-500 text-white font-semibold flex items-center justify-center shrink-0 text-xs">
                     {(customers[0]?.name || 'C').charAt(0)}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-slate-100 text-xs truncate">
+                    <p className="font-semibold text-slate-100 text-xs truncate">
                       Preview for: <span className="text-amber-400">{customers[0]?.name}</span>
                     </p>
-                    <p className="text-[10px] text-slate-400 truncate">
+                    <p className="text-xs text-slate-400 truncate">
                       {customers[0]?.phone || 'No phone'} • {customers[0]?.favoriteCafeteria}
                     </p>
                   </div>
@@ -1121,8 +1118,8 @@ export default function BroadcastMarketingPage() {
 
             {/* Chat bubble screen */}
             {activeChannel === 'whatsapp' ? (
-              <div className="bg-[#0b141a] rounded-2xl p-4 min-h-[220px] flex flex-col justify-end border border-slate-800 relative overflow-hidden">
-                <div className="bg-[#005c4b] text-slate-100 p-3.5 rounded-2xl rounded-tr-none text-xs leading-relaxed space-y-2 shadow-md border border-[#02735e]">
+              <div className="bg-[#0b141a] rounded-xl p-4 min-h-[220px] flex flex-col justify-end border border-slate-800 relative overflow-hidden">
+                <div className="bg-[#005c4b] text-slate-100 p-3.5 rounded-xl rounded-tr-none text-xs leading-relaxed space-y-2 shadow-sm border border-[#02735e]">
                   <p className="whitespace-pre-wrap font-sans">
                     {customers.length > 0
                       ? formatMessageForCustomer(customWhatsappMsg, customers[0])
@@ -1135,12 +1132,12 @@ export default function BroadcastMarketingPage() {
                 </div>
               </div>
             ) : (
-              <div className="bg-slate-950 rounded-2xl p-4 min-h-[220px] border border-slate-800 space-y-3">
+              <div className="bg-slate-950 rounded-xl p-4 min-h-[220px] border border-slate-800 space-y-3">
                 <div className="border-b border-slate-800 pb-2 space-y-1">
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-xs text-slate-400">
                     Subject: <strong className="text-slate-200">{customEmailSubject}</strong>
                   </p>
-                  <p className="text-[10px] text-slate-500">
+                  <p className="text-xs text-slate-500">
                     To: <span className="text-slate-300">{customers[0]?.email || 'customer@gmail.com'}</span>
                   </p>
                 </div>
@@ -1152,7 +1149,7 @@ export default function BroadcastMarketingPage() {
               </div>
             )}
 
-            <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/60 text-[11px] text-slate-300 flex items-center justify-between">
+            <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/60 text-xs text-slate-300 flex items-center justify-between">
               <span className="flex items-center gap-1.5 font-medium">
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                 Tags auto-replace for every single customer
@@ -1163,7 +1160,7 @@ export default function BroadcastMarketingPage() {
       </div>
 
       {/* ── Customer Audience Directory Table ───────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden space-y-0">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden space-y-0">
         <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
           <div className="flex items-center gap-3">
             <input
@@ -1173,10 +1170,10 @@ export default function BroadcastMarketingPage() {
               className="w-4 h-4 rounded-md text-amber-600 focus:ring-amber-500 border-slate-300 cursor-pointer"
             />
             <div>
-              <h2 className="text-sm font-black text-slate-900">
+              <h2 className="text-sm font-semibold text-slate-900">
                 Audience Directory ({customers.length} Customers)
               </h2>
-              <p className="text-[11px] text-slate-500 font-medium">
+              <p className="text-xs text-slate-500 font-medium">
                 Aggregated from synced orders in {metrics.activeTimeframeLabel}
               </p>
             </div>
@@ -1186,7 +1183,7 @@ export default function BroadcastMarketingPage() {
             <button
               type="button"
               onClick={handleExportCSV}
-              className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-xs"
+              className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-semibold flex items-center gap-1.5"
             >
               <Download className="w-3 h-3" />
               <span>Export CSV</span>
@@ -1197,18 +1194,18 @@ export default function BroadcastMarketingPage() {
         {isLoading ? (
           <div className="py-20 text-center space-y-3">
             <RefreshCw className="w-8 h-8 mx-auto text-amber-500 animate-spin" />
-            <p className="text-xs font-bold text-slate-500">Aggregating customer directory from orders...</p>
+            <p className="text-xs font-semibold text-slate-500">Aggregating customer directory from orders...</p>
           </div>
         ) : customers.length === 0 ? (
           <div className="py-16 text-center space-y-2 p-6">
             <Users className="w-10 h-10 mx-auto text-slate-300 stroke-[1.5]" />
-            <h3 className="text-sm font-bold text-slate-700">No Customers Found</h3>
+            <h3 className="text-sm font-semibold text-slate-700">No Customers Found</h3>
             <p className="text-xs text-slate-400 max-w-sm mx-auto">
               No orders found matching the timeframe "{metrics.activeTimeframeLabel}". Try selecting "All Time" or widening the date range.
             </p>
             <button
               onClick={() => setTimeframe('all')}
-              className="mt-2 px-3.5 py-1.5 rounded-xl bg-slate-900 text-white font-bold text-xs"
+              className="mt-2 px-3.5 py-1.5 rounded-xl bg-slate-900 text-white font-semibold text-xs"
             >
               View All-Time Customers
             </button>
@@ -1216,7 +1213,7 @@ export default function BroadcastMarketingPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold text-xs">
                 <tr>
                   <th className="p-3.5 pl-4 w-10">Select</th>
                   <th className="p-3.5">Customer</th>
@@ -1254,12 +1251,12 @@ export default function BroadcastMarketingPage() {
                       {/* Customer Name */}
                       <td className="p-3.5">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 font-black text-slate-700 flex items-center justify-center shrink-0 text-xs">
+                          <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 font-semibold text-slate-700 flex items-center justify-center shrink-0 text-xs">
                             {cust.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-900">{cust.name}</p>
-                            <p className="text-[10px] text-slate-400 truncate max-w-[140px]">
+                            <p className="font-semibold text-slate-900">{cust.name}</p>
+                            <p className="text-xs text-slate-400 truncate max-w-[140px]">
                               {cust.lastAddress}
                             </p>
                           </div>
@@ -1270,7 +1267,7 @@ export default function BroadcastMarketingPage() {
                       <td className="p-3.5">
                         {cust.phone ? (
                           <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-slate-700 font-bold">{cust.phone}</span>
+                            <span className="font-mono text-slate-700 font-semibold">{cust.phone}</span>
                             <button
                               type="button"
                               onClick={() => {
@@ -1284,7 +1281,7 @@ export default function BroadcastMarketingPage() {
                             </button>
                           </div>
                         ) : (
-                          <span className="text-[10px] text-slate-400 italic">None recorded</span>
+                          <span className="text-xs text-slate-400 italic">None recorded</span>
                         )}
                       </td>
 
@@ -1306,19 +1303,19 @@ export default function BroadcastMarketingPage() {
                             </button>
                           </div>
                         ) : (
-                          <span className="text-[10px] text-slate-400 italic">None</span>
+                          <span className="text-xs text-slate-400 italic">None</span>
                         )}
                       </td>
 
                       {/* Order Count */}
                       <td className="p-3.5">
-                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 font-black text-[10px]">
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 font-semibold text-xs">
                           {cust.orderCount} order{cust.orderCount > 1 ? 's' : ''}
                         </span>
                       </td>
 
                       {/* Total Spent */}
-                      <td className="p-3.5 font-bold text-slate-900">
+                      <td className="p-3.5 font-semibold text-slate-900">
                         ₦{cust.totalSpent.toLocaleString()}
                       </td>
 
@@ -1330,7 +1327,7 @@ export default function BroadcastMarketingPage() {
                       </td>
 
                       {/* Last Active */}
-                      <td className="p-3.5 text-slate-500 text-[11px]">
+                      <td className="p-3.5 text-slate-500 text-xs">
                         {new Date(cust.lastOrderDate).toLocaleDateString(undefined, {
                           month: 'short',
                           day: 'numeric',
@@ -1345,13 +1342,13 @@ export default function BroadcastMarketingPage() {
                               href={whatsappUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 font-bold text-[11px] flex items-center gap-1 transition-all shadow-2xs"
+                              className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 font-semibold text-xs flex items-center gap-1 transition-all"
                             >
                               <MessageSquare className="w-3 h-3" />
                               <span>WhatsApp</span>
                             </a>
                           ) : (
-                            <span className="text-[10px] text-slate-300">No WhatsApp</span>
+                            <span className="text-xs text-slate-300">No WhatsApp</span>
                           )}
 
                           {cust.email && (
@@ -1361,7 +1358,7 @@ export default function BroadcastMarketingPage() {
                               )}&body=${encodeURIComponent(
                                 formatMessageForCustomer(customEmailBody, cust)
                               )}`}
-                              className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 transition-all shadow-2xs"
+                              className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 transition-all"
                               title="Send single email"
                             >
                               <Mail className="w-3.5 h-3.5" />
@@ -1381,28 +1378,28 @@ export default function BroadcastMarketingPage() {
       {/* ── WhatsApp Linking Modal (QR Code & Phone Pairing Code) ─────────── */}
       {isQrModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden space-y-0 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white w-full max-w-md rounded-xl shadow-2xl border border-slate-100 overflow-hidden space-y-0 animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
             <div className="bg-emerald-600 text-white p-5 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-white text-emerald-600 flex items-center justify-center shadow-xs">
+                <div className="w-8 h-8 rounded-xl bg-white text-emerald-600 flex items-center justify-center">
                   <Smartphone className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black">Link WhatsApp Account</h3>
-                  <p className="text-[10px] text-emerald-100">For 1-click automated background dispatch</p>
+                  <h3 className="text-sm font-semibold">Link WhatsApp Account</h3>
+                  <p className="text-xs text-emerald-100">For 1-click automated background dispatch</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsQrModalOpen(false)}
-                className="text-emerald-200 hover:text-white text-sm font-bold p-1"
+                className="text-emerald-200 hover:text-white text-sm font-semibold p-1"
               >
                 ✕
               </button>
             </div>
 
             {/* Linking Method Tabs */}
-            <div className="grid grid-cols-2 p-2 bg-slate-100 border-b border-slate-200 gap-1 text-xs font-bold">
+            <div className="grid grid-cols-2 p-2 bg-slate-100 border-b border-slate-200 gap-1 text-xs font-semibold">
               <button
                 type="button"
                 onClick={() => {
@@ -1411,7 +1408,7 @@ export default function BroadcastMarketingPage() {
                 }}
                 className={`py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
                   linkTab === 'qr'
-                    ? 'bg-white text-emerald-800 shadow-xs'
+                    ? 'bg-white text-emerald-800'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -1423,7 +1420,7 @@ export default function BroadcastMarketingPage() {
                 onClick={() => setLinkTab('pairing')}
                 className={`py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
                   linkTab === 'pairing'
-                    ? 'bg-white text-emerald-800 shadow-xs'
+                    ? 'bg-white text-emerald-800'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -1439,7 +1436,7 @@ export default function BroadcastMarketingPage() {
                 <div className="space-y-4">
                   {waConnection.qrCodeDataUrl ? (
                     <div className="space-y-3">
-                      <div className="inline-block p-3 bg-white rounded-2xl border-2 border-slate-200 shadow-md">
+                      <div className="inline-block p-3 bg-white rounded-xl border-2 border-slate-200 shadow-sm">
                         <img
                           src={waConnection.qrCodeDataUrl}
                           alt="WhatsApp QR Code"
@@ -1447,7 +1444,7 @@ export default function BroadcastMarketingPage() {
                         />
                       </div>
                       <div className="flex items-center justify-center gap-2">
-                        <p className="text-xs font-bold text-slate-800 animate-pulse flex items-center gap-1.5">
+                        <p className="text-xs font-semibold text-slate-800 animate-pulse flex items-center gap-1.5">
                           <span className="w-2 h-2 rounded-full bg-emerald-500" />
                           Scan QR code with your phone
                         </p>
@@ -1455,7 +1452,7 @@ export default function BroadcastMarketingPage() {
                           type="button"
                           onClick={() => handleConnectWhatsApp(true)}
                           disabled={isConnectingWa}
-                          className="text-[11px] text-emerald-700 hover:text-emerald-900 font-bold underline flex items-center gap-1"
+                          className="text-xs text-emerald-700 hover:text-emerald-900 font-semibold underline flex items-center gap-1"
                           title="Generate a fresh QR code"
                         >
                           <RefreshCw className={`w-3 h-3 ${isConnectingWa ? 'animate-spin' : ''}`} />
@@ -1466,14 +1463,14 @@ export default function BroadcastMarketingPage() {
                   ) : isConnectingWa || waConnection.status === 'connecting' ? (
                     <div className="py-12 space-y-3">
                       <RefreshCw className="w-10 h-10 mx-auto text-emerald-500 animate-spin" />
-                      <p className="text-xs font-bold text-slate-600">Generating secure WhatsApp QR code...</p>
+                      <p className="text-xs font-semibold text-slate-600">Generating secure WhatsApp QR code...</p>
                     </div>
                   ) : waConnection.status === 'connected' ? (
                     <div className="py-10 space-y-3">
                       <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center">
                         <Check className="w-6 h-6 stroke-[3]" />
                       </div>
-                      <h4 className="text-base font-black text-slate-900">WhatsApp is Connected!</h4>
+                      <h4 className="text-base font-semibold text-slate-900">WhatsApp is Connected!</h4>
                       <p className="text-xs text-slate-500">You can now launch 1-click broadcasts to all customers.</p>
                     </div>
                   ) : (
@@ -1483,7 +1480,7 @@ export default function BroadcastMarketingPage() {
                       <button
                         type="button"
                         onClick={() => handleConnectWhatsApp(true)}
-                        className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-xs"
+                        className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold"
                       >
                         Generate QR Code
                       </button>
@@ -1491,9 +1488,9 @@ export default function BroadcastMarketingPage() {
                   )}
 
                   {/* QR Step-by-Step Instructions */}
-                  <div className="text-left bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs space-y-2">
-                    <p className="font-bold text-slate-900">How to scan on your phone:</p>
-                    <ol className="list-decimal list-inside space-y-1 text-slate-600 text-[11px] leading-relaxed">
+                  <div className="text-left bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs space-y-2">
+                    <p className="font-semibold text-slate-900">How to scan on your phone:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-slate-600 text-xs leading-relaxed">
                       <li>Open <strong>WhatsApp</strong> or <strong>WhatsApp Business</strong>.</li>
                       <li>Tap <strong>Settings (⚙️)</strong> or <strong>Menu (⋮)</strong> → <strong>Linked Devices</strong>.</li>
                       <li>Tap <strong>Link a Device</strong> and scan this QR code.</li>
@@ -1506,19 +1503,19 @@ export default function BroadcastMarketingPage() {
               {linkTab === 'pairing' && (
                 <div className="space-y-4">
                   <div className="text-left space-y-1">
-                    <label className="text-xs font-bold text-slate-700">Enter Your Phone Number:</label>
+                    <label className="text-xs font-semibold text-slate-700">Enter Your Phone Number:</label>
                     <form onSubmit={handleRequestPairingCode} className="flex gap-2">
                       <input
                         type="tel"
                         value={pairingPhoneInput}
                         onChange={(e) => setPairingPhoneInput(e.target.value)}
                         placeholder="e.g. 08012345678 or 2348012345678"
-                        className="flex-1 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono"
+                        className="flex-1 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono"
                       />
                       <button
                         type="submit"
                         disabled={isRequestingPairing}
-                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs shrink-0 disabled:opacity-50"
+                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shrink-0 disabled:opacity-50"
                       >
                         {isRequestingPairing ? 'Generating...' : 'Get Code'}
                       </button>
@@ -1526,27 +1523,27 @@ export default function BroadcastMarketingPage() {
                   </div>
 
                   {waConnection.pairingCode ? (
-                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 space-y-2">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 space-y-2">
+                      <p className="text-xs font-semibold text-emerald-800">
                         Your 8-Character Pairing Code:
                       </p>
-                      <div className="text-2xl font-mono font-black text-emerald-900 tracking-widest bg-white py-2 rounded-xl border border-emerald-200 shadow-2xs">
+                      <div className="text-2xl font-mono font-semibold text-emerald-900 bg-white py-2 rounded-xl border border-emerald-200">
                         {waConnection.pairingCode}
                       </div>
-                      <p className="text-[11px] text-emerald-700 font-medium">
+                      <p className="text-xs text-emerald-700 font-medium">
                         Enter this code on your phone when prompted!
                       </p>
                     </div>
                   ) : (
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-xs text-slate-400">
                       Enter your WhatsApp phone number above to get an 8-character code.
                     </p>
                   )}
 
                   {/* Pairing Instructions */}
-                  <div className="text-left bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs space-y-2">
-                    <p className="font-bold text-slate-900">How to link with code:</p>
-                    <ol className="list-decimal list-inside space-y-1 text-slate-600 text-[11px] leading-relaxed">
+                  <div className="text-left bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs space-y-2">
+                    <p className="font-semibold text-slate-900">How to link with code:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-slate-600 text-xs leading-relaxed">
                       <li>Open <strong>WhatsApp</strong> on your phone.</li>
                       <li>Go to <strong>Linked Devices → Link a Device</strong>.</li>
                       <li>Tap <strong>"Link with phone number instead"</strong> at the bottom.</li>
@@ -1565,7 +1562,7 @@ export default function BroadcastMarketingPage() {
       {/* ── Automated Broadcast Live Monitor Modal ──────────────────────────── */}
       {isBroadcastModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden space-y-0 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white w-full max-w-xl rounded-xl shadow-2xl border border-slate-100 overflow-hidden space-y-0 animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
             <div className="bg-slate-900 text-white p-5 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -1573,15 +1570,15 @@ export default function BroadcastMarketingPage() {
                   <Send className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black">Live Automated Broadcast Monitor</h3>
-                  <p className="text-[10px] text-slate-400">
-                    Status: <strong className="uppercase text-emerald-400">{broadcastQueue.status}</strong>
+                  <h3 className="text-sm font-semibold">Live Automated Broadcast Monitor</h3>
+                  <p className="text-xs text-slate-400">
+                    Status: <strong className=" text-emerald-400">{broadcastQueue.status}</strong>
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsBroadcastModalOpen(false)}
-                className="text-slate-400 hover:text-white text-sm font-bold p-1"
+                className="text-slate-400 hover:text-white text-sm font-semibold p-1"
                 title="Minimize (keeps running in background)"
               >
                 ✕
@@ -1592,7 +1589,7 @@ export default function BroadcastMarketingPage() {
             <div className="p-6 space-y-5">
               {/* Animated Progress Bar */}
               <div className="space-y-2">
-                <div className="flex justify-between text-xs font-black text-slate-700">
+                <div className="flex justify-between text-xs font-semibold text-slate-700">
                   <span>Campaign Progress</span>
                   <span>{progressPercent}%</span>
                 </div>
@@ -1603,7 +1600,7 @@ export default function BroadcastMarketingPage() {
                         ? 'bg-emerald-500'
                         : broadcastQueue.status === 'paused'
                         ? 'bg-amber-500'
-                        : 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                        : 'bg-emerald-500'
                     }`}
                     style={{ width: `${progressPercent}%` }}
                   />
@@ -1612,37 +1609,37 @@ export default function BroadcastMarketingPage() {
 
               {/* Stats Counters */}
               <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                  <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Total Target</p>
-                  <p className="text-lg font-black text-slate-900">{broadcastQueue.total}</p>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <p className="text-xs text-slate-500 font-semibold">Total Target</p>
+                  <p className="text-lg font-semibold text-slate-900">{broadcastQueue.total}</p>
                 </div>
-                <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-200">
-                  <p className="text-[10px] uppercase tracking-wider text-emerald-700 font-bold">Delivered</p>
-                  <p className="text-lg font-black text-emerald-700">{broadcastQueue.sent}</p>
+                <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+                  <p className="text-xs text-emerald-700 font-semibold">Delivered</p>
+                  <p className="text-lg font-semibold text-emerald-700">{broadcastQueue.sent}</p>
                 </div>
-                <div className="bg-rose-50 p-3 rounded-2xl border border-rose-200">
-                  <p className="text-[10px] uppercase tracking-wider text-rose-700 font-bold">Failed / Invalid</p>
-                  <p className="text-lg font-black text-rose-700">{broadcastQueue.failed}</p>
+                <div className="bg-rose-50 p-3 rounded-xl border border-rose-200">
+                  <p className="text-xs text-rose-700 font-semibold">Failed / Invalid</p>
+                  <p className="text-lg font-semibold text-rose-700">{broadcastQueue.failed}</p>
                 </div>
               </div>
 
               {/* Current Active Contact */}
               {broadcastQueue.status === 'running' && broadcastQueue.currentContact && (
-                <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 flex items-center justify-between text-xs animate-pulse">
+                <div className="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200 flex items-center justify-between text-xs animate-pulse">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span className="font-bold text-emerald-950">
+                    <span className="font-semibold text-emerald-950">
                       Currently Sending: <strong className="underline">{broadcastQueue.currentContact.name}</strong> ({broadcastQueue.currentContact.phone})
                     </span>
                   </div>
-                  <span className="text-[10px] text-emerald-800 font-mono font-bold">Pacing...</span>
+                  <span className="text-xs text-emerald-800 font-mono font-semibold">Pacing...</span>
                 </div>
               )}
 
               {/* Campaign Complete Banner */}
               {broadcastQueue.status === 'completed' && (
-                <div className="p-4 rounded-2xl bg-emerald-100 border border-emerald-300 text-emerald-950 text-center space-y-1">
-                  <p className="text-sm font-black">🎉 Broadcast Complete!</p>
+                <div className="p-4 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-950 text-center space-y-1">
+                  <p className="text-sm font-semibold">🎉 Broadcast Complete!</p>
                   <p className="text-xs">
                     Successfully delivered to <strong>{broadcastQueue.sent}</strong> customers directly on WhatsApp.
                   </p>
@@ -1651,10 +1648,10 @@ export default function BroadcastMarketingPage() {
 
               {/* Live Activity Logs */}
               <div className="space-y-1.5">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <p className="text-xs font-semibold text-slate-400">
                   Live Dispatch Activity:
                 </p>
-                <div className="bg-slate-950 text-slate-200 rounded-2xl p-3 max-h-40 overflow-y-auto font-mono text-[11px] space-y-1.5 border border-slate-800 scrollbar-none">
+                <div className="bg-slate-950 text-slate-200 rounded-xl p-3 max-h-40 overflow-y-auto font-mono text-xs space-y-1.5 border border-slate-800 scrollbar-none">
                   {broadcastQueue.logs.length === 0 ? (
                     <p className="text-slate-500 italic">Initializing dispatch queue...</p>
                   ) : (
@@ -1663,7 +1660,7 @@ export default function BroadcastMarketingPage() {
                         <span className="text-slate-500">[{log.timestamp}]</span>
                         <span className="text-slate-300 truncate max-w-[200px]">{log.name} ({log.phone})</span>
                         <span
-                          className={`font-bold px-1.5 py-0.2 rounded text-[9px] ${
+                          className={`font-semibold px-1.5 py-0.2 rounded text-[9px] ${
                             log.status === 'success' ? 'bg-emerald-900/60 text-emerald-300' : 'bg-rose-900/60 text-rose-300'
                           }`}
                         >
@@ -1682,7 +1679,7 @@ export default function BroadcastMarketingPage() {
                     <button
                       type="button"
                       onClick={() => handleControlBroadcast('pause')}
-                      className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs"
+                      className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs flex items-center gap-1.5"
                     >
                       <Pause className="w-3.5 h-3.5" />
                       <span>Pause</span>
@@ -1691,7 +1688,7 @@ export default function BroadcastMarketingPage() {
                     <button
                       type="button"
                       onClick={() => handleControlBroadcast('resume')}
-                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs"
+                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center gap-1.5"
                     >
                       <Play className="w-3.5 h-3.5" />
                       <span>Resume</span>
@@ -1702,7 +1699,7 @@ export default function BroadcastMarketingPage() {
                     <button
                       type="button"
                       onClick={() => handleControlBroadcast('stop')}
-                      className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs flex items-center gap-1 border border-rose-200"
+                      className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs flex items-center gap-1 border border-rose-200"
                     >
                       <Square className="w-3.5 h-3.5" />
                       <span>Stop Campaign</span>
@@ -1713,7 +1710,7 @@ export default function BroadcastMarketingPage() {
                 <button
                   type="button"
                   onClick={() => setIsBroadcastModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs"
+                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs"
                 >
                   Close Window (Keeps Running)
                 </button>
@@ -1726,7 +1723,7 @@ export default function BroadcastMarketingPage() {
       {/* ── Manual Step-by-Step WhatsApp Queue Modal ────────────────────────── */}
       {queueModalOpen && targetWhatsAppCustomers.length > 0 && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden space-y-0 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white w-full max-w-lg rounded-xl shadow-2xl border border-slate-100 overflow-hidden space-y-0 animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
             <div className="bg-slate-900 text-white p-5 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -1734,15 +1731,15 @@ export default function BroadcastMarketingPage() {
                   <Send className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black">Manual WhatsApp Stepping Queue</h3>
-                  <p className="text-[10px] text-slate-400">
+                  <h3 className="text-sm font-semibold">Manual WhatsApp Stepping Queue</h3>
+                  <p className="text-xs text-slate-400">
                     Contact {queueIndex + 1} of {targetWhatsAppCustomers.length}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setQueueModalOpen(false)}
-                className="text-slate-400 hover:text-white text-sm font-bold p-1"
+                className="text-slate-400 hover:text-white text-sm font-semibold p-1"
               >
                 ✕
               </button>
@@ -1752,7 +1749,7 @@ export default function BroadcastMarketingPage() {
             {targetWhatsAppCustomers[queueIndex] && (
               <div className="p-6 space-y-4">
                 <div className="space-y-1">
-                  <div className="flex justify-between text-[10px] font-bold text-slate-500">
+                  <div className="flex justify-between text-xs font-semibold text-slate-500">
                     <span>Progress</span>
                     <span>{Math.round(((queueIndex + 1) / targetWhatsAppCustomers.length) * 100)}%</span>
                   </div>
@@ -1766,26 +1763,26 @@ export default function BroadcastMarketingPage() {
                   </div>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 space-y-2">
+                <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200 space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-base font-black text-slate-900">
+                      <h4 className="text-base font-semibold text-slate-900">
                         {targetWhatsAppCustomers[queueIndex].name}
                       </h4>
-                      <p className="text-xs font-mono font-bold text-emerald-800">
+                      <p className="text-xs font-mono font-semibold text-emerald-800">
                         {targetWhatsAppCustomers[queueIndex].phone}
                       </p>
                     </div>
-                    <span className="text-[10px] font-bold bg-white px-2.5 py-1 rounded-full border border-emerald-300 text-emerald-900">
+                    <span className="text-xs font-semibold bg-white px-2.5 py-1 rounded-full border border-emerald-300 text-emerald-900">
                       {targetWhatsAppCustomers[queueIndex].favoriteCafeteria}
                     </span>
                   </div>
 
                   <div className="pt-2 border-t border-emerald-200/60 text-xs text-slate-700">
-                    <p className="text-[10px] font-bold text-emerald-900 uppercase tracking-wider mb-1">
+                    <p className="text-xs font-semibold text-emerald-900 mb-1">
                       Personalized Message to Send:
                     </p>
-                    <p className="p-3 bg-white rounded-xl border border-emerald-200/80 whitespace-pre-wrap font-sans text-xs text-slate-800 leading-relaxed shadow-2xs">
+                    <p className="p-3 bg-white rounded-xl border border-emerald-200/80 whitespace-pre-wrap font-sans text-xs text-slate-800 leading-relaxed">
                       {formatMessageForCustomer(
                         customWhatsappMsg,
                         targetWhatsAppCustomers[queueIndex]
@@ -1806,7 +1803,7 @@ export default function BroadcastMarketingPage() {
                           setTimeout(() => setQueueIndex((i) => i + 1), 600);
                         }
                       }}
-                      className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs text-center flex items-center justify-center gap-2 shadow-sm transition-all"
+                      className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs text-center flex items-center justify-center gap-2 shadow-sm transition-all"
                     >
                       <Send className="w-4 h-4" />
                       <span>Send WhatsApp & Next 🚀</span>
@@ -1823,7 +1820,7 @@ export default function BroadcastMarketingPage() {
                         showToast('Reached end of manual queue!');
                       }
                     }}
-                    className="px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs"
+                    className="px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs"
                   >
                     Skip ➔
                   </button>
@@ -1834,5 +1831,7 @@ export default function BroadcastMarketingPage() {
         </div>
       )}
     </div>
+      </main>
+    </AppLayout>
   );
 }

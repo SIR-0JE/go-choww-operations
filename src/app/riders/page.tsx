@@ -334,7 +334,7 @@ export default function RidersPage() {
   const getStatusBadge = (status: string) => {
     if (status === 'Active') {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           Active
         </span>
@@ -342,14 +342,14 @@ export default function RidersPage() {
     }
     if (status === 'On Leave') {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
           <Clock className="w-3 h-3 text-amber-600" />
           On Leave
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
         Inactive
       </span>
     );
@@ -363,41 +363,34 @@ export default function RidersPage() {
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 shadow-sm">
-                <Bike className="w-6 h-6" />
-              </div>
-              <span>Riders Management</span>
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 font-normal mt-1">
-              Register delivery riders, link order assignments, and track automated earnings and run volumes.
-            </p>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Riders</h1>
+            <p className="text-sm text-slate-500 mt-1">Your riders, their deliveries and their pay.</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
             <button
               onClick={() => setIsAddCafModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs sm:text-sm font-bold shadow-xs transition-all"
+              className="inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              <Store className="w-4 h-4 text-amber-600" />
-              <span>+ Add Cafeteria</span>
+              <Store className="w-4 h-4 text-slate-400" />
+              <span>Add cafeteria</span>
             </button>
 
             <Link
               href="/rider/login"
               target="_blank"
-              className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold shadow-sm transition-all"
+              className="inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              <ExternalLink className="w-4 h-4 text-amber-400" />
-              <span>Rider Mobile Portal</span>
+              <ExternalLink className="w-4 h-4 text-slate-400" />
+              <span>Rider app</span>
             </Link>
 
             <button
               onClick={() => setIsRegisterModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-brand-500/20 transition-all hover:scale-[1.01] active:scale-[0.99]"
+              className="inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800"
             >
               <UserPlus className="w-4 h-4" />
-              <span>Register New Rider</span>
+              <span>Register rider</span>
             </button>
           </div>
         </div>
@@ -407,68 +400,68 @@ export default function RidersPage() {
         ───────────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
           {/* Card 1: Active Riders */}
-          <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm space-y-2">
+          <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Fleet</span>
+              <span className="text-xs font-semibold text-slate-500">Active Fleet</span>
               <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
                 <Users className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-900 tabular-nums">
+            <div className="text-2xl sm:text-3xl font-semibold text-slate-900 tabular-nums">
               {summary.activeRiders} <span className="text-xs font-semibold text-slate-400">/ {summary.totalRiders} total</span>
             </div>
-            <p className="text-[11px] text-slate-400 font-medium">Registered dispatch riders</p>
+            <p className="text-xs text-slate-400 font-medium">Registered dispatch riders</p>
           </div>
 
           {/* Card 2: Total Assigned Orders */}
-          <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm space-y-2">
+          <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Deliveries</span>
+              <span className="text-xs font-semibold text-slate-500">Total Deliveries</span>
               <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
                 <PackageCheck className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-900 tabular-nums">
+            <div className="text-2xl sm:text-3xl font-semibold text-slate-900 tabular-nums">
               {summary.totalAssignedOrders}
             </div>
-            <p className="text-[11px] text-emerald-700 font-medium">Orders assigned to riders</p>
+            <p className="text-xs text-emerald-700 font-medium">Orders assigned to riders</p>
           </div>
 
           {/* Card 3: Total Rider Payouts Earned */}
-          <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm space-y-2">
+          <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Payouts</span>
+              <span className="text-xs font-semibold text-slate-500">Total Payouts</span>
               <div className="p-2 rounded-xl bg-brand-50 text-brand-600">
                 <DollarSign className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-brand-600 tabular-nums">
+            <div className="text-2xl sm:text-3xl font-semibold text-brand-600 tabular-nums">
               {formatNaira(summary.totalRiderPayouts)}
             </div>
-            <p className="text-[11px] text-slate-400 font-medium">₦50 Same side + ₦90 Different side</p>
+            <p className="text-xs text-slate-400 font-medium">₦50 Same side + ₦90 Different side</p>
           </div>
 
           {/* Card 4: Avg Orders per Rider */}
-          <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm space-y-2">
+          <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Avg Fleet Volume</span>
+              <span className="text-xs font-semibold text-slate-500">Avg Fleet Volume</span>
               <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
                 <TrendingUp className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-900 tabular-nums">
+            <div className="text-2xl sm:text-3xl font-semibold text-slate-900 tabular-nums">
               {summary.activeRiders > 0
                 ? Math.round(summary.totalAssignedOrders / summary.activeRiders)
                 : 0}
             </div>
-            <p className="text-[11px] text-purple-700 font-medium">Orders per active rider</p>
+            <p className="text-xs text-purple-700 font-medium">Orders per active rider</p>
           </div>
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
             MAIN SUMMARY TABLE & CONTROLS
         ───────────────────────────────────────────────────────────── */}
-        <div className="rounded-2xl bg-white border border-slate-200/90 shadow-sm overflow-hidden space-y-0">
+        <div className="rounded-xl bg-white border border-slate-200 shadow-sm overflow-hidden space-y-0">
           {/* Filter Bar */}
           <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="relative w-full sm:w-80">
@@ -508,7 +501,7 @@ export default function RidersPage() {
                     setStartDate('');
                     setEndDate('');
                   }}
-                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold"
+                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold"
                   title="Clear dates"
                 >
                   ✕
@@ -520,7 +513,7 @@ export default function RidersPage() {
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-600 whitespace-nowrap">
-              <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-extrabold text-[10px] border-b border-slate-200">
+              <thead className="bg-slate-50/80 text-slate-500 font-semibold text-xs border-b border-slate-200">
                 <tr>
                   <th className="px-5 py-3.5">Rider Name</th>
                   <th className="px-5 py-3.5">Contact Phone</th>
@@ -529,7 +522,7 @@ export default function RidersPage() {
                   <th className="px-5 py-3.5 text-center">Total Orders</th>
                   <th className="px-5 py-3.5 text-center">Same-Side (₦50)</th>
                   <th className="px-5 py-3.5 text-center">Different-Side (₦90)</th>
-                  <th className="px-5 py-3.5 text-right font-bold">Total Earnings</th>
+                  <th className="px-5 py-3.5 text-right font-semibold">Total Earnings</th>
                   <th className="px-5 py-3.5 text-center">Actions</th>
                 </tr>
               </thead>
@@ -556,13 +549,13 @@ export default function RidersPage() {
                     return (
                       <tr key={rider.id} className="hover:bg-slate-50/80 transition-colors">
                         {/* Name */}
-                        <td className="px-5 py-4 font-bold text-slate-900 text-sm flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-brand-50 text-brand-600 font-black flex items-center justify-center text-xs border border-brand-200">
+                        <td className="px-5 py-4 font-semibold text-slate-900 text-sm flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-brand-50 text-brand-600 font-semibold flex items-center justify-center text-xs border border-brand-200">
                             {rider.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
                             <span>{rider.name}</span>
-                            <span className="block text-[10px] font-mono text-slate-400 font-normal">PIN: {rider.pin || '1234'}</span>
+                            <span className="block text-xs font-mono text-slate-400 font-normal">PIN: {rider.pin || '1234'}</span>
                           </div>
                         </td>
 
@@ -581,7 +574,7 @@ export default function RidersPage() {
                             <button
                               type="button"
                               onClick={() => handleToggleRiderOnline(rider)}
-                              className="group inline-flex items-center gap-1 text-[10px] font-bold rounded-md px-2 py-0.5 border transition-all active:scale-95"
+                              className="group inline-flex items-center gap-1 text-xs font-semibold rounded-md px-2 py-0.5 border transition-all"
                               title={`Click to set rider ${rider.isOnline ? 'Offline' : 'Online'}`}
                             >
                               {rider.isOnline ? (
@@ -606,7 +599,7 @@ export default function RidersPage() {
                               {assigned.map((caf) => (
                                 <span
                                   key={caf}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200"
                                 >
                                   <Store className="w-2.5 h-2.5 text-amber-600" />
                                   <span>{caf}</span>
@@ -614,42 +607,42 @@ export default function RidersPage() {
                               ))}
                             </div>
                           ) : (
-                            <span className="text-[11px] text-slate-400 italic">
+                            <span className="text-xs text-slate-400 italic">
                               All Campus Spots (Open)
                             </span>
                           )}
                         </td>
 
                         {/* Total Orders */}
-                        <td className="px-5 py-4 text-center font-bold text-slate-900 tabular-nums">
-                          <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 font-extrabold text-xs">
+                        <td className="px-5 py-4 text-center font-semibold text-slate-900 tabular-nums">
+                          <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 font-semibold text-xs">
                             {rider.totalOrdersAssigned}
                           </span>
                         </td>
 
                         {/* Same Side Deliveries */}
                         <td className="px-5 py-4 text-center font-semibold text-orange-700 tabular-nums">
-                          <span className="px-2 py-0.5 rounded-md bg-orange-50 border border-orange-200 font-extrabold text-xs">
+                          <span className="px-2 py-0.5 rounded-md bg-orange-50 border border-orange-200 font-semibold text-xs">
                             {rider.sameSideCount}
                           </span>
-                          <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
+                          <span className="text-xs text-slate-400 block mt-0.5 font-medium">
                             ({formatNaira(rider.sameSideEarnings)})
                           </span>
                         </td>
 
                         {/* Different Side Deliveries */}
                         <td className="px-5 py-4 text-center font-semibold text-blue-700 tabular-nums">
-                          <span className="px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 font-extrabold text-xs">
+                          <span className="px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 font-semibold text-xs">
                             {rider.differentSideCount}
                           </span>
-                          <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
+                          <span className="text-xs text-slate-400 block mt-0.5 font-medium">
                             ({formatNaira(rider.differentSideEarnings)})
                           </span>
                         </td>
 
                         {/* Total Earnings */}
-                        <td className="px-5 py-4 text-right font-black text-slate-900 text-sm tabular-nums">
-                          <span className="text-emerald-700 font-extrabold">
+                        <td className="px-5 py-4 text-right font-semibold text-slate-900 text-sm tabular-nums">
+                          <span className="text-emerald-700 font-semibold">
                             {formatNaira(rider.totalEarnings)}
                           </span>
                         </td>
@@ -659,7 +652,7 @@ export default function RidersPage() {
                           <div className="inline-flex items-center gap-1.5">
                             <button
                               onClick={() => handleOpenEdit(rider)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-800 border border-amber-200/80 text-xs font-bold transition-colors"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-800 border border-amber-200/80 text-xs font-semibold transition-colors"
                               title="Assign Cafeterias & Edit Details"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
@@ -668,7 +661,7 @@ export default function RidersPage() {
 
                             <button
                               onClick={() => setSelectedRider(rider)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-brand-500 hover:text-white text-slate-700 text-xs font-bold transition-colors"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-brand-500 hover:text-white text-slate-700 text-xs font-semibold transition-colors"
                               title="Quick View Breakdown"
                             >
                               <Eye className="w-3.5 h-3.5" />
@@ -677,7 +670,7 @@ export default function RidersPage() {
 
                             <Link
                               href={`/riders/${rider.id}`}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-600 hover:text-white text-brand-700 border border-brand-200/60 text-xs font-bold transition-colors"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-600 hover:text-white text-brand-700 border border-brand-200/60 text-xs font-semibold transition-colors"
                               title="View Full Chronological Profile"
                             >
                               <span>Profile</span>
@@ -707,20 +700,20 @@ export default function RidersPage() {
         ───────────────────────────────────────────────────────────── */}
         {editingRider && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <div className="bg-white border border-slate-200 rounded-xl w-full max-w-lg overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
                 <div className="flex items-center gap-2">
                   <div className="p-2 rounded-xl bg-amber-50 text-amber-700">
                     <Store className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-black text-slate-900">Assign Cafeterias & Edit Rider</h3>
+                    <h3 className="text-base font-semibold text-slate-900">Assign Cafeterias & Edit Rider</h3>
                     <p className="text-xs text-slate-500">Configure priority dispatch stations for {editingRider.name}</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setEditingRider(null)}
-                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold"
+                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -729,7 +722,7 @@ export default function RidersPage() {
               <form onSubmit={handleSaveEditRider} className="space-y-4 overflow-y-auto flex-1 pr-1">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Rider Name *</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Rider Name *</label>
                     <input
                       type="text"
                       required
@@ -739,7 +732,7 @@ export default function RidersPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Phone Number</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Phone Number</label>
                     <input
                       type="tel"
                       value={editPhone}
@@ -752,17 +745,17 @@ export default function RidersPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Portal PIN (4 Digits)</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Portal PIN (4 Digits)</label>
                     <input
                       type="text"
                       maxLength={4}
                       value={editPin}
                       onChange={(e) => setEditPin(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium font-mono tracking-widest"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium font-mono"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Status</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>
                     <select
                       value={editStatus}
                       onChange={(e) => setEditStatus(e.target.value as any)}
@@ -776,13 +769,13 @@ export default function RidersPage() {
                 </div>
 
                 {/* Assigned Cafeteria Multi-Select Station Picker */}
-                <div className="p-3.5 rounded-2xl bg-amber-50/50 border border-amber-200 space-y-2.5">
+                <div className="p-3.5 rounded-xl bg-amber-50/50 border border-amber-200 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <label className="block text-xs font-black text-amber-900">
+                      <label className="block text-xs font-semibold text-amber-900">
                         Priority Assigned Cafeterias ({editCafeterias.length})
                       </label>
-                      <p className="text-[11px] text-amber-700">
+                      <p className="text-xs text-amber-700">
                         Orders from these cafeterias will trigger urgent alerts and appear at the top of their pool.
                       </p>
                     </div>
@@ -796,7 +789,7 @@ export default function RidersPage() {
                             setEditCafeterias([...availableCafeterias]);
                           }
                         }}
-                        className="text-[10px] font-bold text-amber-800 bg-white px-2 py-0.5 rounded border border-amber-300"
+                        className="text-xs font-semibold text-amber-800 bg-white px-2 py-0.5 rounded border border-amber-300"
                       >
                         {editCafeterias.length === availableCafeterias.length ? 'Deselect All' : 'Select All'}
                       </button>
@@ -824,15 +817,15 @@ export default function RidersPage() {
                                 setEditCafeterias((prev) => [...prev, caf]);
                               }
                             }}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
                               isSelected
-                                ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                                ? 'bg-amber-500 text-white border-amber-600'
                                 : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-amber-300'
                             }`}
                           >
                             <Store className="w-3 h-3" />
                             <span>{caf}</span>
-                            {isSelected && <span className="text-[10px]">✓</span>}
+                            {isSelected && <span className="text-xs">✓</span>}
                           </button>
                         );
                       })
@@ -840,13 +833,13 @@ export default function RidersPage() {
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
-                    <span className="text-[10px] text-slate-500">
+                    <span className="text-xs text-slate-500">
                       Need a cafeteria not listed here?
                     </span>
                     <button
                       type="button"
                       onClick={() => setIsAddCafModalOpen(true)}
-                      className="text-xs font-bold text-brand-600 hover:underline flex items-center gap-1"
+                      className="text-xs font-semibold text-brand-600 hover:underline flex items-center gap-1"
                     >
                       <Plus className="w-3 h-3" />
                       <span>Create New Cafeteria</span>
@@ -858,14 +851,14 @@ export default function RidersPage() {
                   <button
                     type="button"
                     onClick={() => setEditingRider(null)}
-                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSavingEdit}
-                    className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md shadow-amber-500/20 transition-all flex items-center gap-2"
+                    className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-sm shadow-amber-500/20 transition-all flex items-center gap-2"
                   >
                     {isSavingEdit ? (
                       <>
@@ -887,20 +880,20 @@ export default function RidersPage() {
         ───────────────────────────────────────────────────────────── */}
         {isAddCafModalOpen && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-white border border-slate-200 rounded-xl w-full max-w-sm overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
                   <div className="p-2 rounded-xl bg-amber-50 text-amber-700">
                     <Store className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-black text-slate-900">Add Campus Cafeteria</h3>
+                    <h3 className="text-base font-semibold text-slate-900">Add Campus Cafeteria</h3>
                     <p className="text-xs text-slate-500">Register a new food vendor spot</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsAddCafModalOpen(false)}
-                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold"
+                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -908,7 +901,7 @@ export default function RidersPage() {
 
               <form onSubmit={handleQuickAddCafeteria} className="space-y-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Cafeteria Name *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Cafeteria Name *</label>
                   <input
                     type="text"
                     required
@@ -920,7 +913,7 @@ export default function RidersPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Campus Zone</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Campus Zone</label>
                   <select
                     value={newCafCampus}
                     onChange={(e) => setNewCafCampus(e.target.value)}
@@ -936,14 +929,14 @@ export default function RidersPage() {
                   <button
                     type="button"
                     onClick={() => setIsAddCafModalOpen(false)}
-                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isAddingCaf}
-                    className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md shadow-amber-500/20 flex items-center gap-2"
+                    className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-sm shadow-amber-500/20 flex items-center gap-2"
                   >
                     {isAddingCaf ? (
                       <>
@@ -965,20 +958,20 @@ export default function RidersPage() {
         ───────────────────────────────────────────────────────────── */}
         {isRegisterModalOpen && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <div className="bg-white border border-slate-200 rounded-xl w-full max-w-lg overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
                 <div className="flex items-center gap-2">
                   <div className="p-2 rounded-xl bg-brand-50 text-brand-600">
                     <UserPlus className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-black text-slate-900">Register New Rider</h3>
+                    <h3 className="text-base font-semibold text-slate-900">Register New Rider</h3>
                     <p className="text-xs text-slate-500">Add a new delivery partner to the dispatch roster</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsRegisterModalOpen(false)}
-                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold"
+                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -994,7 +987,7 @@ export default function RidersPage() {
               <form onSubmit={handleRegisterRider} className="space-y-3.5 overflow-y-auto flex-1 pr-1">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Rider Full Name *</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Rider Full Name *</label>
                     <input
                       type="text"
                       required
@@ -1006,7 +999,7 @@ export default function RidersPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Phone Number</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Phone Number</label>
                     <input
                       type="tel"
                       value={newRiderPhone}
@@ -1020,8 +1013,8 @@ export default function RidersPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-bold text-slate-700">Portal PIN (4 Digits)</label>
-                      <span className="text-[10px] text-slate-400">Default: 1234</span>
+                      <label className="block text-xs font-semibold text-slate-700">Portal PIN (4 Digits)</label>
+                      <span className="text-xs text-slate-400">Default: 1234</span>
                     </div>
                     <input
                       type="text"
@@ -1029,12 +1022,12 @@ export default function RidersPage() {
                       value={newRiderPin}
                       onChange={(e) => setNewRiderPin(e.target.value)}
                       placeholder="1234"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-medium font-mono tracking-widest"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-medium font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Initial Status</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Initial Status</label>
                     <select
                       value={newRiderStatus}
                       onChange={(e) => setNewRiderStatus(e.target.value as any)}
@@ -1048,13 +1041,13 @@ export default function RidersPage() {
                 </div>
 
                 {/* Assigned Cafeteria Multi-Select in Register Modal */}
-                <div className="p-3.5 rounded-2xl bg-amber-50/50 border border-amber-200 space-y-2">
+                <div className="p-3.5 rounded-xl bg-amber-50/50 border border-amber-200 space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <label className="block text-xs font-black text-amber-900">
+                      <label className="block text-xs font-semibold text-amber-900">
                         Assign Cafeteria Stations ({newRiderCafeterias.length})
                       </label>
-                      <p className="text-[11px] text-amber-700">Optional: Choose which cafeterias prioritize this rider.</p>
+                      <p className="text-xs text-amber-700">Optional: Choose which cafeterias prioritize this rider.</p>
                     </div>
                   </div>
 
@@ -1072,7 +1065,7 @@ export default function RidersPage() {
                               setNewRiderCafeterias((prev) => [...prev, caf]);
                             }
                           }}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 border ${
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 border ${
                             isSelected
                               ? 'bg-amber-500 text-white border-amber-600'
                               : 'bg-slate-50 text-slate-700 border-slate-200'
@@ -1090,14 +1083,14 @@ export default function RidersPage() {
                   <button
                     type="button"
                     onClick={() => setIsRegisterModalOpen(false)}
-                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-md shadow-brand-500/20 transition-all disabled:opacity-50 flex items-center gap-2"
+                    className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-sm shadow-brand-500/20 transition-all disabled:opacity-50 flex items-center gap-2"
                   >
                     {isSubmitting ? (
                       <>
@@ -1119,22 +1112,22 @@ export default function RidersPage() {
         ───────────────────────────────────────────────────────────── */}
         {riderToDelete && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-white border border-slate-200 rounded-xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-xl bg-rose-50 text-rose-600 border border-rose-200">
                   <Trash2 className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900">Delete Rider</h3>
+                  <h3 className="text-base font-semibold text-slate-900">Delete Rider</h3>
                   <p className="text-xs text-slate-500">Remove rider from dispatch roster</p>
                 </div>
               </div>
 
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 space-y-1.5">
                 <p>
-                  Are you sure you want to delete <strong className="text-slate-900 font-bold">{riderToDelete.name}</strong>?
+                  Are you sure you want to delete <strong className="text-slate-900 font-semibold">{riderToDelete.name}</strong>?
                 </p>
-                <p className="text-slate-500 text-[11px]">
+                <p className="text-slate-500 text-xs">
                   All {riderToDelete.totalOrdersAssigned} delivery orders assigned to this rider will remain safe and be marked as <strong className="text-slate-700">Unassigned</strong>.
                 </p>
               </div>
@@ -1144,7 +1137,7 @@ export default function RidersPage() {
                   type="button"
                   disabled={isDeleting}
                   onClick={() => setRiderToDelete(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
                 >
                   Cancel
                 </button>
@@ -1152,7 +1145,7 @@ export default function RidersPage() {
                   type="button"
                   disabled={isDeleting}
                   onClick={() => handleDeleteRider(riderToDelete.id)}
-                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-500/20 transition-all flex items-center gap-2"
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm shadow-rose-500/20 transition-all flex items-center gap-2"
                 >
                   {isDeleting ? (
                     <>
@@ -1173,20 +1166,20 @@ export default function RidersPage() {
         ───────────────────────────────────────────────────────────── */}
         {selectedRider && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-5xl overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <div className="bg-white border border-slate-200 rounded-xl w-full max-w-5xl overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
               {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-brand-50 text-brand-600 font-black flex items-center justify-center text-base border border-brand-200">
+                  <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 font-semibold flex items-center justify-center text-base border border-brand-200">
                     {selectedRider.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
                       <span>{selectedRider.name}</span>
                       {getStatusBadge(selectedRider.status)}
                     </h3>
                     <p className="text-xs text-slate-500 font-medium">
-                      Phone: <span className="font-mono text-slate-700 font-bold">{selectedRider.phone}</span> • Total Payout: <strong className="text-emerald-700">{formatNaira(selectedRider.totalEarnings)}</strong>
+                      Phone: <span className="font-mono text-slate-700 font-semibold">{selectedRider.phone}</span> • Total Payout: <strong className="text-emerald-700">{formatNaira(selectedRider.totalEarnings)}</strong>
                     </p>
                   </div>
                 </div>
@@ -1194,7 +1187,7 @@ export default function RidersPage() {
                 <div className="flex items-center gap-2">
                   <Link
                     href={`/riders/${selectedRider.id}`}
-                    className="px-3 py-1.5 rounded-xl bg-brand-50 hover:bg-brand-600 hover:text-white text-brand-700 border border-brand-200 transition-colors text-xs font-bold flex items-center gap-1.5"
+                    className="px-3 py-1.5 rounded-xl bg-brand-50 hover:bg-brand-600 hover:text-white text-brand-700 border border-brand-200 transition-colors text-xs font-semibold flex items-center gap-1.5"
                     title="Open Full Profile Page"
                   >
                     <span>Full Profile</span>
@@ -1205,7 +1198,7 @@ export default function RidersPage() {
                     onClick={() => {
                       setRiderToDelete(selectedRider);
                     }}
-                    className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-600 border border-rose-200 transition-colors text-xs font-bold flex items-center gap-1"
+                    className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-600 border border-rose-200 transition-colors text-xs font-semibold flex items-center gap-1"
                     title="Delete Rider"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -1213,7 +1206,7 @@ export default function RidersPage() {
 
                   <button
                     onClick={() => setSelectedRider(null)}
-                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold"
+                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1223,16 +1216,16 @@ export default function RidersPage() {
               {/* Order Stats Pill */}
               <div className="grid grid-cols-3 gap-3 shrink-0 text-center text-xs">
                 <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-slate-400 font-medium text-[11px]">Total Runs</span>
-                  <p className="font-black text-slate-900 text-sm mt-0.5">{selectedRider.totalOrdersAssigned}</p>
+                  <span className="text-slate-400 font-medium text-xs">Total Runs</span>
+                  <p className="font-semibold text-slate-900 text-sm mt-0.5">{selectedRider.totalOrdersAssigned}</p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-orange-50/60 border border-orange-100">
-                  <span className="text-orange-600 font-medium text-[11px]">Same Side (₦50)</span>
-                  <p className="font-black text-orange-700 text-sm mt-0.5">{selectedRider.sameSideCount} <span className="text-xs font-normal">({formatNaira(selectedRider.sameSideEarnings)})</span></p>
+                  <span className="text-orange-600 font-medium text-xs">Same Side (₦50)</span>
+                  <p className="font-semibold text-orange-700 text-sm mt-0.5">{selectedRider.sameSideCount} <span className="text-xs font-normal">({formatNaira(selectedRider.sameSideEarnings)})</span></p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-blue-50/60 border border-blue-100">
-                  <span className="text-blue-600 font-medium text-[11px]">Different Side (₦90)</span>
-                  <p className="font-black text-blue-700 text-sm mt-0.5">{selectedRider.differentSideCount} <span className="text-xs font-normal">({formatNaira(selectedRider.differentSideEarnings)})</span></p>
+                  <span className="text-blue-600 font-medium text-xs">Different Side (₦90)</span>
+                  <p className="font-semibold text-blue-700 text-sm mt-0.5">{selectedRider.differentSideCount} <span className="text-xs font-normal">({formatNaira(selectedRider.differentSideEarnings)})</span></p>
                 </div>
               </div>
 

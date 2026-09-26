@@ -206,13 +206,8 @@ export default function ExpensesManagerPage() {
         {/* Page Title & Add Button */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
-              <Receipt className="w-6 h-6 text-brand-600" />
-              <span>Operating Expenses &amp; Rider Hub</span>
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 font-normal mt-1">
-              Audit log of logged operational expenditures and standalone rider pay calculator.
-            </p>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Expenses</h1>
+            <p className="text-sm text-slate-500 mt-1">Operating costs and the rider pay calculator.</p>
           </div>
 
           <button
@@ -220,7 +215,7 @@ export default function ExpensesManagerPage() {
               setFormFeedback(null);
               setIsAddModalOpen(true);
             }}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs sm:text-sm shadow-sm active:scale-[0.98] transition-all self-start sm:self-auto"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs sm:text-sm shadow-sm transition-all self-start sm:self-auto"
           >
             <Plus className="w-4 h-4" />
             <span>Add Expense</span>
@@ -234,15 +229,15 @@ export default function ExpensesManagerPage() {
           ───────────────────────────────────────────────────────────── */}
           <div className="lg:col-span-7 space-y-4">
             <div className="flex items-center justify-between">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              <div className="text-xs font-semibold text-slate-400">
                 Expense Logs
               </div>
-              <span className="text-xs font-semibold text-slate-600 bg-white px-3 py-1 rounded-xl border border-slate-200/80 shadow-sm">
-                Total Logged: <strong className="text-slate-900 font-bold tabular-nums">{formatNaira(totalExpenses)}</strong>
+              <span className="text-xs font-semibold text-slate-600 bg-white px-3 py-1 rounded-xl border border-slate-200 shadow-sm">
+                Total Logged: <strong className="text-slate-900 font-semibold tabular-nums">{formatNaira(totalExpenses)}</strong>
               </span>
             </div>
 
-            <div className="rounded-2xl bg-white border border-slate-200/80 p-6 shadow-sm space-y-4">
+            <div className="rounded-xl bg-white border border-slate-200 p-6 shadow-sm space-y-4">
               {/* Search & Category Filter */}
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                 <div className="sm:col-span-8 relative">
@@ -275,7 +270,7 @@ export default function ExpensesManagerPage() {
               {/* Table (Date | Category | Description | Amount) */}
               <div className="overflow-x-auto border border-slate-200 rounded-xl">
                 <table className="w-full text-left text-xs text-slate-600">
-                  <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-extrabold text-[10px] border-b border-slate-200">
+                  <thead className="bg-slate-50/80 text-slate-500 font-semibold text-xs border-b border-slate-200">
                     <tr>
                       <th className="px-4 py-3.5">Date</th>
                       <th className="px-4 py-3.5">Category</th>
@@ -313,7 +308,7 @@ export default function ExpensesManagerPage() {
 
                           <td className="px-4 py-3">
                             <span
-                              className={`px-2 py-0.5 rounded-full font-bold text-[10px] border ${getCategoryColor(
+                              className={`px-2 py-0.5 rounded-full font-semibold text-xs border ${getCategoryColor(
                                 item.category
                               )}`}
                             >
@@ -325,7 +320,7 @@ export default function ExpensesManagerPage() {
                             {item.description}
                           </td>
 
-                          <td className="px-4 py-3 text-right font-black text-rose-600 whitespace-nowrap text-xs">
+                          <td className="px-4 py-3 text-right font-semibold text-rose-600 whitespace-nowrap text-xs">
                             {formatNaira(item.amount)}
                           </td>
 
@@ -351,22 +346,22 @@ export default function ExpensesManagerPage() {
               RIGHT SIDE (5 COLUMNS): DYNAMIC RIDER PAY CALCULATOR
           ───────────────────────────────────────────────────────────── */}
           <div className="lg:col-span-5 space-y-4">
-            <div className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+            <div className="text-xs font-semibold text-slate-400">
               Dynamic Rider Pay Calculator (Reference Only)
             </div>
 
-            <div className="rounded-2xl bg-white border border-slate-200/90 p-5 sm:p-6 shadow-sm space-y-5">
+            <div className="rounded-xl bg-white border border-slate-200 p-5 sm:p-6 shadow-sm space-y-5">
               {/* Widget Header */}
               <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
                 <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/60 shadow-sm">
                   <Calculator className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900">
-                    DYNAMIC RIDER PAY CALCULATOR (REFERENCE ONLY)
+                  <h3 className="text-base font-semibold text-slate-900">
+                    Rider pay calculator
                   </h3>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    Fields: Start Date • End Date • Payment Model • Rate / Amount • TOTAL RIDER PAY
+                  <p className="text-xs text-slate-500 font-medium">
+                    Estimate rider pay for any date range. Reference only — doesn't change records.
                   </p>
                 </div>
               </div>
@@ -374,7 +369,7 @@ export default function ExpensesManagerPage() {
               {/* Date Filter Range */}
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">Start Date</label>
+                  <label className="block text-slate-700 font-semibold mb-1">Start Date</label>
                   <input
                     type="date"
                     value={calcStartDate}
@@ -383,7 +378,7 @@ export default function ExpensesManagerPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">End Date</label>
+                  <label className="block text-slate-700 font-semibold mb-1">End Date</label>
                   <input
                     type="date"
                     value={calcEndDate}
@@ -395,12 +390,12 @@ export default function ExpensesManagerPage() {
 
               {/* Payment Model Selector */}
               <div className="space-y-1.5 text-xs">
-                <label className="block text-slate-700 font-bold">Payment Model</label>
+                <label className="block text-slate-700 font-semibold">Payment Model</label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setPaymentModel('standard')}
-                    className={`py-2 px-2 text-center rounded-xl font-extrabold transition-all border ${
+                    className={`py-2 px-2 text-center rounded-xl font-semibold transition-all border ${
                       paymentModel === 'standard'
                         ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-sm'
                         : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
@@ -411,7 +406,7 @@ export default function ExpensesManagerPage() {
                   <button
                     type="button"
                     onClick={() => setPaymentModel('flat')}
-                    className={`py-2 px-2 text-center rounded-xl font-extrabold transition-all border ${
+                    className={`py-2 px-2 text-center rounded-xl font-semibold transition-all border ${
                       paymentModel === 'flat'
                         ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-sm'
                         : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
@@ -422,7 +417,7 @@ export default function ExpensesManagerPage() {
                   <button
                     type="button"
                     onClick={() => setPaymentModel('custom')}
-                    className={`py-2 px-2 text-center rounded-xl font-extrabold transition-all border ${
+                    className={`py-2 px-2 text-center rounded-xl font-semibold transition-all border ${
                       paymentModel === 'custom'
                         ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-sm'
                         : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
@@ -435,7 +430,7 @@ export default function ExpensesManagerPage() {
 
               {/* Rate / Amount Breakdown */}
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
-                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <div className="text-xs font-semibold text-slate-500">
                   Active Rate / Amount Matrix
                 </div>
                 {paymentModel === 'standard' && (
@@ -463,7 +458,7 @@ export default function ExpensesManagerPage() {
                 {paymentModel === 'custom' && (
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <div>
-                      <span className="text-[10px] text-slate-500">Same side (₦)</span>
+                      <span className="text-xs text-slate-500">Same side (₦)</span>
                       <input
                         type="number"
                         value={customSameRate}
@@ -472,7 +467,7 @@ export default function ExpensesManagerPage() {
                       />
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500">Diff side (₦)</span>
+                      <span className="text-xs text-slate-500">Diff side (₦)</span>
                       <input
                         type="number"
                         value={customDiffRate}
@@ -485,17 +480,17 @@ export default function ExpensesManagerPage() {
               </div>
 
               {/* Calculated Output Callout Card */}
-              <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50/70 to-indigo-50/50 border border-blue-200 space-y-2">
-                <div className="flex items-center justify-between text-xs text-blue-900 font-bold">
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between text-xs text-blue-900 font-semibold">
                   <span>Filtered Settled Orders:</span>
-                  <span className="font-extrabold text-blue-700">{dynamicRiderStats.totalSettled} runs</span>
+                  <span className="font-semibold text-blue-700">{dynamicRiderStats.totalSettled} runs</span>
                 </div>
-                <div className="text-[11px] text-slate-600 flex justify-between">
+                <div className="text-xs text-slate-600 flex justify-between">
                   <span>Same: {dynamicRiderStats.sameSideCount} • Diff: {dynamicRiderStats.diffSideCount} • Other: {dynamicRiderStats.otherCount}</span>
                 </div>
                 <div className="pt-2 border-t border-blue-200/80 flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800">TOTAL RIDER PAY:</span>
-                  <span className="text-2xl font-black text-blue-700">
+                  <span className="text-xs font-semibold text-slate-800">Total rider pay</span>
+                  <span className="text-2xl font-semibold text-blue-700">
                     {formatNaira(dynamicRiderStats.totalRiderPay)}
                   </span>
                 </div>
@@ -507,15 +502,15 @@ export default function ExpensesManagerPage() {
         {/* Add Expense Modal */}
         {isAddModalOpen && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-white border border-slate-200 rounded-xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
                   <Plus className="w-5 h-5 text-brand-600" />
                   Log New Operational Expense
                 </h3>
                 <button
                   onClick={() => setIsAddModalOpen(false)}
-                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold"
+                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold"
                 >
                   ✕
                 </button>
@@ -535,7 +530,7 @@ export default function ExpensesManagerPage() {
 
               <form onSubmit={handleAddExpense} className="space-y-4 text-xs">
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">Expense Date</label>
+                  <label className="block text-slate-700 font-semibold mb-1">Expense Date</label>
                   <input
                     type="date"
                     value={formDate}
@@ -546,7 +541,7 @@ export default function ExpensesManagerPage() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">Category</label>
+                  <label className="block text-slate-700 font-semibold mb-1">Category</label>
                   <select
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value)}
@@ -561,7 +556,7 @@ export default function ExpensesManagerPage() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">Description</label>
+                  <label className="block text-slate-700 font-semibold mb-1">Description</label>
                   <input
                     type="text"
                     value={formDescription}
@@ -573,9 +568,9 @@ export default function ExpensesManagerPage() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">Amount (NGN ₦)</label>
+                  <label className="block text-slate-700 font-semibold mb-1">Amount (NGN ₦)</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-xs">
                       ₦
                     </span>
                     <input
@@ -595,14 +590,14 @@ export default function ExpensesManagerPage() {
                   <button
                     type="button"
                     onClick={() => setIsAddModalOpen(false)}
-                    className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200"
+                    className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-brand-500 to-orange-600 text-white font-extrabold hover:from-brand-600 hover:to-orange-700 disabled:opacity-50 shadow-sm flex items-center gap-1.5"
+                    className="px-5 py-2 rounded-xl bg-slate-900 text-white font-medium hover:bg-slate-800 disabled:opacity-50 shadow-sm flex items-center gap-1.5"
                   >
                     {isSubmitting ? (
                       <>

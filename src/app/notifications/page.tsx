@@ -133,19 +133,14 @@ export default function NotificationsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2.5 mb-1">
-              <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
-                <Bell className="w-5 h-5 text-slate-700" />
-              </div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Notifications</h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Notifications</h1>
               {unreadCount > 0 && (
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-500 text-white">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-500 text-white">
                   {unreadCount}
                 </span>
               )}
             </div>
-            <p className="text-sm text-slate-500 font-normal ml-11">
-              Live rider activity log — auto-clears after 24 hours
-            </p>
+            <p className="text-sm text-slate-500 mt-1">Rider activity from the last 24 hours.</p>
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
@@ -184,10 +179,10 @@ export default function NotificationsPage() {
         </div>
 
         {/* Notification List */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center mb-4">
+              <div className="w-16 h-16 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center mb-4">
                 <Bell className="w-7 h-7 text-slate-400" />
               </div>
               <p className="text-sm font-semibold text-slate-700">No notifications</p>
@@ -208,7 +203,7 @@ export default function NotificationsPage() {
                   <NotificationIcon type={notif.type} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <p className={`text-sm font-bold text-slate-900 ${!notif.read ? '' : 'font-semibold'}`}>
+                      <p className={`text-sm font-semibold text-slate-900 ${!notif.read ? '' : 'font-semibold'}`}>
                         {notif.title}
                       </p>
                       {!notif.read && (
@@ -219,14 +214,14 @@ export default function NotificationsPage() {
                     {notif.orderId && (
                       <Link
                         href={`/orders`}
-                        className="inline-flex items-center gap-1 text-[11px] font-mono text-brand-600 hover:text-brand-700 mt-1.5 transition-colors"
+                        className="inline-flex items-center gap-1 text-xs font-mono text-brand-600 hover:text-brand-700 mt-1.5 transition-colors"
                       >
                         View in orders
                         <ChevronRight className="w-3 h-3" />
                       </Link>
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0 mt-0.5 text-[11px] text-slate-400 font-medium">
+                  <div className="flex items-center gap-1.5 shrink-0 mt-0.5 text-xs text-slate-400 font-medium">
                     <Clock className="w-3 h-3" />
                     <span>{timeAgo(notif.timestamp)}</span>
                   </div>
@@ -237,7 +232,7 @@ export default function NotificationsPage() {
         </div>
 
         {filtered.length > 0 && (
-          <p className="text-center text-[11px] text-slate-400 font-medium">
+          <p className="text-center text-xs text-slate-400 font-medium">
             Showing {filtered.length} notification{filtered.length !== 1 ? 's' : ''} •
             All entries auto-clear 24 hours after creation
           </p>
