@@ -404,6 +404,9 @@ export default function RiderPortalPage() {
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         triggerImmediatePosition();
+        // The phone drops the keep-awake lock whenever the rider leaves the app
+        // (a call, WhatsApp), so take it again on return
+        requestWakeLock();
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -412,6 +415,8 @@ export default function RiderPortalPage() {
     // 4. Keep Screen Awake while On Duty (WakeLock API)
     const requestWakeLock = async () => {
       try {
+        if (!isMounted || document.visibilityState !== 'visible') return;
+        if (wakeLockSentinel && !wakeLockSentinel.released) return;
         if ('wakeLock' in navigator && (navigator as any).wakeLock) {
           wakeLockSentinel = await (navigator as any).wakeLock.request('screen');
         }
