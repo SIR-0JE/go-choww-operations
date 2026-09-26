@@ -958,7 +958,7 @@ export default function RiderPortalPage() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center space-y-3">
-          <div className="w-10 h-10 rounded-2xl bg-amber-500 flex items-center justify-center mx-auto shadow-lg">
+          <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center mx-auto shadow-lg">
             <Bike className="w-5 h-5 text-white" />
           </div>
           <p className="text-sm text-slate-500 font-medium">Loading your portal...</p>
@@ -975,11 +975,11 @@ export default function RiderPortalPage() {
         <div className="flex items-center justify-between">
           {/* Rider identity */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center shadow-sm shrink-0">
-              <Bike className="w-5 h-5 text-white stroke-[2.5]" />
+            <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-semibold shrink-0">
+              {(rider?.name || 'R').replace(/^mr\.?\s+/i, '').charAt(0).toUpperCase()}
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-900 leading-tight">
+              <h2 className="text-sm font-semibold text-slate-900 leading-tight">
                 {rider?.name || 'Dispatch Rider'}
               </h2>
               <div className="flex items-center gap-1.5 mt-0.5">
@@ -988,13 +988,13 @@ export default function RiderPortalPage() {
                     isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
                   }`}
                 />
-                <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
-                  {isOnline ? 'On Duty' : 'Off Duty'}
+                <span className="text-xs text-slate-500">
+                  {isOnline ? 'On duty' : 'Off duty'}
                 </span>
                 {isOnline && (
                   <button
                     onClick={() => setShowGpsHelpModal(true)}
-                    className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5 transition-transform active:scale-95 ${
+                    className={`text-xs px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5 ${
                       gpsStatus === 'active'
                         ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                         : gpsStatus === 'connecting'
@@ -1012,12 +1012,12 @@ export default function RiderPortalPage() {
                     )}
                     <span>
                       {gpsStatus === 'active'
-                        ? 'GPS Live'
+                        ? 'GPS on'
                         : gpsStatus === 'denied'
-                        ? 'GPS Denied ⚠️'
+                        ? 'GPS blocked'
                         : gpsStatus === 'connecting'
                         ? 'GPS...'
-                        : 'GPS Off'}
+                        : 'GPS off'}
                     </span>
                   </button>
                 )}
@@ -1044,7 +1044,7 @@ export default function RiderPortalPage() {
             {/* Online toggle */}
             <button
               onClick={toggleOnlineStatus}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 ${
                 isOnline
                   ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
                   : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
@@ -1081,28 +1081,28 @@ export default function RiderPortalPage() {
               : <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />}
             <span>{toastMessage.text}</span>
           </div>
-          <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-slate-600 ml-2 shrink-0 font-bold">✕</button>
+          <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-slate-600 ml-2 shrink-0 font-semibold">✕</button>
         </div>
       )}
 
       {/* ── Persistent GPS Denied Banner ──────────────────────────────────────── */}
       {isOnline && gpsStatus === 'denied' && (
-        <div className="mx-4 mt-3 p-3.5 rounded-2xl bg-gradient-to-br from-rose-50 via-rose-50/80 to-amber-50 border border-rose-200 shadow-sm flex flex-col gap-2.5 animate-fadeIn">
+        <div className="mx-4 mt-3 p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex flex-col gap-2.5">
           <div className="flex items-start gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-rose-600 flex items-center justify-center shrink-0 shadow-sm text-white">
               <MapPinOff className="w-4 h-4" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-1">
-                <h4 className="text-xs font-black text-rose-950 flex items-center gap-1.5">
-                  <span>GPS Location is Blocked</span>
+                <h4 className="text-xs font-semibold text-rose-950 flex items-center gap-1.5">
+                  <span>Location is blocked</span>
                 </h4>
-                <span className="text-[10px] bg-rose-200/70 text-rose-800 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                <span className="text-xs bg-rose-200/70 text-rose-800 px-1.5 py-0.5 rounded font-semibold">
                   Required
                 </span>
               </div>
-              <p className="text-[11px] text-rose-700 mt-0.5 leading-relaxed font-medium">
-                Continuous GPS telemetry is required for live dispatch radar and proximity order handovers.
+              <p className="text-xs text-rose-700 mt-0.5 leading-relaxed font-medium">
+                Turn on location so the team can see you on the map and handovers work.
               </p>
             </div>
           </div>
@@ -1110,15 +1110,15 @@ export default function RiderPortalPage() {
           <div className="flex items-center gap-2 pt-1 border-t border-rose-200/60">
             <button
               onClick={() => setShowGpsHelpModal(true)}
-              className="flex-1 py-2 px-3 rounded-xl bg-white border border-rose-200 text-rose-800 hover:bg-rose-50 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs"
+              className="flex-1 py-2 px-3 rounded-xl bg-white border border-rose-200 text-rose-800 hover:bg-rose-50 text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
             >
               <HelpCircle className="w-3.5 h-3.5 text-rose-600" />
-              <span>How to Unblock</span>
+              <span>How to fix</span>
             </button>
             <button
               onClick={retryGpsPermission}
               disabled={isRetryingGps}
-              className="flex-1 py-2 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-rose-600/20 disabled:opacity-60"
+              className="flex-1 py-2 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-rose-600/20 disabled:opacity-60"
             >
               {isRetryingGps ? (
                 <>
@@ -1128,7 +1128,7 @@ export default function RiderPortalPage() {
               ) : (
                 <>
                   <Compass className="w-3.5 h-3.5" />
-                  <span>Test &amp; Enable GPS</span>
+                  <span>Try again</span>
                 </>
               )}
             </button>
@@ -1141,8 +1141,8 @@ export default function RiderPortalPage() {
         <div className="mx-4 mt-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2.5">
           <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <div>
-            <p className="text-xs font-bold text-amber-800">Active Order Limit Reached (5/5)</p>
-            <p className="text-[11px] text-amber-700 mt-0.5">
+            <p className="text-xs font-semibold text-amber-800">Active Order Limit Reached (5/5)</p>
+            <p className="text-xs text-amber-700 mt-0.5">
               Complete or deliver an active order to unlock new pickups.
             </p>
           </div>
@@ -1150,67 +1150,26 @@ export default function RiderPortalPage() {
       )}
 
       {/* ── Tabs ──────────────────────────────────────────────────────────────── */}
-      <div className="sticky top-[61px] z-30 bg-white border-b border-slate-200 px-4 py-3">
-        <div className="grid grid-cols-3 gap-2 bg-slate-100 p-1 rounded-xl">
-          {/* Pool tab */}
-          <button
-            onClick={() => setActiveTab('available')}
-            className={`py-2 px-1 rounded-lg text-xs font-bold transition-all flex flex-col items-center gap-0.5 ${
-              activeTab === 'available'
-                ? 'bg-white text-amber-700 shadow-sm border border-slate-200'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <div className="flex items-center gap-1.5">
-              <span>Pool</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
-                activeTab === 'available' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600'
-              }`}>
-                {availableOrders.length}
-              </span>
-            </div>
-            <span className="text-[9px] font-normal opacity-70">Available</span>
-          </button>
-
-          {/* Active tab */}
-          <button
-            onClick={() => setActiveTab('active')}
-            className={`py-2 px-1 rounded-lg text-xs font-bold transition-all flex flex-col items-center gap-0.5 ${
-              activeTab === 'active'
-                ? 'bg-white text-blue-700 shadow-sm border border-slate-200'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <div className="flex items-center gap-1.5">
-              <span>Active</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
-                activeTab === 'active' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-600'
-              }`}>
-                {activeTasks.length}/{MAX_ACTIVE_ORDERS}
-              </span>
-            </div>
-            <span className="text-[9px] font-normal opacity-70">In Transit</span>
-          </button>
-
-          {/* Done tab */}
-          <button
-            onClick={() => setActiveTab('completed')}
-            className={`py-2 px-1 rounded-lg text-xs font-bold transition-all flex flex-col items-center gap-0.5 ${
-              activeTab === 'completed'
-                ? 'bg-white text-emerald-700 shadow-sm border border-slate-200'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <div className="flex items-center gap-1.5">
-              <span>Done</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
-                activeTab === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
-              }`}>
-                {completedToday.length}
-              </span>
-            </div>
-            <span className="text-[9px] font-normal opacity-70">Today</span>
-          </button>
+      <div className="sticky top-[61px] z-30 bg-white border-b border-slate-200 px-4 py-2.5">
+        <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-lg" role="tablist">
+          {([
+            { key: 'available', label: 'Pool', count: `${availableOrders.length}` },
+            { key: 'active', label: 'Active', count: `${activeTasks.length}/${MAX_ACTIVE_ORDERS}` },
+            { key: 'completed', label: 'Done', count: `${completedToday.length}` },
+          ] as const).map((t) => (
+            <button
+              key={t.key}
+              role="tab"
+              aria-selected={activeTab === t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`h-9 rounded-md text-sm font-medium flex items-center justify-center gap-1.5 ${
+                activeTab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+              }`}
+            >
+              <span>{t.label}</span>
+              <span className={`text-xs tabular-nums ${activeTab === t.key ? 'text-orange-600' : 'text-slate-400'}`}>{t.count}</span>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -1237,7 +1196,7 @@ export default function RiderPortalPage() {
             </div>
             <button
               onClick={toggleOnlineStatus}
-              className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs shrink-0 ml-2 hover:bg-emerald-700 transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-semibold text-xs shrink-0 ml-2 hover:bg-emerald-700 transition-colors"
             >
               Go Online
             </button>
@@ -1249,13 +1208,13 @@ export default function RiderPortalPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Dispatch Pool ({filteredAvailableOrders.length})
+                <p className="text-sm text-slate-500">
+                  {filteredAvailableOrders.length} waiting
                 </p>
                 {selectedCafeteria !== 'all' && (
                   <button
                     onClick={() => setSelectedCafeteria('all')}
-                    className="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200"
+                    className="text-xs text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200"
                   >
                     Clear Filter ✕
                   </button>
@@ -1264,7 +1223,7 @@ export default function RiderPortalPage() {
               <button
                 onClick={() => fetchPortalData(false)}
                 disabled={isRefreshing}
-                className="flex items-center gap-1 text-[11px] text-amber-600 hover:text-amber-700 font-medium"
+                className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 font-medium"
               >
                 <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
                 Refresh
@@ -1277,15 +1236,15 @@ export default function RiderPortalPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedCafeteria('all')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 border ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 border ${
                     selectedCafeteria === 'all'
                       ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
                       : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
                   <Filter className="w-3 h-3" />
-                  <span>All Cafeterias</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                  <span>All</span>
+                  <span className={`text-xs px-1.5 py-0.2 rounded-full font-semibold ${
                     selectedCafeteria === 'all' ? 'bg-slate-700 text-slate-100' : 'bg-slate-100 text-slate-600'
                   }`}>
                     {availableOrders.length}
@@ -1297,14 +1256,14 @@ export default function RiderPortalPage() {
                   <button
                     type="button"
                     onClick={() => setSelectedCafeteria(selectedCafeteria === 'my_stations' ? 'all' : 'my_stations')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 border ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 border ${
                       selectedCafeteria === 'my_stations'
                         ? 'bg-amber-600 text-white border-amber-600 shadow-sm ring-2 ring-amber-300'
                         : 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
                     }`}
                   >
-                    <span>⭐ My Stations</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                    <span>My stations</span>
+                    <span className={`text-xs px-1.5 py-0.2 rounded-full font-semibold ${
                       selectedCafeteria === 'my_stations' ? 'bg-amber-700 text-white' : 'bg-amber-200 text-amber-900'
                     }`}>
                       {availableOrders.filter((o) => o.isAssignedStation).length}
@@ -1319,16 +1278,16 @@ export default function RiderPortalPage() {
                       key={caf.name}
                       type="button"
                       onClick={() => setSelectedCafeteria(isSelected ? 'all' : caf.name)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 border ${
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 border ${
                         isSelected
-                          ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
-                          : 'bg-white text-slate-700 border-slate-200 hover:border-amber-300 hover:bg-amber-50/50'
+                          ? 'bg-slate-900 text-white border-slate-900'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
                       <Store className="w-3 h-3" />
                       <span>{caf.name}</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                        isSelected ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600'
+                      <span className={`text-xs px-1.5 py-0.2 rounded-full font-semibold ${
+                        isSelected ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'
                       }`}>
                         {caf.count}
                       </span>
@@ -1344,14 +1303,14 @@ export default function RiderPortalPage() {
                 {activeBatchAdvices.map((adv) => (
                   <div
                     key={adv.cafeteriaName}
-                    className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 flex items-start justify-between gap-3 shadow-sm"
+                    className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 flex items-start justify-between gap-3 shadow-sm"
                   >
                     <div className="flex items-start gap-2.5 min-w-0">
                       <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
                         <Sparkles className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-black uppercase tracking-wider text-amber-800">
+                        <p className="text-xs font-semibold text-amber-800">
                           Smart Batching Advice
                         </p>
                         <p className="text-xs font-semibold text-amber-900 mt-0.5">
@@ -1362,7 +1321,7 @@ export default function RiderPortalPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedCafeteria(adv.cafeteriaName)}
-                      className="px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 shadow-sm transition-all"
+                      className="px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shrink-0 shadow-sm transition-all"
                     >
                       View ({adv.poolCount})
                     </button>
@@ -1372,7 +1331,7 @@ export default function RiderPortalPage() {
             )}
 
             {filteredAvailableOrders.length === 0 ? (
-              <div className="py-16 text-center border border-dashed border-slate-300 rounded-2xl bg-white p-6">
+              <div className="py-16 text-center border border-dashed border-slate-300 rounded-xl bg-white p-6">
                 <Bike className="w-10 h-10 mx-auto mb-3 text-slate-300 stroke-[1.5]" />
                 <h3 className="text-sm font-semibold text-slate-700">
                   {selectedCafeteria === 'all'
@@ -1389,7 +1348,7 @@ export default function RiderPortalPage() {
                 {selectedCafeteria !== 'all' && (
                   <button
                     onClick={() => setSelectedCafeteria('all')}
-                    className="mt-3 px-3.5 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold"
+                    className="mt-3 px-3.5 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-semibold"
                   >
                     View All Cafeterias ({availableOrders.length})
                   </button>
@@ -1407,24 +1366,15 @@ export default function RiderPortalPage() {
                 return (
                   <div
                     key={ord.id || ord.orderId}
-                    className={`bg-white rounded-2xl border shadow-sm overflow-hidden space-y-0 transition-all ${
-                      isPeerClaimed
-                        ? 'border-indigo-200 ring-1 ring-indigo-100'
-                        : ord.isAssignedStation
-                        ? 'border-amber-400 ring-2 ring-amber-300/80 shadow-md bg-gradient-to-b from-amber-50/30 to-white'
-                        : 'border-slate-200'
+                    className={`bg-white rounded-xl border overflow-hidden ${
+                      isPeerClaimed ? 'border-indigo-200' : ord.isAssignedStation ? 'border-orange-300' : 'border-slate-200'
                     }`}
                   >
                     {/* Assigned Station Priority Banner */}
                     {ord.isAssignedStation && !isPeerClaimed && (
-                      <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-4 py-2 flex items-center justify-between shadow-xs">
-                        <div className="flex items-center gap-1.5 font-black text-xs tracking-wide">
-                          <Sparkles className="w-3.5 h-3.5 text-amber-200 animate-pulse" />
-                          <span>⭐ YOUR ASSIGNED STATION</span>
-                        </div>
-                        <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 text-white px-2 py-0.5 rounded-full border border-white/30">
-                          Priority
-                        </span>
+                      <div className="bg-orange-50 text-orange-700 px-4 py-1.5 text-xs font-medium flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Your station</span>
                       </div>
                     )}
 
@@ -1433,37 +1383,40 @@ export default function RiderPortalPage() {
                       <div className="bg-indigo-50/90 border-b border-indigo-100 px-4 py-2 flex items-center justify-between text-indigo-900">
                         <div className="flex items-center gap-1.5">
                           <Users className="w-3.5 h-3.5 text-indigo-600" />
-                          <span className="text-xs font-bold">
+                          <span className="text-xs font-semibold">
                             Accepted by <span className="underline decoration-indigo-300">{ord.rider?.name || 'Another Rider'}</span>
                           </span>
                         </div>
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                        <span className="text-xs font-semibold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
                           Awaiting Pickup
                         </span>
                       </div>
                     )}
 
                     <div className="p-4 space-y-3">
-                      {/* Cafeteria */}
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0">
-                          <Store className="w-4 h-4 text-orange-500" />
+                      {/* Route: cafeteria -> hostel */}
+                      <div className="flex gap-3">
+                        <div className="flex flex-col items-center pt-1.5 shrink-0" aria-hidden="true">
+                          <span className="w-2 h-2 rounded-full bg-orange-500" />
+                          <span className="w-px flex-1 bg-slate-200 my-1" />
+                          <span className="w-2 h-2 rounded-full border-2 border-slate-400" />
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Cafeteria</p>
-                          <p className="text-sm font-bold text-slate-900 truncate">{ord.cafeteriaName || 'Campus Cafeteria'}</p>
+                        <div className="min-w-0 flex-1 space-y-2.5">
+                          <div>
+                            <p className="text-base font-semibold text-slate-900 truncate">{ord.cafeteriaName || 'Campus Cafeteria'}</p>
+                            <p className="text-xs text-slate-500">Pick up</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-slate-800 truncate">{ord.deliveryAddress || 'Campus Hostel'}</p>
+                            <p className="text-xs text-slate-500 truncate">Deliver to {ord.customerName}</p>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Smart Batching Opportunity Pill on Card */}
+                      {/* Other orders at the same cafeteria */}
                       {sameCafOrdersCount > 1 && (
-                        <div className="flex items-center justify-between bg-amber-50/80 border border-amber-200/80 rounded-xl px-3 py-1.5 text-xs text-amber-900">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                            <span className="font-bold truncate">
-                              💡 {sameCafOrdersCount} orders at this cafeteria
-                            </span>
-                          </div>
+                        <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                          <span className="truncate">{sameCafOrdersCount} orders waiting here</span>
                           {selectedCafeteria === 'all' && (
                             <button
                               type="button"
@@ -1471,45 +1424,19 @@ export default function RiderPortalPage() {
                                 e.stopPropagation();
                                 setSelectedCafeteria(ord.cafeteriaName);
                               }}
-                              className="text-[11px] text-amber-700 hover:text-amber-900 font-extrabold underline shrink-0 ml-2"
+                              className="font-medium text-orange-600 shrink-0 ml-2"
                             >
-                              Batch View
+                              Show all
                             </button>
                           )}
                         </div>
                       )}
 
-                      <div className="border-t border-slate-100" />
-
-                      {/* Location */}
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
-                          <MapPin className="w-4 h-4 text-blue-500" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Location</p>
-                          <p className="text-sm font-semibold text-slate-800 truncate">{ord.deliveryAddress || 'Campus Hostel'}</p>
-                        </div>
-                      </div>
-
-                      <div className="border-t border-slate-100" />
-
-                      {/* Customer Name */}
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-                          <User className="w-4 h-4 text-slate-500" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Customer</p>
-                          <p className="text-sm font-medium text-slate-700 truncate">{ord.customerName}</p>
-                        </div>
-                      </div>
-
                       {/* Action Button: Peer Claimed Handover Request vs Open Pool Claim */}
                       {isPeerClaimed ? (
                         ord.handoverRequestedById === rider?.id ? (
                           <div className="flex items-center gap-2 mt-1">
-                            <div className="flex-1 bg-amber-50 border border-amber-300 text-amber-900 px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between">
+                            <div className="flex-1 bg-amber-50 border border-amber-300 text-amber-900 px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-between">
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-600 shrink-0" />
                                 <span className="truncate">Handover Requested • Waiting...</span>
@@ -1518,7 +1445,7 @@ export default function RiderPortalPage() {
                             <button
                               onClick={() => handleHandoverAction(ord.id || ord.orderId, 'cancel_handover')}
                               disabled={isLoadingAction}
-                              className="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-200 shrink-0 transition-colors"
+                              className="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs border border-slate-200 shrink-0 transition-colors"
                             >
                               Cancel ✕
                             </button>
@@ -1533,10 +1460,10 @@ export default function RiderPortalPage() {
                             onClick={() => handleHandoverAction(ord.id || ord.orderId, 'request_handover')}
                             disabled={isLoadingAction || !isOnline || isAtCap}
                             title={isAtCap ? 'You have reached the 5-order limit' : undefined}
-                            className={`w-full font-bold py-3 px-4 rounded-xl text-sm transition-all flex items-center justify-center gap-2 mt-1 ${
+                            className={`w-full font-semibold py-3 px-4 rounded-xl text-sm transition-all flex items-center justify-center gap-2 mt-1 ${
                               isAtCap || !isOnline
                                 ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
-                                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 active:scale-[0.98]'
+                                : 'bg-indigo-600 hover:bg-indigo-700 text-white active:bg-indigo-800'
                             }`}
                           >
                             {isLoadingAction ? (
@@ -1562,10 +1489,10 @@ export default function RiderPortalPage() {
                           onClick={() => handleOrderAction(ord.id || ord.orderId, 'claim')}
                           disabled={isLoadingAction || !isOnline || isAtCap}
                           title={isAtCap ? 'You have reached the 5-order limit' : undefined}
-                          className={`w-full font-bold py-3 px-4 rounded-xl text-sm transition-all flex items-center justify-center gap-2 mt-1 ${
+                          className={`w-full font-semibold py-3 px-4 rounded-xl text-sm transition-all flex items-center justify-center gap-2 mt-1 ${
                             isAtCap || !isOnline
                               ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
-                              : 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm active:scale-[0.98]'
+                              : 'bg-orange-500 hover:bg-orange-600 text-white active:bg-orange-700'
                           }`}
                         >
                           {isLoadingAction ? (
@@ -1580,8 +1507,7 @@ export default function RiderPortalPage() {
                             </>
                           ) : (
                             <>
-                              <Sparkles className="w-4 h-4" />
-                              <span>Accept Delivery</span>
+                              <span>Accept delivery</span>
                             </>
                           )}
                         </button>
@@ -1598,13 +1524,13 @@ export default function RiderPortalPage() {
         {activeTab === 'active' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                My Active Deliveries ({activeTasks.length}/{MAX_ACTIVE_ORDERS})
+              <p className="text-sm text-slate-500">
+                {activeTasks.length} of {MAX_ACTIVE_ORDERS} slots used
               </p>
               <button
                 onClick={() => fetchPortalData(false)}
                 disabled={isRefreshing}
-                className="flex items-center gap-1 text-[11px] text-amber-600 hover:text-amber-700 font-medium"
+                className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 font-medium"
               >
                 <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
                 Refresh
@@ -1612,7 +1538,7 @@ export default function RiderPortalPage() {
             </div>
 
             {activeTasks.length === 0 ? (
-              <div className="py-16 text-center border border-dashed border-slate-300 rounded-2xl bg-white p-6">
+              <div className="py-16 text-center border border-dashed border-slate-300 rounded-xl bg-white p-6">
                 <PackageCheck className="w-10 h-10 mx-auto mb-3 text-slate-300 stroke-[1.5]" />
                 <h3 className="text-sm font-semibold text-slate-700">No Active Dispatches</h3>
                 <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
@@ -1620,7 +1546,7 @@ export default function RiderPortalPage() {
                 </p>
                 <button
                   onClick={() => setActiveTab('available')}
-                  className="mt-4 px-4 py-2 rounded-xl bg-amber-500 text-white font-bold text-xs hover:bg-amber-600 transition-colors"
+                  className="mt-4 px-4 py-2 rounded-xl bg-amber-500 text-white font-semibold text-xs hover:bg-amber-600 transition-colors"
                 >
                   View Pool ({availableOrders.length})
                 </button>
@@ -1634,100 +1560,85 @@ export default function RiderPortalPage() {
                 return (
                   <div
                     key={ord.id || ord.orderId}
-                    className="bg-white rounded-2xl border-2 border-amber-300 shadow-md overflow-hidden"
+                    className="bg-white rounded-xl border border-slate-200 overflow-hidden"
                   >
-                    {/* Status header strip */}
-                    <div className={`px-4 py-2.5 flex items-center justify-between ${
-                      isDispatched ? 'bg-blue-50 border-b border-blue-100' : 'bg-amber-50 border-b border-amber-100'
-                    }`}>
-                      <span className="text-[10px] font-mono font-bold text-slate-500">{ord.orderId}</span>
-                      <span className={`text-[11px] font-black uppercase tracking-wide ${
-                        isDispatched ? 'text-blue-700' : 'text-amber-700'
-                      }`}>
-                        {isDispatched ? '🚴 In Transit' : '⏳ Awaiting Pickup'}
-                      </span>
+                    {/* Status + pickup code */}
+                    <div className="px-4 pt-4 flex items-start justify-between gap-3">
+                      <div>
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${
+                          isDispatched ? 'text-blue-700' : 'text-orange-700'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${isDispatched ? 'bg-blue-500' : 'bg-orange-500'}`} />
+                          {isDispatched ? 'On the way' : 'Go to cafeteria'}
+                        </span>
+                        <p className="text-xs text-slate-400 font-mono mt-0.5">{ord.orderId}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-slate-500">Pickup code</p>
+                        <p className="text-2xl font-semibold font-mono tracking-[0.15em] text-slate-900 leading-tight">{pickupCode}</p>
+                      </div>
                     </div>
 
-                    <div className="p-4 space-y-3">
-                      {/* Step 1: Cafeteria */}
-                      <div className="flex items-center gap-3 p-3 rounded-xl bg-orange-50 border border-orange-100">
-                        <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
-                          <Store className="w-4 h-4 text-orange-600" />
+                    <div className="p-4 space-y-4">
+                      {/* Route: cafeteria -> hostel */}
+                      <div className="flex gap-3">
+                        <div className="flex flex-col items-center pt-1.5 shrink-0" aria-hidden="true">
+                          <span className={`w-2 h-2 rounded-full ${isDispatched ? 'bg-slate-300' : 'bg-orange-500'}`} />
+                          <span className="w-px flex-1 bg-slate-200 my-1" />
+                          <span className={`w-2 h-2 rounded-full ${isDispatched ? 'bg-blue-500' : 'border-2 border-slate-400'}`} />
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-[10px] text-orange-600 font-bold uppercase tracking-wider">Step 1 · Pick Up Here</p>
-                          <p className="text-sm font-bold text-slate-900 truncate">{ord.cafeteriaName || 'Campus Cafeteria'}</p>
-                        </div>
-                      </div>
-
-                      {/* Step 2: Location */}
-                      <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 border border-blue-100">
-                        <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-                          <MapPin className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Step 2 · Deliver Here</p>
-                          <p className="text-sm font-bold text-slate-900 truncate">{ord.deliveryAddress || 'Campus Hostel'}</p>
-                        </div>
-                      </div>
-
-                      {/* Pickup Code */}
-                      <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
-                        <div className="w-8 h-8 rounded-lg bg-amber-200 flex items-center justify-center shrink-0">
-                          <Hash className="w-4 h-4 text-amber-800" />
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-amber-700 font-bold uppercase tracking-wider">Pickup Code</p>
-                          <p className="text-xl font-black text-amber-900 tracking-[0.2em]">{pickupCode}</p>
+                        <div className="min-w-0 flex-1 space-y-2.5">
+                          <div>
+                            <p className={`text-base font-semibold truncate ${isDispatched ? 'text-slate-400' : 'text-slate-900'}`}>{ord.cafeteriaName || 'Campus Cafeteria'}</p>
+                            <p className="text-xs text-slate-500">Pick up</p>
+                          </div>
+                          <div>
+                            <p className={`text-base font-semibold truncate ${isDispatched ? 'text-slate-900' : 'text-slate-700'}`}>{ord.deliveryAddress || 'Campus Hostel'}</p>
+                            <p className="text-xs text-slate-500">Deliver</p>
+                          </div>
                         </div>
                       </div>
 
                       {/* Customer + Phone */}
-                      <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center shrink-0">
-                            <User className="w-4 h-4 text-slate-600" />
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold text-slate-900">{ord.customerName}</p>
-                            <p className="text-[10px] text-slate-500">Recipient</p>
-                          </div>
+                      <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-900 truncate">{ord.customerName}</p>
+                          <p className="text-xs text-slate-500">Customer</p>
                         </div>
-
                         {ord.customerPhone ? (
                           <a
                             href={`tel:${ord.customerPhone.replace(/\D/g, '')}`}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition-colors shadow-sm"
+                            className="flex items-center gap-1.5 h-10 px-4 rounded-lg border border-slate-200 text-slate-800 font-medium text-sm hover:bg-slate-50 shrink-0"
                           >
-                            <Phone className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <Phone className="w-4 h-4 text-emerald-600" />
                             <span>Call</span>
                           </a>
                         ) : (
-                          <span className="text-[11px] text-slate-400 italic">No phone on file</span>
+                          <span className="text-xs text-slate-400">No phone</span>
                         )}
                       </div>
 
                       {/* Incoming Handover Request Banner */}
                       {ord.handoverRequestedById && (
-                        <div className="p-3.5 rounded-xl bg-amber-500 text-white space-y-2 shadow-md">
+                        <div className="p-3.5 rounded-xl bg-amber-500 text-white space-y-2 shadow-sm">
                           <div className="flex items-start gap-2">
                             <HandHelping className="w-4 h-4 text-amber-100 shrink-0 mt-0.5" />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <p className="text-xs font-black">Handover Requested!</p>
+                                <p className="text-xs font-semibold">Handover Requested!</p>
                                 {ord.handoverDistance !== undefined && ord.handoverDistance !== null ? (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-600/90 text-white text-[10px] font-black tracking-tight shadow-sm">
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-600/90 text-white text-xs font-semibold tracking-tight shadow-sm">
                                     <MapPin className="w-2.5 h-2.5" />
                                     📍 GPS Verified ({ord.handoverDistance}m away)
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-600/90 text-white text-[10px] font-bold tracking-tight shadow-sm">
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-600/90 text-white text-xs font-semibold tracking-tight shadow-sm">
                                     <MapPin className="w-2.5 h-2.5" />
                                     At Cafeteria
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[11px] text-amber-100 mt-1 leading-snug">
+                              <p className="text-xs text-amber-100 mt-1 leading-snug">
                                 <strong>{ord.handoverRequestedByName || 'Another rider'}</strong> is physically at {ord.cafeteriaName} and requested to take over this order.
                               </p>
                             </div>
@@ -1737,7 +1648,7 @@ export default function RiderPortalPage() {
                               type="button"
                               onClick={() => handleHandoverAction(ord.id || ord.orderId, 'accept_handover')}
                               disabled={isLoadingAction}
-                              className="flex-1 bg-white hover:bg-emerald-50 text-emerald-800 font-black py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-[0.98]"
+                              className="flex-1 bg-white hover:bg-emerald-50 text-emerald-800 font-semibold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                               <span>Release to {ord.handoverRequestedByName?.split(' ')[0] || 'Rider'}</span>
@@ -1746,7 +1657,7 @@ export default function RiderPortalPage() {
                               type="button"
                               onClick={() => handleHandoverAction(ord.id || ord.orderId, 'reject_handover')}
                               disabled={isLoadingAction}
-                              className="px-3 py-2 rounded-lg bg-amber-600/80 hover:bg-amber-600 text-white text-xs font-bold transition-colors"
+                              className="px-3 py-2 rounded-lg bg-amber-600/80 hover:bg-amber-600 text-white text-xs font-semibold transition-colors"
                             >
                               Keep Order
                             </button>
@@ -1759,37 +1670,37 @@ export default function RiderPortalPage() {
                         <button
                           onClick={() => handleOrderAction(ord.id || ord.orderId, 'pickup')}
                           disabled={isLoadingAction}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl text-sm transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
+                          className="w-full h-12 bg-slate-900 hover:bg-slate-800 active:bg-black text-white font-semibold px-4 rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50"
                         >
                           {isLoadingAction
                             ? <RefreshCw className="w-4 h-4 animate-spin" />
                             : <Store className="w-4 h-4" />}
-                          <span>1. Confirm Food Picked Up</span>
+                          <span>I have picked up the food</span>
                         </button>
                       ) : (
                         <button
                           onClick={() => handleOrderAction(ord.id || ord.orderId, 'deliver')}
                           disabled={isLoadingAction}
-                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl text-sm transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
+                          className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold px-4 rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50"
                         >
                           {isLoadingAction
                             ? <RefreshCw className="w-4 h-4 animate-spin" />
                             : <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />}
-                          <span>2. Confirm Completed</span>
+                          <span>Delivered to customer</span>
                         </button>
                       )}
 
                       {/* Secondary Actions: Drop to Pool & Transfer */}
-                      <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div className="grid grid-cols-2 gap-2 -mt-1">
                         {!isDispatched && (
                           <button
                             type="button"
                             onClick={() => setDropModalOrder(ord)}
                             disabled={isLoadingAction}
-                            className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold py-2.5 px-3 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] border border-rose-200"
+                            className="h-10 text-slate-600 hover:bg-slate-50 font-medium px-3 rounded-lg text-sm flex items-center justify-center gap-1.5"
                           >
-                            <RotateCcw className="w-3.5 h-3.5 text-rose-500" />
-                            <span>Drop to Pool</span>
+                            <RotateCcw className="w-4 h-4 text-slate-400" />
+                            <span>Drop to pool</span>
                           </button>
                         )}
                         <button
@@ -1799,9 +1710,9 @@ export default function RiderPortalPage() {
                             setSelectedTargetRiderId('');
                           }}
                           disabled={isLoadingAction}
-                          className={`${!isDispatched ? 'col-span-1' : 'col-span-2'} bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold py-2.5 px-3 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] border border-slate-200 truncate`}
+                          className={`${!isDispatched ? 'col-span-1' : 'col-span-2'} h-10 text-slate-600 hover:bg-slate-50 font-medium px-3 rounded-lg text-sm flex items-center justify-center gap-1.5 truncate`}
                         >
-                          <ArrowRightLeft className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <ArrowRightLeft className="w-4 h-4 text-slate-400 shrink-0" />
                           <span className="truncate">Transfer</span>
                         </button>
                       </div>
@@ -1817,13 +1728,13 @@ export default function RiderPortalPage() {
         {activeTab === 'completed' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Completed Today ({completedToday.length} runs)
+              <p className="text-sm text-slate-500">
+                {completedToday.length} delivered today
               </p>
               <button
                 onClick={() => fetchPortalData(false)}
                 disabled={isRefreshing}
-                className="flex items-center gap-1 text-[11px] text-amber-600 hover:text-amber-700 font-medium"
+                className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 font-medium"
               >
                 <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
                 Refresh
@@ -1831,7 +1742,7 @@ export default function RiderPortalPage() {
             </div>
 
             {completedToday.length === 0 ? (
-              <div className="py-16 text-center border border-dashed border-slate-300 rounded-2xl bg-white p-6">
+              <div className="py-16 text-center border border-dashed border-slate-300 rounded-xl bg-white p-6">
                 <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-slate-300 stroke-[1.5]" />
                 <h3 className="text-sm font-semibold text-slate-700">No Completed Trips Yet</h3>
                 <p className="text-xs text-slate-400 mt-1">Orders you complete today will appear here.</p>
@@ -1847,14 +1758,14 @@ export default function RiderPortalPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-900">{ord.orderId}</span>
-                      <span className="text-[10px] font-semibold text-emerald-600">• Completed</span>
+                      <span className="text-xs font-semibold text-slate-900">{ord.orderId}</span>
+                      <span className="text-xs font-semibold text-emerald-600">• Completed</span>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                    <p className="text-xs text-slate-500 mt-0.5 truncate">
                       {ord.cafeteriaName} → {ord.deliveryAddress}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1 text-[11px] text-slate-400 shrink-0">
+                  <div className="flex items-center gap-1 text-xs text-slate-400 shrink-0">
                     <Clock className="w-3 h-3" />
                     <span>{ord.time || new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
@@ -1870,7 +1781,7 @@ export default function RiderPortalPage() {
       ───────────────────────────────────────────────────────────── */}
       {transferModalOrder && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl border border-slate-200 w-full max-w-lg overflow-hidden shadow-2xl p-5 space-y-4 animate-in fade-in slide-in-from-bottom sm:zoom-in-95 duration-150 max-h-[85vh] flex flex-col">
+          <div className="bg-white rounded-t-3xl sm:rounded-xl border border-slate-200 w-full max-w-lg overflow-hidden shadow-2xl p-5 space-y-4 animate-in fade-in slide-in-from-bottom sm:zoom-in-95 duration-150 max-h-[85vh] flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
               <div className="flex items-center gap-2.5">
@@ -1878,7 +1789,7 @@ export default function RiderPortalPage() {
                   <ArrowRightLeft className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900">Transfer Order</h3>
+                  <h3 className="text-base font-semibold text-slate-900">Transfer Order</h3>
                   <p className="text-xs text-slate-500 font-mono">Order #{transferModalOrder.orderId}</p>
                 </div>
               </div>
@@ -1887,34 +1798,34 @@ export default function RiderPortalPage() {
                   setTransferModalOrder(null);
                   setSelectedTargetRiderId('');
                 }}
-                className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold transition-colors"
+                className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Order brief summary */}
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-xs space-y-1 shrink-0">
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1 shrink-0">
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">Cafeteria:</span>
-                <span className="font-bold text-slate-800 truncate max-w-[240px]">{transferModalOrder.cafeteriaName}</span>
+                <span className="font-semibold text-slate-800 truncate max-w-[240px]">{transferModalOrder.cafeteriaName}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">Deliver To:</span>
-                <span className="font-bold text-slate-800 truncate max-w-[240px]">{transferModalOrder.deliveryAddress}</span>
+                <span className="font-semibold text-slate-800 truncate max-w-[240px]">{transferModalOrder.deliveryAddress}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">Pickup Code:</span>
-                <span className="font-black text-amber-700 tracking-widest">{getPickupCode(transferModalOrder)}</span>
+                <span className="font-semibold text-amber-700">{getPickupCode(transferModalOrder)}</span>
               </div>
             </div>
 
             {/* Rider selection prompt */}
             <div className="shrink-0">
-              <label className="block text-xs font-bold text-slate-700 mb-0.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">
                 Select Rider to Hand Over to:
               </label>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-xs text-slate-400">
                 The order will immediately be assigned to this rider in the system.
               </p>
             </div>
@@ -1947,7 +1858,7 @@ export default function RiderPortalPage() {
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center font-semibold text-xs shrink-0 ${
                             isSelected
                               ? 'bg-amber-500 text-white'
                               : isFull
@@ -1958,23 +1869,23 @@ export default function RiderPortalPage() {
                           {targetRider.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-900 truncate flex items-center gap-1.5">
+                          <p className="text-xs font-semibold text-slate-900 truncate flex items-center gap-1.5">
                             <span>{targetRider.name}</span>
                             {targetRider.isOnline && (
                               <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Online" />
                             )}
                           </p>
-                          <p className="text-[10px] text-slate-500 font-mono">{targetRider.phone || 'No phone'}</p>
+                          <p className="text-xs text-slate-500 font-mono">{targetRider.phone || 'No phone'}</p>
                         </div>
                       </div>
 
                       <div className="text-right shrink-0">
                         {isFull ? (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
                             5/5 Full
                           </span>
                         ) : (
-                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
                             targetRider.activeCount === 0
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : 'bg-slate-100 text-slate-700 border-slate-200'
@@ -1998,7 +1909,7 @@ export default function RiderPortalPage() {
                   setTransferModalOrder(null);
                   setSelectedTargetRiderId('');
                 }}
-                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
               >
                 Cancel
               </button>
@@ -2006,7 +1917,7 @@ export default function RiderPortalPage() {
                 type="button"
                 disabled={isTransferring || !selectedTargetRiderId}
                 onClick={handleTransferOrder}
-                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md shadow-amber-500/20 transition-all disabled:opacity-50 flex items-center gap-2"
+                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold shadow-sm shadow-amber-500/20 transition-all disabled:opacity-50 flex items-center gap-2"
               >
                 {isTransferring ? (
                   <>
@@ -2030,7 +1941,7 @@ export default function RiderPortalPage() {
       ───────────────────────────────────────────────────────────── */}
       {dropModalOrder && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl border border-slate-200 w-full max-w-lg overflow-hidden shadow-2xl p-5 space-y-4 animate-in fade-in slide-in-from-bottom sm:zoom-in-95 duration-150 flex flex-col">
+          <div className="bg-white rounded-t-3xl sm:rounded-xl border border-slate-200 w-full max-w-lg overflow-hidden shadow-2xl p-5 space-y-4 animate-in fade-in slide-in-from-bottom sm:zoom-in-95 duration-150 flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
               <div className="flex items-center gap-2.5">
@@ -2038,13 +1949,13 @@ export default function RiderPortalPage() {
                   <RotateCcw className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900">Drop Order to Pool</h3>
+                  <h3 className="text-base font-semibold text-slate-900">Drop Order to Pool</h3>
                   <p className="text-xs text-slate-500 font-mono">Order #{dropModalOrder.orderId}</p>
                 </div>
               </div>
               <button
                 onClick={() => setDropModalOrder(null)}
-                className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold transition-colors"
+                className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2054,19 +1965,19 @@ export default function RiderPortalPage() {
             <div className="p-3.5 bg-rose-50/50 rounded-xl border border-rose-100 text-xs space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">Cafeteria:</span>
-                <span className="font-bold text-slate-800 truncate max-w-[220px]">{dropModalOrder.cafeteriaName}</span>
+                <span className="font-semibold text-slate-800 truncate max-w-[220px]">{dropModalOrder.cafeteriaName}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">Destination:</span>
-                <span className="font-bold text-slate-800 truncate max-w-[220px]">{dropModalOrder.deliveryAddress}</span>
+                <span className="font-semibold text-slate-800 truncate max-w-[220px]">{dropModalOrder.deliveryAddress}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">Customer:</span>
-                <span className="font-bold text-slate-800">{dropModalOrder.customerName}</span>
+                <span className="font-semibold text-slate-800">{dropModalOrder.customerName}</span>
               </div>
               <div className="flex items-center justify-between pt-1 border-t border-rose-100">
                 <span className="text-slate-500 font-medium">Pickup Code:</span>
-                <span className="font-black text-rose-800 tracking-widest text-sm">{getPickupCode(dropModalOrder)}</span>
+                <span className="font-semibold text-rose-800 text-sm">{getPickupCode(dropModalOrder)}</span>
               </div>
             </div>
 
@@ -2084,7 +1995,7 @@ export default function RiderPortalPage() {
                 type="button"
                 disabled={isDropping}
                 onClick={() => setDropModalOrder(null)}
-                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
               >
                 Cancel
               </button>
@@ -2092,7 +2003,7 @@ export default function RiderPortalPage() {
                 type="button"
                 disabled={isDropping}
                 onClick={handleDropOrder}
-                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-all disabled:opacity-50 flex items-center gap-2"
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm shadow-rose-600/20 transition-all disabled:opacity-50 flex items-center gap-2"
               >
                 {isDropping ? (
                   <>

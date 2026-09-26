@@ -147,20 +147,20 @@ export const GpsPermissionModal: React.FC<GpsPermissionModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xs animate-fadeIn">
       <div
-        className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-scaleIn"
+        className="bg-white rounded-xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-scaleIn"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 bg-gradient-to-r from-rose-500 via-rose-600 to-amber-600 text-white flex items-center justify-between shrink-0">
+        <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner">
+            <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center">
               <MapPinOff className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="font-bold text-sm leading-tight text-white flex items-center gap-1.5">
+              <h3 className="font-semibold text-sm leading-tight text-white flex items-center gap-1.5">
                 <span>Unblock GPS Location</span>
               </h3>
-              <p className="text-[11px] text-rose-100 mt-0.5">Required for live order dispatch & handovers</p>
+              <p className="text-xs text-rose-100 mt-0.5">Required for live order dispatch & handovers</p>
             </div>
           </div>
           <button
@@ -175,7 +175,7 @@ export const GpsPermissionModal: React.FC<GpsPermissionModalProps> = ({
         <div className="px-5 pt-3 pb-2.5 bg-amber-50 border-b border-amber-200/60 shrink-0">
           <div className="flex items-start gap-2.5">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
+            <p className="text-xs text-amber-800 leading-relaxed font-medium">
               If GPS shows blocked, check both your <strong>Phone Location switch</strong> and <strong>Browser Permissions</strong>:
             </p>
           </div>
@@ -186,9 +186,9 @@ export const GpsPermissionModal: React.FC<GpsPermissionModalProps> = ({
           <div className="grid grid-cols-3 gap-1.5 bg-slate-200/70 p-1 rounded-xl">
             <button
               onClick={() => setActivePlatform('android')}
-              className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
                 activePlatform === 'android'
-                  ? 'bg-white text-slate-900 shadow-xs'
+                  ? 'bg-white text-slate-900'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -198,9 +198,9 @@ export const GpsPermissionModal: React.FC<GpsPermissionModalProps> = ({
 
             <button
               onClick={() => setActivePlatform('ios')}
-              className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
                 activePlatform === 'ios'
-                  ? 'bg-white text-slate-900 shadow-xs'
+                  ? 'bg-white text-slate-900'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -210,9 +210,9 @@ export const GpsPermissionModal: React.FC<GpsPermissionModalProps> = ({
 
             <button
               onClick={() => setActivePlatform('desktop')}
-              className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
                 activePlatform === 'desktop'
-                  ? 'bg-white text-slate-900 shadow-xs'
+                  ? 'bg-white text-slate-900'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -227,48 +227,48 @@ export const GpsPermissionModal: React.FC<GpsPermissionModalProps> = ({
           {activePlatform === 'android' && (
             <div className="space-y-3">
               <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50/80 border border-amber-200">
-                <div className="w-6 h-6 rounded-full bg-amber-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                <div className="w-6 h-6 rounded-full bg-amber-600 text-white font-semibold text-xs flex items-center justify-center shrink-0">
                   1
                 </div>
                 <div className="text-xs text-amber-900">
-                  <p className="font-bold">Turn ON Phone Master Location</p>
-                  <p className="text-[11px] text-amber-700 mt-0.5">
-                    Pull down your phone top notification tray and tap the <span className="font-bold">Location 📍</span> icon to turn it <span className="font-bold text-emerald-700">ON</span>.
+                  <p className="font-semibold">Turn ON Phone Master Location</p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    Pull down your phone top notification tray and tap the <span className="font-semibold">Location 📍</span> icon to turn it <span className="font-semibold text-emerald-700">ON</span>.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="w-6 h-6 rounded-full bg-slate-800 text-white font-black text-xs flex items-center justify-center shrink-0">
+                <div className="w-6 h-6 rounded-full bg-slate-800 text-white font-semibold text-xs flex items-center justify-center shrink-0">
                   2
                 </div>
                 <div className="text-xs text-slate-700">
-                  <p className="font-bold text-slate-900">Allow in Chrome URL Bar</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Tap the <strong>Lock 🔒</strong> or <strong>Tune ⚙️</strong> icon beside the website address ➔ Tap <strong>Permissions / Site settings</strong> ➔ Set Location to <span className="font-bold text-emerald-600">Allow</span>.
+                  <p className="font-semibold text-slate-900">Allow in Chrome URL Bar</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Tap the <strong>Lock 🔒</strong> or <strong>Tune ⚙️</strong> icon beside the website address ➔ Tap <strong>Permissions / Site settings</strong> ➔ Set Location to <span className="font-semibold text-emerald-600">Allow</span>.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="w-6 h-6 rounded-full bg-slate-800 text-white font-black text-xs flex items-center justify-center shrink-0">
+                <div className="w-6 h-6 rounded-full bg-slate-800 text-white font-semibold text-xs flex items-center justify-center shrink-0">
                   3
                 </div>
                 <div className="text-xs text-slate-700">
-                  <p className="font-bold text-slate-900">Check Android Chrome App Permission</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
+                  <p className="font-semibold text-slate-900">Check Android Chrome App Permission</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
                     If still blocked: Phone <strong>Settings App ➔ Apps ➔ Chrome ➔ Permissions ➔ Location ➔ Choose &quot;Allow while using app&quot;</strong>.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                <div className="w-6 h-6 rounded-full bg-emerald-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                <div className="w-6 h-6 rounded-full bg-emerald-600 text-white font-semibold text-xs flex items-center justify-center shrink-0">
                   4
                 </div>
                 <div className="text-xs text-emerald-900">
-                  <p className="font-bold">Tap &quot;Test &amp; Enable GPS&quot; below</p>
-                  <p className="text-[11px] text-emerald-700 mt-0.5">
+                  <p className="font-semibold">Tap &quot;Test &amp; Enable GPS&quot; below</p>
+                  <p className="text-xs text-emerald-700 mt-0.5">
                     Tap the green button below to verify your coordinates and switch to <strong>GPS Live</strong>.
                   </p>
                 </div>
@@ -279,36 +279,36 @@ export const GpsPermissionModal: React.FC<GpsPermissionModalProps> = ({
           {activePlatform === 'ios' && (
             <div className="space-y-3">
               <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50/80 border border-blue-200">
-                <div className="w-6 h-6 rounded-full bg-blue-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                <div className="w-6 h-6 rounded-full bg-blue-600 text-white font-semibold text-xs flex items-center justify-center shrink-0">
                   1
                 </div>
                 <div className="text-xs text-blue-900">
-                  <p className="font-bold">Enable iPhone Location Services</p>
-                  <p className="text-[11px] text-blue-700 mt-0.5">
+                  <p className="font-semibold">Enable iPhone Location Services</p>
+                  <p className="text-xs text-blue-700 mt-0.5">
                     iPhone <strong>Settings App ➔ Privacy &amp; Security ➔ Location Services ➔ Turn ON</strong>.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="w-6 h-6 rounded-full bg-slate-800 text-white font-black text-xs flex items-center justify-center shrink-0">
+                <div className="w-6 h-6 rounded-full bg-slate-800 text-white font-semibold text-xs flex items-center justify-center shrink-0">
                   2
                 </div>
                 <div className="text-xs text-slate-700">
-                  <p className="font-bold text-slate-900">Tap &quot;aA&quot; in Safari Address Bar</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
+                  <p className="font-semibold text-slate-900">Tap &quot;aA&quot; in Safari Address Bar</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
                     Tap the <strong>&quot;aA&quot;</strong> icon ➔ <strong>Website Settings ➔ Location ➔ Choose &quot;Allow&quot;</strong>.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                <div className="w-6 h-6 rounded-full bg-emerald-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                <div className="w-6 h-6 rounded-full bg-emerald-600 text-white font-semibold text-xs flex items-center justify-center shrink-0">
                   3
                 </div>
                 <div className="text-xs text-emerald-900">
-                  <p className="font-bold">Tap &quot;Test &amp; Enable GPS&quot; below</p>
-                  <p className="text-[11px] text-emerald-700 mt-0.5">
+                  <p className="font-semibold">Tap &quot;Test &amp; Enable GPS&quot; below</p>
+                  <p className="text-xs text-emerald-700 mt-0.5">
                     Tap the button below to confirm your coordinates.
                   </p>
                 </div>
@@ -319,36 +319,36 @@ export const GpsPermissionModal: React.FC<GpsPermissionModalProps> = ({
           {activePlatform === 'desktop' && (
             <div className="space-y-3">
               <div className="flex items-start gap-3 p-3 rounded-xl bg-purple-50/80 border border-purple-200">
-                <div className="w-6 h-6 rounded-full bg-purple-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                <div className="w-6 h-6 rounded-full bg-purple-600 text-white font-semibold text-xs flex items-center justify-center shrink-0">
                   1
                 </div>
                 <div className="text-xs text-purple-900">
-                  <p className="font-bold text-slate-900">Click the 🔒 Padlock icon</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
+                  <p className="font-semibold text-slate-900">Click the 🔒 Padlock icon</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
                     Click the lock icon on the left side of the website URL in Chrome / Edge.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="w-6 h-6 rounded-full bg-slate-800 text-white font-black text-xs flex items-center justify-center shrink-0">
+                <div className="w-6 h-6 rounded-full bg-slate-800 text-white font-semibold text-xs flex items-center justify-center shrink-0">
                   2
                 </div>
                 <div className="text-xs text-slate-700">
-                  <p className="font-bold text-slate-900">Toggle Location to ON / Allow</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Switch the <span className="font-semibold text-slate-800">&quot;Location&quot;</span> toggle from Blocked to <span className="font-bold text-emerald-600">Allow</span>.
+                  <p className="font-semibold text-slate-900">Toggle Location to ON / Allow</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Switch the <span className="font-semibold text-slate-800">&quot;Location&quot;</span> toggle from Blocked to <span className="font-semibold text-emerald-600">Allow</span>.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                <div className="w-6 h-6 rounded-full bg-emerald-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                <div className="w-6 h-6 rounded-full bg-emerald-600 text-white font-semibold text-xs flex items-center justify-center shrink-0">
                   3
                 </div>
                 <div className="text-xs text-emerald-900">
-                  <p className="font-bold">Tap &quot;Test &amp; Enable GPS&quot; below</p>
-                  <p className="text-[11px] text-emerald-700 mt-0.5">
+                  <p className="font-semibold">Tap &quot;Test &amp; Enable GPS&quot; below</p>
+                  <p className="text-xs text-emerald-700 mt-0.5">
                     Re-test location access to resume live tracking.
                   </p>
                 </div>
@@ -380,7 +380,7 @@ export const GpsPermissionModal: React.FC<GpsPermissionModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold transition-colors"
+            className="px-4 py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold transition-colors"
           >
             Dismiss
           </button>
@@ -389,7 +389,7 @@ export const GpsPermissionModal: React.FC<GpsPermissionModalProps> = ({
             type="button"
             disabled={isVerifying}
             onClick={testGpsAccess}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95"
+            className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm shadow-emerald-600/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {isVerifying ? (
               <>

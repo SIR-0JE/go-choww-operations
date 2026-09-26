@@ -67,39 +67,32 @@ export default function RiderLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center px-4 py-8 select-none">
-      {/* Decorative background glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="w-full max-w-sm relative z-10">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-center items-center px-4 py-8">
+      <div className="w-full max-w-sm">
         {/* Brand Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 shadow-lg shadow-amber-500/20 mb-4 ring-1 ring-white/20">
-            <Bike className="w-8 h-8 text-white stroke-[2.5]" />
+        <div className="mb-8">
+          <div className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-orange-500 mb-5">
+            <Bike className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-white flex items-center justify-center gap-2">
-            Go Choww <span className="text-amber-500 text-xs px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 uppercase tracking-wider font-extrabold">Rider</span>
-          </h1>
-          <p className="text-xs text-slate-400 mt-1.5 font-medium">
-            Campus Dispatch &amp; Live Order-Claiming Portal
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Rider sign in</h1>
+          <p className="text-sm text-slate-500 mt-1">Go Choww dispatch. Use the phone number you registered with.</p>
         </div>
 
         {/* Login Card */}
-        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 shadow-2xl shadow-black/50">
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
           <form onSubmit={handleLogin} className="space-y-4">
             {/* Error banner */}
             {errorMessage && (
-              <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-start gap-2.5 animate-in fade-in duration-200">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                 <span className="leading-relaxed">{errorMessage}</span>
               </div>
             )}
 
             {/* Phone Number Field */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5 ml-1">
-                Registered Phone Number
+              <label htmlFor="rider-phone" className="block text-sm font-medium text-slate-700 mb-1.5">
+                Phone number
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -110,8 +103,8 @@ export default function RiderLoginPage() {
                   id="rider-phone"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g. 0810 566 2458"
-                  className="w-full bg-slate-950/60 border border-slate-800 rounded-2xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all font-medium"
+                  placeholder="0810 566 2458"
+                  className="w-full h-12 bg-white border border-slate-200 rounded-lg pl-10 pr-4 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                   autoComplete="tel"
                   required
                 />
@@ -120,12 +113,9 @@ export default function RiderLoginPage() {
 
             {/* 4-Digit Security PIN */}
             <div>
-              <div className="flex items-center justify-between mb-1.5 ml-1">
-                <label className="block text-xs font-semibold text-slate-300">
-                  4-Digit Security PIN
-                </label>
-                <span className="text-[10px] text-slate-500 font-medium">Default: 1234</span>
-              </div>
+              <label htmlFor="rider-pin" className="block text-sm font-medium text-slate-700 mb-1.5">
+                PIN
+              </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <KeyRound className="w-4 h-4" />
@@ -133,11 +123,12 @@ export default function RiderLoginPage() {
                 <input
                   type="password"
                   id="rider-pin"
+                  inputMode="numeric"
                   maxLength={6}
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
                   placeholder="••••"
-                  className="w-full bg-slate-950/60 border border-slate-800 rounded-2xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-600 tracking-widest font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
+                  className="w-full h-12 bg-white border border-slate-200 rounded-lg pl-10 pr-4 text-base text-slate-900 placeholder:text-slate-400 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                   required
                 />
               </div>
@@ -148,32 +139,27 @@ export default function RiderLoginPage() {
               type="submit"
               id="rider-login-btn"
               disabled={isLoading}
-              className="w-full mt-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-bold py-3.5 px-4 rounded-2xl text-sm transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+              className="w-full h-12 bg-slate-900 hover:bg-slate-800 active:bg-black text-white font-semibold rounded-lg text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
-                  <span>Connecting to Fleet...</span>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Signing in…</span>
                 </>
               ) : (
                 <>
-                  <span>Enter Dispatch Portal</span>
+                  <span>Sign in</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
           </form>
-
-          {/* Security Notice */}
-          <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-center gap-2 text-[11px] text-slate-400 font-medium">
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-500/80" />
-            <span>Authorized Go Choww Dispatch Riders Only</span>
-          </div>
         </div>
 
         {/* Help footer */}
-        <p className="text-center text-[11px] text-slate-400 mt-6">
-          Trouble logging in? Reach out to your Campus Operations Supervisor.
+        <p className="flex items-center gap-1.5 text-xs text-slate-500 mt-5">
+          <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+          Forgot your PIN? Ask the operations team.
         </p>
       </div>
     </div>
