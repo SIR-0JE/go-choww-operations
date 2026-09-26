@@ -74,6 +74,25 @@ interface RiderSummary {
   totalRiderPayouts: number;
 }
 
+/** Rider login PIN, hidden until tapped (so it isn't readable over someone's shoulder). */
+function RevealPin({ pin }: { pin: string }) {
+  const [shown, setShown] = React.useState(false);
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setShown((v) => !v);
+      }}
+      className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-mono font-normal text-slate-400 hover:text-slate-600"
+      title={shown ? 'Hide PIN' : 'Show PIN'}
+    >
+      PIN {shown ? pin : '••••'} <span className="font-sans text-slate-400 underline underline-offset-2">{shown ? 'hide' : 'show'}</span>
+    </button>
+  );
+}
+
 export default function RidersPage() {
   const [riders, setRiders] = useState<RiderItem[]>([]);
   const [summary, setSummary] = useState<RiderSummary>({
@@ -367,19 +386,19 @@ export default function RidersPage() {
             <p className="text-sm text-slate-500 mt-1">Your riders, their deliveries and their pay.</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center sm:gap-2.5">
             <button
               onClick={() => setIsAddCafModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center justify-center gap-1.5 sm:gap-2 h-9 px-2 sm:px-3.5 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 whitespace-nowrap"
             >
               <Store className="w-4 h-4 text-slate-400" />
-              <span>Add cafeteria</span>
+              <span className="sm:hidden">Cafeteria</span><span className="hidden sm:inline">Add cafeteria</span>
             </button>
 
             <Link
               href="/rider/login"
               target="_blank"
-              className="inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center justify-center gap-1.5 sm:gap-2 h-9 px-2 sm:px-3.5 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 whitespace-nowrap"
             >
               <ExternalLink className="w-4 h-4 text-slate-400" />
               <span>Rider app</span>
@@ -387,313 +406,210 @@ export default function RidersPage() {
 
             <button
               onClick={() => setIsRegisterModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800"
+              className="inline-flex items-center justify-center gap-1.5 sm:gap-2 h-9 px-2 sm:px-3.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 whitespace-nowrap"
             >
               <UserPlus className="w-4 h-4" />
-              <span>Register rider</span>
+              <span className="sm:hidden">Register</span><span className="hidden sm:inline">Register rider</span>
             </button>
           </div>
         </div>
 
-        {/* ─────────────────────────────────────────────────────────────
-            TOP METRICS ROW
-        ───────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-          {/* Card 1: Active Riders */}
-          <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500">Active Fleet</span>
-              <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
-                <Users className="w-4 h-4" />
-              </div>
+        {/* Summary */}
+        <section aria-label="Fleet summary" className="rounded-xl bg-white border border-slate-200 grid grid-cols-2 lg:grid-cols-4 divide-slate-100 lg:divide-x">
+          {[
+            { label: 'Active riders', value: `${summary.activeRiders}`, note: `of ${summary.totalRiders} registered` },
+            { label: 'Deliveries', value: summary.totalAssignedOrders.toLocaleString(), note: 'assigned to riders' },
+            { label: 'Rider pay', value: formatNaira(summary.totalRiderPayouts), note: '₦50 same side · ₦90 different side' },
+            {
+              label: 'Per active rider',
+              value: `${summary.activeRiders > 0 ? Math.round(summary.totalAssignedOrders / summary.activeRiders) : 0}`,
+              note: 'deliveries on average',
+            },
+          ].map((st) => (
+            <div key={st.label} className="p-4 sm:p-5">
+              <div className="text-xs text-slate-500">{st.label}</div>
+              <div className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 tabular-nums">{st.value}</div>
+              <div className="text-xs text-slate-400 mt-0.5">{st.note}</div>
             </div>
-            <div className="text-2xl sm:text-3xl font-semibold text-slate-900 tabular-nums">
-              {summary.activeRiders} <span className="text-xs font-semibold text-slate-400">/ {summary.totalRiders} total</span>
-            </div>
-            <p className="text-xs text-slate-400 font-medium">Registered dispatch riders</p>
-          </div>
+          ))}
+        </section>
 
-          {/* Card 2: Total Assigned Orders */}
-          <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500">Total Deliveries</span>
-              <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
-                <PackageCheck className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="text-2xl sm:text-3xl font-semibold text-slate-900 tabular-nums">
-              {summary.totalAssignedOrders}
-            </div>
-            <p className="text-xs text-emerald-700 font-medium">Orders assigned to riders</p>
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search rider by name or phone"
+              className="w-full h-9 bg-white border border-slate-200 rounded-lg pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+            />
           </div>
-
-          {/* Card 3: Total Rider Payouts Earned */}
-          <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500">Total Payouts</span>
-              <div className="p-2 rounded-xl bg-brand-50 text-brand-600">
-                <DollarSign className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="text-2xl sm:text-3xl font-semibold text-brand-600 tabular-nums">
-              {formatNaira(summary.totalRiderPayouts)}
-            </div>
-            <p className="text-xs text-slate-400 font-medium">₦50 Same side + ₦90 Different side</p>
-          </div>
-
-          {/* Card 4: Avg Orders per Rider */}
-          <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500">Avg Fleet Volume</span>
-              <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
-                <TrendingUp className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="text-2xl sm:text-3xl font-semibold text-slate-900 tabular-nums">
-              {summary.activeRiders > 0
-                ? Math.round(summary.totalAssignedOrders / summary.activeRiders)
-                : 0}
-            </div>
-            <p className="text-xs text-purple-700 font-medium">Orders per active rider</p>
+          <div className="flex items-center gap-2 h-9 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-700">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="bg-transparent focus:outline-none text-sm min-w-0"
+              aria-label="From date"
+            />
+            <span className="text-slate-300">–</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="bg-transparent focus:outline-none text-sm min-w-0"
+              aria-label="To date"
+            />
+            {(startDate || endDate) && (
+              <button
+                onClick={() => {
+                  setStartDate('');
+                  setEndDate('');
+                }}
+                className="text-slate-400 hover:text-slate-700"
+                title="Clear dates"
+                aria-label="Clear dates"
+              >
+                ✕
+              </button>
+            )}
           </div>
         </div>
 
-        {/* ─────────────────────────────────────────────────────────────
-            MAIN SUMMARY TABLE & CONTROLS
-        ───────────────────────────────────────────────────────────── */}
-        <div className="rounded-xl bg-white border border-slate-200 shadow-sm overflow-hidden space-y-0">
-          {/* Filter Bar */}
-          <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="relative w-full sm:w-80">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search rider by name or phone..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white transition-all font-medium"
-              />
-            </div>
-
-            <div className="flex items-center gap-2.5 w-full sm:w-auto">
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700">
-                <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="bg-transparent focus:outline-none text-xs text-slate-800 font-medium"
-                  placeholder="Start date"
-                />
-                <span className="text-slate-300">to</span>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="bg-transparent focus:outline-none text-xs text-slate-800 font-medium"
-                  placeholder="End date"
-                />
-              </div>
-
-              {(startDate || endDate) && (
-                <button
-                  onClick={() => {
-                    setStartDate('');
-                    setEndDate('');
-                  }}
-                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold"
-                  title="Clear dates"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+        {/* Riders */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-48 rounded-xl bg-white border border-slate-200 animate-pulse" />
+            ))}
           </div>
-
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-600 whitespace-nowrap">
-              <thead className="bg-slate-50/80 text-slate-500 font-semibold text-xs border-b border-slate-200">
-                <tr>
-                  <th className="px-5 py-3.5">Rider Name</th>
-                  <th className="px-5 py-3.5">Contact Phone</th>
-                  <th className="px-5 py-3.5">Status</th>
-                  <th className="px-5 py-3.5">Assigned Stations</th>
-                  <th className="px-5 py-3.5 text-center">Total Orders</th>
-                  <th className="px-5 py-3.5 text-center">Same-Side (₦50)</th>
-                  <th className="px-5 py-3.5 text-center">Different-Side (₦90)</th>
-                  <th className="px-5 py-3.5 text-right font-semibold">Total Earnings</th>
-                  <th className="px-5 py-3.5 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {isLoading ? (
-                  [...Array(5)].map((_, i) => (
-                    <tr key={i} className="animate-pulse">
-                      <td colSpan={9} className="px-5 py-4 bg-slate-50/50">
-                        <div className="h-4 bg-slate-200 rounded w-full" />
-                      </td>
-                    </tr>
-                  ))
-                ) : riders.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="px-5 py-12 text-center text-slate-400">
-                      <Bike className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                      <p className="text-sm font-semibold text-slate-600">No riders registered yet</p>
-                      <p className="text-xs text-slate-400 mt-1">Click &quot;Register New Rider&quot; above to add your delivery fleet</p>
-                    </td>
-                  </tr>
-                ) : (
-                  riders.map((rider) => {
-                    const assigned = rider.assignedCafeterias || [];
-                    return (
-                      <tr key={rider.id} className="hover:bg-slate-50/80 transition-colors">
-                        {/* Name */}
-                        <td className="px-5 py-4 font-semibold text-slate-900 text-sm flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-brand-50 text-brand-600 font-semibold flex items-center justify-center text-xs border border-brand-200">
-                            {rider.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <span>{rider.name}</span>
-                            <span className="block text-xs font-mono text-slate-400 font-normal">PIN: {rider.pin || '1234'}</span>
-                          </div>
-                        </td>
-
-                        {/* Phone */}
-                        <td className="px-5 py-4 font-medium text-slate-600">
-                          <span className="flex items-center gap-1.5 font-mono">
-                            <Phone className="w-3 h-3 text-slate-400" />
-                            {rider.phone || '—'}
-                          </span>
-                        </td>
-
-                        {/* Status */}
-                        <td className="px-5 py-4">
-                          <div className="flex flex-col gap-1 items-start">
-                            {getStatusBadge(rider.status)}
-                            <button
-                              type="button"
-                              onClick={() => handleToggleRiderOnline(rider)}
-                              className="group inline-flex items-center gap-1 text-xs font-semibold rounded-md px-2 py-0.5 border transition-all"
-                              title={`Click to set rider ${rider.isOnline ? 'Offline' : 'Online'}`}
-                            >
-                              {rider.isOnline ? (
-                                <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 group-hover:bg-emerald-100">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                  <span>Online</span>
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-slate-400 bg-slate-50 group-hover:bg-slate-100">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                                  <span>Offline</span>
-                                </span>
-                              )}
-                            </button>
-                          </div>
-                        </td>
-
-                        {/* Assigned Cafeteria Stations */}
-                        <td className="px-5 py-4">
-                          {assigned.length > 0 ? (
-                            <div className="flex flex-wrap items-center gap-1 max-w-xs">
-                              {assigned.map((caf) => (
-                                <span
-                                  key={caf}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200"
-                                >
-                                  <Store className="w-2.5 h-2.5 text-amber-600" />
-                                  <span>{caf}</span>
-                                </span>
-                              ))}
-                            </div>
+        ) : riders.length === 0 ? (
+          <div className="rounded-xl bg-white border border-slate-200 px-5 py-14 text-center">
+            <Bike className="w-6 h-6 mx-auto mb-2 text-slate-300" />
+            <p className="text-sm font-medium text-slate-700">No riders yet</p>
+            <p className="text-xs text-slate-500 mt-1">Use “Register rider” to add your delivery fleet.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {riders.map((rider) => {
+              const assigned = rider.assignedCafeterias || [];
+              const inactive = (rider.status || 'Active') !== 'Active';
+              return (
+                <article key={rider.id} className="rounded-xl bg-white border border-slate-200 p-4 sm:p-5 flex flex-col gap-4">
+                  {/* Identity */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-slate-900 text-white font-semibold flex items-center justify-center text-sm shrink-0">
+                        {rider.name.replace(/^mr\.?\s+/i, '').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <Link href={`/riders/${rider.id}`} className="font-medium text-slate-900 hover:underline truncate block">
+                          {rider.name}
+                        </Link>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
+                          {rider.phone ? (
+                            <a href={`tel:${rider.phone}`} className="inline-flex items-center gap-1 font-mono hover:text-slate-800">
+                              <Phone className="w-3 h-3" />
+                              {rider.phone}
+                            </a>
                           ) : (
-                            <span className="text-xs text-slate-400 italic">
-                              All Campus Spots (Open)
-                            </span>
+                            <span>No phone</span>
                           )}
-                        </td>
+                          <RevealPin pin={rider.pin || '1234'} />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleRiderOnline(rider)}
+                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${
+                          rider.isOnline ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                        }`}
+                        title={`Tap to set ${rider.isOnline ? 'offline' : 'online'}`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${rider.isOnline ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                        {rider.isOnline ? 'Online' : 'Offline'}
+                      </button>
+                      {inactive && <span className="text-xs text-amber-700">{rider.status}</span>}
+                    </div>
+                  </div>
 
-                        {/* Total Orders */}
-                        <td className="px-5 py-4 text-center font-semibold text-slate-900 tabular-nums">
-                          <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 font-semibold text-xs">
-                            {rider.totalOrdersAssigned}
+                  {/* Numbers */}
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    <div>
+                      <div className="text-lg font-semibold text-slate-900 tabular-nums">{rider.totalOrdersAssigned}</div>
+                      <div className="text-xs text-slate-500">Orders</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold text-slate-900 tabular-nums">{rider.sameSideCount}</div>
+                      <div className="text-xs text-slate-500">Same side</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold text-slate-900 tabular-nums">{rider.differentSideCount}</div>
+                      <div className="text-xs text-slate-500">Diff. side</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold text-emerald-600 tabular-nums">{formatNaira(rider.totalEarnings)}</div>
+                      <div className="text-xs text-slate-500">Pay</div>
+                    </div>
+                  </div>
+
+                  {/* Stations */}
+                  <div className="text-xs text-slate-500">
+                    {assigned.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        <span className="mr-1">Stations:</span>
+                        {assigned.map((caf) => (
+                          <span key={caf} className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                            {caf}
                           </span>
-                        </td>
+                        ))}
+                      </div>
+                    ) : (
+                      <span>Takes orders from any cafeteria</span>
+                    )}
+                  </div>
 
-                        {/* Same Side Deliveries */}
-                        <td className="px-5 py-4 text-center font-semibold text-orange-700 tabular-nums">
-                          <span className="px-2 py-0.5 rounded-md bg-orange-50 border border-orange-200 font-semibold text-xs">
-                            {rider.sameSideCount}
-                          </span>
-                          <span className="text-xs text-slate-400 block mt-0.5 font-medium">
-                            ({formatNaira(rider.sameSideEarnings)})
-                          </span>
-                        </td>
-
-                        {/* Different Side Deliveries */}
-                        <td className="px-5 py-4 text-center font-semibold text-blue-700 tabular-nums">
-                          <span className="px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 font-semibold text-xs">
-                            {rider.differentSideCount}
-                          </span>
-                          <span className="text-xs text-slate-400 block mt-0.5 font-medium">
-                            ({formatNaira(rider.differentSideEarnings)})
-                          </span>
-                        </td>
-
-                        {/* Total Earnings */}
-                        <td className="px-5 py-4 text-right font-semibold text-slate-900 text-sm tabular-nums">
-                          <span className="text-emerald-700 font-semibold">
-                            {formatNaira(rider.totalEarnings)}
-                          </span>
-                        </td>
-
-                        {/* Actions */}
-                        <td className="px-5 py-4 text-center">
-                          <div className="inline-flex items-center gap-1.5">
-                            <button
-                              onClick={() => handleOpenEdit(rider)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-800 border border-amber-200/80 text-xs font-semibold transition-colors"
-                              title="Assign Cafeterias & Edit Details"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                              <span>Assign / Edit</span>
-                            </button>
-
-                            <button
-                              onClick={() => setSelectedRider(rider)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-brand-500 hover:text-white text-slate-700 text-xs font-semibold transition-colors"
-                              title="Quick View Breakdown"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              <span>Runs</span>
-                            </button>
-
-                            <Link
-                              href={`/riders/${rider.id}`}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-600 hover:text-white text-brand-700 border border-brand-200/60 text-xs font-semibold transition-colors"
-                              title="View Full Chronological Profile"
-                            >
-                              <span>Profile</span>
-                              <ExternalLink className="w-3 h-3" />
-                            </Link>
-
-                            <button
-                              onClick={() => setRiderToDelete(rider)}
-                              className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-600 transition-colors border border-rose-200/60"
-                              title="Delete Rider"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
+                    <button
+                      onClick={() => handleOpenEdit(rider)}
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => setSelectedRider(rider)}
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      Deliveries
+                    </button>
+                    <Link
+                      href={`/riders/${rider.id}`}
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      Profile
+                    </Link>
+                    <button
+                      onClick={() => setRiderToDelete(rider)}
+                      className="ml-auto h-8 w-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                      title="Delete rider"
+                      aria-label={`Delete ${rider.name}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
           </div>
-        </div>
+        )}
 
         {/* ─────────────────────────────────────────────────────────────
             EDIT RIDER & ASSIGN CAFETERIAS MODAL
