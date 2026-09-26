@@ -163,3 +163,20 @@ export async function fetchGoChowOrderByNumber(orderNumber: string): Promise<any
     return null;
   }
 }
+/**
+ * Authenticated GET against an arbitrary GoChow admin path (used for one-off
+ * investigations of which fields the API exposes). Returns status and body.
+ */
+export async function fetchGoChowPath(path: string): Promise<{ status: number; body: any }> {
+  const token = await getAdminToken();
+  try {
+    const res = await axios.get(`${BASE_URL}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 10000,
+      validateStatus: () => true,
+    });
+    return { status: res.status, body: res.data };
+  } catch (error: any) {
+    return { status: 0, body: { error: error?.message || 'request failed' } };
+  }
+}
