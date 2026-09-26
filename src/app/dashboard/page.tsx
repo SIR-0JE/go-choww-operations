@@ -17,6 +17,7 @@ import {
   Truck,
 } from 'lucide-react';
 import { InteractiveDailyTrendChart, DailyDataPoint } from '@/components/charts/InteractiveDailyTrendChart';
+import type { SprintStatus } from '@/lib/sprint';
 
 interface MonthlyWeeklyBreakdown {
   monthKey: string;
@@ -41,6 +42,7 @@ interface MonthlyWeeklyBreakdown {
 
 export default function ExecutiveDashboardPage() {
   const [metrics, setMetrics] = useState<MetricsSummary | null>(null);
+  const [sprint, setSprint] = useState<SprintStatus | null>(null);
   const [monthlyWeeklyData, setMonthlyWeeklyData] = useState<MonthlyWeeklyBreakdown[]>([]);
   const [expandedMonths, setExpandedMonths] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -98,11 +100,15 @@ export default function ExecutiveDashboardPage() {
   const fetchData = useCallback(async (isInitial = false) => {
     if (isInitial) setIsLoading(true);
     try {
-      const [analyticsRes, ordersRes, expensesRes] = await Promise.all([
+      const [analyticsRes, ordersRes, expensesRes, sprintRes] = await Promise.all([
         fetch('/api/analytics'),
         fetch('/api/orders?limit=all'),
         fetch('/api/expenses'),
+        fetch('/api/sprint', { cache: 'no-store' }),
       ]);
+
+      const sprintData = await sprintRes.json().catch(() => null);
+      if (sprintData?.success) setSprint(sprintData.sprint);
 
       const analyticsData = await analyticsRes.json();
       const ordersData = await ordersRes.json();
@@ -395,10 +401,11 @@ export default function ExecutiveDashboardPage() {
   const todayKey = new Date(Date.now() + 60 * 60 * 1000).toISOString().split('T')[0];
   const today = dailyData.find((d) => d.date === todayKey);
   const todayCompleted = today?.completedOrders || 0;
-  const todayPlaced = today?.totalOrders || 0;
   const todayRevenue = today?.grossRevenue || 0;
-  const targetDaily = metrics?.targetDailyOrders || 126;
-  const sprintPct = Math.max(0, Math.min(100, metrics?.debtProgressPercent || 0));
+  // Today's target comes from the sprint: what's left to raise ÷ days left ÷ fee per order
+  const targetDaily = sprint?.dailyTargetOrders || 0;
+  const todayPaid = sprint?.todayOrders ?? 0;
+  const sprintPct = sprint?.progressPercent ?? 0;
 
   const card = 'bg-white rounded-xl border border-slate-200';
 
@@ -429,12 +436,22 @@ export default function ExecutiveDashboardPage() {
         <section aria-label="Key numbers" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className={`${card} p-5`}>
             <div className="text-sm text-slate-500">Orders today</div>
-            <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">{todayCompleted}</div>
+            <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">
+              {todayPaid}
+              {targetDaily > 0 && <span className="text-lg text-slate-400 font-normal"> / {targetDaily}</span>}
+            </div>
             <div className="mt-3 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-              <div className="h-full rounded-full bg-brand-500" style={{ width: `${Math.min(100, (todayCompleted / targetDaily) * 100)}%` }} />
+              <div
+                className={`h-full rounded-full ${targetDaily > 0 && todayPaid >= targetDaily ? 'bg-emerald-500' : 'bg-brand-500'}`}
+                style={{ width: `${targetDaily > 0 ? Math.min(100, (todayPaid / targetDaily) * 100) : 0}%` }}
+              />
             </div>
             <div className="mt-2 text-xs text-slate-500">
-              {todayPlaced} placed · target {targetDaily}/day
+              {targetDaily > 0
+                ? todayPaid >= targetDaily
+                  ? `Target hit · ${todayCompleted} delivered`
+                  : `${targetDaily - todayPaid} more to hit today's target · ${todayCompleted} delivered`
+                : `${todayCompleted} delivered`}
             </div>
           </div>
 
@@ -460,7 +477,7 @@ export default function ExecutiveDashboardPage() {
 
           <Link href="/target" className={`${card} p-5 hover:border-slate-300 transition-colors`}>
             <div className="flex items-center justify-between text-sm text-slate-500">
-              <span>Sprint recovery</span>
+              <span>Sprint</span>
               <Target className="w-4 h-4 text-brand-500" />
             </div>
             <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">{sprintPct.toFixed(1)}%</div>
@@ -468,7 +485,7 @@ export default function ExecutiveDashboardPage() {
               <div className="h-full rounded-full bg-emerald-500" style={{ width: `${sprintPct}%` }} />
             </div>
             <div className="mt-2 text-xs text-slate-500">
-              {formatNaira(metrics?.remainingDebt || 0)} to go · {metrics?.daysRemainingInSprint ?? 0} days left
+              {sprint ? `${formatNaira(sprint.remaining)} to go · ${sprint.daysLeft} days left` : '…'}
             </div>
           </Link>
         </section>
@@ -608,6 +625,7 @@ export default function ExecutiveDashboardPage() {
         <section aria-label="Daily trends">
           <InteractiveDailyTrendChart
             data={dailyData}
+            dailyTarget={targetDaily || undefined}
             isLoading={isLoading}
             title="Daily trend"
             description="Revenue or orders per day — pick a range or click a day for its hourly breakdown"

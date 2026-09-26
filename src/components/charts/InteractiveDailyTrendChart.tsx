@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { formatNaira, DAILY_ORDER_TARGET } from '@/lib/financials';
+import { formatNaira } from '@/lib/financials';
 
 export interface DailyDataPoint {
   date: string; // YYYY-MM-DD
@@ -24,6 +24,8 @@ interface InteractiveDailyTrendChartProps {
   title?: string;
   description?: string;
   onSelectDate?: (dateKey: string) => void;
+  /** Today's order target from the sprint; drawn as a dashed line in Orders view */
+  dailyTarget?: number;
 }
 
 type MetricMode = 'revenue' | 'orders';
@@ -75,6 +77,7 @@ export const InteractiveDailyTrendChart: React.FC<InteractiveDailyTrendChartProp
   title = 'Daily trend',
   description,
   onSelectDate,
+  dailyTarget,
 }) => {
   const [mode, setMode] = useState<MetricMode>('revenue');
   const [range, setRange] = useState<RangeKey>('30d');
@@ -96,8 +99,7 @@ export const InteractiveDailyTrendChart: React.FC<InteractiveDailyTrendChartProp
     const revenue = visible.reduce((a, d) => a + (d.grossRevenue || 0), 0);
     const delivered = visible.reduce((a, d) => a + (d.completedOrders || 0), 0);
     const days = visible.length || 1;
-    const daysOnTarget = visible.filter((d) => d.completedOrders >= DAILY_ORDER_TARGET).length;
-    return { revenue, delivered, avgRevenue: revenue / days, avgDelivered: delivered / days, daysOnTarget };
+    return { revenue, delivered, avgRevenue: revenue / days, avgDelivered: delivered / days };
   }, [visible]);
 
   const dataKey = mode === 'revenue' ? 'grossRevenue' : 'completedOrders';
@@ -163,14 +165,14 @@ export const InteractiveDailyTrendChart: React.FC<InteractiveDailyTrendChartProp
           {rangeInfo.phrase} ·{' '}
           {mode === 'revenue'
             ? `${formatNaira(Math.round(totals.avgRevenue))} a day on average`
-            : `${totals.avgDelivered.toFixed(0)} a day on average · target hit on ${totals.daysOnTarget} of ${visible.length} days`}
+            : `${totals.avgDelivered.toFixed(0)} a day on average`}
         </div>
-        {mode === 'orders' && (
+        {mode === 'orders' && dailyTarget && (
           <div className="mt-2 inline-flex items-center gap-2 text-xs text-slate-500">
             <svg width="18" height="2" aria-hidden="true">
               <line x1="0" y1="1" x2="18" y2="1" stroke="#64748b" strokeWidth="1.5" strokeDasharray="4 3" />
             </svg>
-            Daily target ({DAILY_ORDER_TARGET} delivered)
+            Today&apos;s target: {dailyTarget} orders
           </div>
         )}
       </div>
@@ -209,9 +211,9 @@ export const InteractiveDailyTrendChart: React.FC<InteractiveDailyTrendChartProp
               tickFormatter={(v: number) => (mode === 'revenue' ? compactNaira(v) : String(v))}
             />
             <Tooltip content={<DayTooltip />} cursor={{ fill: 'rgba(15, 23, 42, 0.04)' }} />
-            {mode === 'orders' && (
+            {mode === 'orders' && dailyTarget && (
               <ReferenceLine
-                y={DAILY_ORDER_TARGET}
+                y={dailyTarget}
                 stroke="#64748b"
                 strokeDasharray="4 4"
               />

@@ -30,6 +30,27 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile }) => {
   const pathname = usePathname();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [sprintLine, setSprintLine] = useState<{ today: number; target: number; pct: number } | null>(null);
+
+  // Today's orders against the sprint's daily target; refreshed every 2 minutes
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      fetch('/api/sprint', { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((d) => {
+          if (alive && d.success) {
+            setSprintLine({ today: d.sprint.todayOrders, target: d.sprint.dailyTargetOrders, pct: d.sprint.progressPercent });
+          }
+        })
+        .catch(() => {});
+    load();
+    const id = setInterval(load, 120000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
 
   useEffect(() => {
     const refresh = () => setUnreadCount(countUnread());
@@ -161,8 +182,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
           >
             <Target className="w-4 h-4 text-brand-600 shrink-0" />
             <div className="flex-1 min-w-0 leading-tight">
-              <div className="text-xs font-medium text-slate-900">Sprint: ₦3.5M</div>
-              <div className="text-[11px] text-slate-500">Deadline Dec 10, 2026</div>
+              <div className="text-xs font-medium text-slate-900">
+                {sprintLine && sprintLine.target > 0 ? `Today ${sprintLine.today} / ${sprintLine.target} orders` : 'Sprint target'}
+              </div>
+              <div className="text-xs text-slate-500">
+                {sprintLine ? `Sprint ${sprintLine.pct.toFixed(1)}% done` : 'Loading…'}
+              </div>
             </div>
             <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
           </Link>
