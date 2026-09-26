@@ -18,7 +18,7 @@ import {
   Settings,
   Bell,
   ClipboardCheck,
-  Megaphone,
+  Users,
 } from 'lucide-react';
 import { countUnread } from '@/lib/notifications';
 
@@ -71,7 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
     },
     {
       title: 'Growth',
-      items: [{ label: 'Broadcast', href: '/broadcast', icon: Megaphone, active: is('/broadcast') }],
+      items: [{ label: 'Customers', href: '/customers', icon: Users, active: is('/customers') }],
     },
     {
       title: 'System',

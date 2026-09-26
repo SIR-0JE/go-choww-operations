@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Radio, RefreshCw, Phone, MessageSquare, MapPinOff, X } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
+import { Header } from '@/components/Header';
 import type { FleetRider, CafeteriaPoint } from '@/components/fleet/LiveFleetMap';
 
 // Leaflet touches `window`, so the map only renders in the browser
@@ -203,7 +204,8 @@ export default function FleetRadarPage() {
 
   return (
     <AppLayout>
-      <div className="space-y-4 pb-12">
+      <Header />
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-4">
         {/* Header + one-line status */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -223,7 +225,7 @@ export default function FleetRadarPage() {
           <button
             onClick={() => fetchFleetData(false)}
             disabled={isRefreshing}
-            className="h-9 px-3 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium flex items-center gap-2 shrink-0 disabled:opacity-50"
+            className="hidden sm:flex h-9 px-3 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium items-center gap-2 shrink-0 disabled:opacity-50"
             title={lastSyncTime ? `Updated ${lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Updating…'}
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -303,7 +305,7 @@ export default function FleetRadarPage() {
             </div>
           </div>
         </div>
-      </div>
+      </main>
     </AppLayout>
   );
 }
