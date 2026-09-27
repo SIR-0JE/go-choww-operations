@@ -245,3 +245,59 @@ export async function getCustomerOrders(key: string): Promise<CustomerOrder[]> {
       totalAmountPaid: Number(r.totalAmountPaid) || 0,
     }));
 }
+
+// ── Locations leaderboard ─────────────────────────────────────────────────────
+
+export type LocationRange = 'today' | 'week' | 'sprint' | 'all';
+
+const MMLJ = 'Mathew, Mark, Luke, John hostels';
+// Addresses that aren't a real delivery location
+const NOT_A_LOCATION = new Set(['', 'n/a', 'na', 'pickup', 'pick up', 'campus hostel block', 'hostel']);
+
+/**
+ * One name per place. Mathew, Mark, Luke and John hostels are in the same place,
+ * so they're counted together with GoChow's combined "Mathew, Mark, Luke, John hostels"
+ * option; "Block hostels" is the same as "Block hostel".
+ */
+export function locationName(address: string): string | null {
+  const clean = (address || '').trim().replace(/\s+/g, ' ');
+  const key = clean.toLowerCase();
+  if (NOT_A_LOCATION.has(key)) return null;
+  if (/^(mathew|matthew|mark|luke|john) hostels?$/.test(key) || key.includes('mathew, mark, luke, john')) return MMLJ;
+  if (key === 'block hostels') return 'Block hostel';
+  return clean;
+}
+
+export async function getLocationLeaderboard(range: LocationRange, sprintStartDate: string, now = new Date()) {
+  const todayStart = new Date(Date.parse(`${lagosDayKey(now)}T00:00:00Z`) - LAGOS_OFFSET_MS);
+  const from =
+    range === 'today'
+      ? todayStart
+      : range === 'week'
+      ? new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000)
+      : range === 'sprint'
+      ? new Date(Date.parse(`${sprintStartDate}T00:00:00Z`) - LAGOS_OFFSET_MS)
+      : null;
+
+  const rows = await prisma.deliveryOrder.findMany({
+    where: from ? { createdAt: { gte: from } } : {},
+    select: { deliveryAddress: true, deliveryType: true, orderStatus: true },
+  });
+
+  const counts = new Map<string, number>();
+  let total = 0;
+  for (const r of rows) {
+    if (isCancelled(r.orderStatus)) continue;
+    if (/pick/i.test(r.deliveryType || '')) continue;
+    const name = locationName(r.deliveryAddress);
+    if (!name) continue;
+    counts.set(name, (counts.get(name) || 0) + 1);
+    total += 1;
+  }
+
+  const locations = Array.from(counts.entries())
+    .map(([name, orders]) => ({ name, orders }))
+    .sort((a, b) => b.orders - a.orders || a.name.localeCompare(b.name));
+
+  return { range, from: from ? from.toISOString() : null, total, locations };
+}

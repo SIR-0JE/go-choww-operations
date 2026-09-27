@@ -155,6 +155,102 @@ function CustomerDetail({ customer, onClose }: { customer: CustomerSummary; onCl
   );
 }
 
+type LocationRange = 'today' | 'week' | 'sprint' | 'all';
+const RANGES: { key: LocationRange; label: string }[] = [
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: '7 days' },
+  { key: 'sprint', label: 'Sprint' },
+  { key: 'all', label: 'All time' },
+];
+
+function LocationsBoard() {
+  const [range, setRange] = useState<LocationRange>('sprint');
+  const [data, setData] = useState<{ total: number; locations: { name: string; orders: number }[] } | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setData(null);
+    setError(false);
+    fetch(`/api/customers?view=locations&range=${range}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!alive) return;
+        if (d.success) setData({ total: d.total, locations: d.locations });
+        else setError(true);
+      })
+      .catch(() => alive && setError(true));
+    return () => {
+      alive = false;
+    };
+  }, [range]);
+
+  const top = data?.locations[0]?.orders || 1;
+
+  return (
+    <>
+      <div className="grid grid-cols-4 gap-1 bg-slate-100 p-1 rounded-lg" role="tablist" aria-label="Period">
+        {RANGES.map((r) => (
+          <button
+            key={r.key}
+            role="tab"
+            aria-selected={range === r.key}
+            onClick={() => setRange(r.key)}
+            className={`h-9 rounded-md text-sm font-medium ${range === r.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="rounded-xl bg-white border border-slate-200 overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-slate-100 text-xs text-slate-500">
+          {data ? `${data.total.toLocaleString()} delivery orders · pickups and cancelled not counted` : 'Where orders are going'}
+        </div>
+        {error ? (
+          <p className="px-4 py-12 text-center text-sm text-slate-500">Couldn&apos;t load locations.</p>
+        ) : !data ? (
+          <div className="divide-y divide-slate-100">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="px-4 py-4 animate-pulse">
+                <div className="h-4 bg-slate-100 rounded w-2/3" />
+              </div>
+            ))}
+          </div>
+        ) : data.locations.length === 0 ? (
+          <p className="px-4 py-12 text-center text-sm text-slate-500">No delivery orders in this period.</p>
+        ) : (
+          <ol className="divide-y divide-slate-100">
+            {data.locations.map((l, i) => (
+              <li key={l.name} className="px-4 py-3 flex items-center gap-3">
+                <span
+                  className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-sm font-semibold tabular-nums ${
+                    i === 0 ? 'bg-orange-500 text-white' : i < 3 ? 'bg-orange-100 text-orange-700' : 'text-slate-400'
+                  }`}
+                >
+                  {i + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-sm font-medium text-slate-900 truncate">{l.name}</span>
+                    <span className="text-sm font-semibold text-slate-900 tabular-nums shrink-0">{l.orders.toLocaleString()}</span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${i < 3 ? 'bg-orange-500' : 'bg-slate-300'}`}
+                      style={{ width: `${Math.max(2, (l.orders / top) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </>
+  );
+}
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<CustomerSummary[]>([]);
   const [todayKeys, setTodayKeys] = useState<string[]>([]);
@@ -162,6 +258,7 @@ export default function CustomersPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [view, setView] = useState<'people' | 'locations'>('people');
   const [tab, setTab] = useState<Tab>('today');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<CustomerSummary | null>(null);
@@ -246,6 +343,24 @@ export default function CustomersPage() {
           </p>
         </div>
 
+        <div className="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-lg" role="tablist" aria-label="View">
+          {(['people', 'locations'] as const).map((v) => (
+            <button
+              key={v}
+              role="tab"
+              aria-selected={view === v}
+              onClick={() => setView(v)}
+              className={`h-9 rounded-md text-sm font-medium ${view === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+            >
+              {v === 'people' ? 'People' : 'Locations'}
+            </button>
+          ))}
+        </div>
+
+        {view === 'locations' ? (
+          <LocationsBoard />
+        ) : (
+          <>
         <div className="relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -348,6 +463,8 @@ export default function CustomersPage() {
             </ul>
           )}
         </div>
+          </>
+        )}
       </main>
 
       {selected && <CustomerDetail customer={selected} onClose={() => setSelected(null)} />}
