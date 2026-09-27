@@ -1,7 +1,9 @@
+import { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, withDbRetry } from '@/lib/prisma';
 import { fetchLiveGoChowOrders, fetchLiveGoChowOrdersWithStatus } from '@/services/gochowApi';
 import { classifyDeliveryType } from '@/lib/locations';
+import { extractOrderDetails, detailsForDb } from '@/lib/orderDetails';
 import { getSyncSettings, isWithinOperatingWindow, getOperationalStatus, getCurrentTimeInZone } from '@/lib/settings';
 import { sendPushNotification } from '@/lib/pushService';
 import { alertIfOrdersWaiting } from '@/lib/dispatchStatus';
@@ -232,6 +234,8 @@ async function performSync(force: boolean = false) {
         seenStatus: string;
         seenRiderId: string | null;
       }[] = [];
+      // Orders we already have but without items etc. (synced before details were stored)
+      const toFillDetails: { id: string; data: Record<string, unknown> }[] = [];
 
       for (const order of validLiveOrders) {
         const orderNumber = String(order.orderNumber || order._id || '').trim();
@@ -258,6 +262,7 @@ async function performSync(force: boolean = false) {
         const liveOrderStatus = mapOrderStatus(String(order.orderStatus || 'confirmed'));
         const livePaymentStatus = 'success';
 
+        const details = detailsForDb(extractOrderDetails(order));
         const existing = existingMap.get(orderNumber);
         if (!existing) {
           toCreate.push({
@@ -276,8 +281,19 @@ async function performSync(force: boolean = false) {
             ...(customerPhone && { customerPhone }),
             ...(customerEmail && { customerEmail }),
             ...(pickupCode && { pickupCode }),
+            ...details,
           });
         } else {
+          if ((existing as any).items == null && Object.keys(details).length > 0) {
+            toFillDetails.push({
+              id: existing.id,
+              data: {
+                ...details,
+                ...(customerPhone && !existing.customerPhone && { customerPhone }),
+                ...(customerEmail && !existing.customerEmail && { customerEmail }),
+              },
+            });
+          }
           const currentDbStatus = (existing.orderStatus || '').trim().toLowerCase();
           const currentDbPay = (existing.paymentStatus || '').trim().toLowerCase();
           const hasRider = Boolean(existing.riderId);
@@ -344,6 +360,15 @@ async function performSync(force: boolean = false) {
           } catch (updateErr: any) {
             console.warn(`[sync-orders] Failed updating order ID ${u.id}:`, updateErr?.message);
           }
+        }
+      }
+
+      // Fill in details only where they're still missing; never touches status or rider
+      for (const f of toFillDetails) {
+        try {
+          await prisma.deliveryOrder.updateMany({ where: { id: f.id, items: { equals: Prisma.DbNull } }, data: f.data });
+        } catch (fillErr: any) {
+          console.warn(`[sync-orders] Failed filling details for ${f.id}:`, fillErr?.message);
         }
       }
     } catch (dbErr) {

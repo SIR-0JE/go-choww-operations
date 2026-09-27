@@ -56,7 +56,8 @@ export async function GET(request: NextRequest) {
     if (!rawOrders) rawOrders = [];
 
     // Convert decimal values to numbers and format calculations
-    let processed = rawOrders.map((o) => {
+    // Items are only needed in the single-order view (/api/orders/[id]); keep the list light
+    let processed = rawOrders.map(({ items: _items, ...o }) => {
       const deliveryFee = Number(o.deliveryFee);
       const foodTotal = Number(o.foodTotal);
       const totalAmountPaid = Number(o.totalAmountPaid);
@@ -69,6 +70,7 @@ export async function GET(request: NextRequest) {
         deliveryFee,
         foodTotal,
         totalAmountPaid,
+        serviceCharge: o.serviceCharge != null ? Number(o.serviceCharge) : null,
         riderPayout,
         netProfit,
         isSettled: settled,

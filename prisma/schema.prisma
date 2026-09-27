@@ -48,6 +48,11 @@ model DeliveryOrder {
   customerPhone   String?  // Customer contact number (from GoChow user profile)
   customerEmail   String?  // Customer email address (from GoChow user profile)
   pickupCode      String?  // Real 4-digit cafeteria vendor pickup code from GoChow (confirmationCode)
+  items            Json?    // [{ pack, name, quantity, price, category }] from GoChow containers + extras
+  serviceCharge    Decimal? @db.Decimal(10, 2)
+  paymentReference String?
+  vendorPhone      String?  // cafeteria's business phone number
+  pickedUpAt       DateTime?
 
   riderId                 String?
   rider                   Rider?   @relation(fields: [riderId], references: [id], onDelete: SetNull)

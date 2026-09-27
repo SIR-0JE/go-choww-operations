@@ -46,6 +46,7 @@ export async function GET(
         deliveryFee,
         foodTotal: Number(order.foodTotal),
         totalAmountPaid: Number(order.totalAmountPaid),
+        serviceCharge: order.serviceCharge != null ? Number(order.serviceCharge) : null,
         riderPayout,
         netProfit,
         isSettled: settled,
