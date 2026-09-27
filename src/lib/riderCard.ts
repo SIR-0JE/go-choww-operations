@@ -1,7 +1,7 @@
 /**
- * Draws a small order card for a rider, to send on WhatsApp when there's a
- * problem with an order: who the customer is, their number, the pickup code,
- * where from and to, and what they ordered. Drawn on a canvas in the browser.
+ * Draws a small card to send a rider on WhatsApp when there's a problem with an
+ * order: the pickup code (biggest), cafeteria and where to deliver (bold), and
+ * the customer's name with a smaller phone number. Drawn on a canvas in the browser.
  */
 
 export interface RiderCardOrder {
@@ -16,8 +16,6 @@ export interface RiderCardOrder {
 }
 
 const FONT = '"Inter Variable", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
-const MAX_ITEM_LINES = 8;
 
 /** 0805 245 6433 style, from +2348052456433 / 2348052456433 / 08052456433 */
 export function localPhone(phone?: string | null): string {
@@ -29,11 +27,9 @@ export function localPhone(phone?: string | null): string {
 
 export function riderCardText(o: RiderCardOrder): string {
   const lines = [
-    `Order ${o.orderId}`,
-    `Customer: ${o.customerName}`,
-    o.customerPhone ? `Phone: ${localPhone(o.customerPhone).replace(/\s/g, '')}` : null,
     o.pickupCode ? `Pickup code: ${o.pickupCode}` : null,
     `${o.cafeteriaName} → ${o.deliveryAddress}`,
+    `${o.customerName}${o.customerPhone ? ` · ${localPhone(o.customerPhone).replace(/\s/g, '')}` : ''}`,
   ];
   return lines.filter(Boolean).join('\n');
 }
@@ -60,16 +56,11 @@ export async function drawRiderCard(o: RiderCardOrder): Promise<Blob> {
     await (document as any).fonts.ready;
   }
 
-  const W = 640; // CSS pixels; drawn at 2x for sharpness
+  const W = 600; // CSS pixels; drawn at 2x for sharpness
+  const H = 600;
   const S = 2;
-  const PAD = 32;
+  const PAD = 36;
   const inner = W - PAD * 2;
-
-  const items = (o.items || []).filter((i) => i && i.name);
-  const shown = items.slice(0, MAX_ITEM_LINES);
-  const hidden = items.length - shown.length;
-  const itemsBlock = items.length ? 40 + shown.length * 30 + (hidden > 0 ? 28 : 0) : 0;
-  const H = 88 + 132 + 118 + 96 + itemsBlock + 56;
 
   const canvas = document.createElement('canvas');
   canvas.width = W * S;
@@ -78,98 +69,85 @@ export async function drawRiderCard(o: RiderCardOrder): Promise<Blob> {
   ctx.scale(S, S);
   ctx.textBaseline = 'alphabetic';
 
-  // Background
+  // Background + thin brand bar
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, W, H);
-
-  // Header strip
   ctx.fillStyle = '#f97316';
-  ctx.fillRect(0, 0, W, 64);
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `600 22px ${FONT}`;
-  ctx.fillText('Go Choww', PAD, 41);
-  ctx.font = `500 16px ${MONO}`;
-  const idText = o.orderId;
-  ctx.fillText(idText, W - PAD - ctx.measureText(idText).width, 40);
+  ctx.fillRect(0, 0, W, 8);
 
-  let y = 88;
+  // Brand
+  ctx.fillStyle = '#f97316';
+  ctx.font = `700 18px ${FONT}`;
+  ctx.fillText('Go Choww', PAD, 52);
 
-  // Customer
-  ctx.fillStyle = '#64748b';
-  ctx.font = `500 15px ${FONT}`;
-  ctx.fillText('Customer', PAD, y + 16);
-  ctx.fillStyle = '#0f172a';
-  ctx.font = `600 30px ${FONT}`;
-  ctx.fillText(fitText(ctx, o.customerName, inner), PAD, y + 54);
-  ctx.font = `600 32px ${MONO}`;
-  ctx.fillStyle = o.customerPhone ? '#0f172a' : '#94a3b8';
-  ctx.fillText(o.customerPhone ? localPhone(o.customerPhone) : 'No phone number', PAD, y + 100);
-  y += 132;
-
-  // Pickup code box
-  roundRect(ctx, PAD, y, inner, 96, 14);
-  ctx.fillStyle = '#0f172a';
+  // Pickup code: the main thing
+  const boxY = 76;
+  const boxH = 220;
+  roundRect(ctx, PAD, boxY, inner, boxH, 22);
+  ctx.fillStyle = '#fff7ed';
   ctx.fill();
-  ctx.fillStyle = '#94a3b8';
-  ctx.font = `500 15px ${FONT}`;
-  ctx.fillText('Pickup code', PAD + 24, y + 38);
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `700 52px ${MONO}`;
-  const code = (o.pickupCode || '—').split('').join(' ');
-  ctx.fillText(code, W - PAD - 24 - ctx.measureText(code).width, y + 68);
-  y += 118;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#9a3412';
+  ctx.font = `600 18px ${FONT}`;
+  ctx.fillText('PICKUP CODE', W / 2, boxY + 48);
+  ctx.fillStyle = '#0f172a';
+  const code = (o.pickupCode || '—').split('').join('  ');
+  let size = 120;
+  ctx.font = `800 ${size}px ${FONT}`;
+  while (ctx.measureText(code).width > inner - 48 && size > 48) {
+    size -= 4;
+    ctx.font = `800 ${size}px ${FONT}`;
+  }
+  ctx.fillText(code, W / 2, boxY + 70 + size * 0.95);
+  ctx.textAlign = 'left';
 
-  // Route
+  // Route: cafeteria -> location, both bold
+  let y = boxY + boxH + 44;
+  const dotX = PAD + 8;
+  const textX = PAD + 34;
+  const textW = inner - 34;
+  ctx.fillStyle = '#f97316';
+  ctx.beginPath();
+  ctx.arc(dotX, y + 22, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#cbd5e1';
+  ctx.fillRect(dotX - 1, y + 36, 2, 60);
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(dotX, y + 110, 7, 0, Math.PI * 2);
+  ctx.stroke();
+
   ctx.fillStyle = '#64748b';
   ctx.font = `500 15px ${FONT}`;
-  ctx.fillText('From', PAD, y + 16);
-  ctx.fillText('To', PAD + inner / 2 + 8, y + 16);
+  ctx.fillText('Cafeteria', textX, y + 6);
   ctx.fillStyle = '#0f172a';
-  ctx.font = `600 22px ${FONT}`;
-  ctx.fillText(fitText(ctx, o.cafeteriaName, inner / 2 - 16), PAD, y + 48);
-  ctx.fillText(fitText(ctx, o.deliveryAddress, inner / 2 - 8), PAD + inner / 2 + 8, y + 48);
-  y += 72;
+  ctx.font = `800 30px ${FONT}`;
+  ctx.fillText(fitText(ctx, o.cafeteriaName, textW), textX, y + 36);
 
-  // Items
-  if (items.length) {
-    ctx.fillStyle = '#e2e8f0';
-    ctx.fillRect(PAD, y, inner, 1);
-    y += 24;
-    ctx.fillStyle = '#64748b';
-    ctx.font = `500 15px ${FONT}`;
-    ctx.fillText('Order', PAD, y + 12);
-    y += 20;
-    const multiPack = new Set(items.map((i) => i.pack)).size > 1;
-    ctx.font = `400 19px ${FONT}`;
-    for (const it of shown) {
-      ctx.fillStyle = '#0f172a';
-      const label = `${it.quantity}× ${it.name}`;
-      ctx.fillText(fitText(ctx, label, inner - 90), PAD, y + 22);
-      if (multiPack && it.pack !== null) {
-        ctx.fillStyle = '#94a3b8';
-        const p = `pack ${it.pack}`;
-        ctx.fillText(p, W - PAD - ctx.measureText(p).width, y + 22);
-      }
-      y += 30;
-    }
-    if (hidden > 0) {
-      ctx.fillStyle = '#64748b';
-      ctx.fillText(`+ ${hidden} more item${hidden === 1 ? '' : 's'}`, PAD, y + 20);
-      y += 28;
-    }
+  ctx.fillStyle = '#64748b';
+  ctx.font = `500 15px ${FONT}`;
+  ctx.fillText('Deliver to', textX, y + 94);
+  ctx.fillStyle = '#0f172a';
+  ctx.font = `800 30px ${FONT}`;
+  ctx.fillText(fitText(ctx, o.deliveryAddress, textW), textX, y + 124);
+
+  // Customer: name and a smaller phone number
+  y = H - 66;
+  ctx.fillStyle = '#e2e8f0';
+  ctx.fillRect(PAD, y - 24, inner, 1);
+  ctx.fillStyle = '#0f172a';
+  ctx.font = `600 20px ${FONT}`;
+  const phone = o.customerPhone ? localPhone(o.customerPhone) : '';
+  ctx.font = `500 18px ${FONT}`;
+  const phoneW = phone ? ctx.measureText(phone).width : 0;
+  ctx.font = `600 20px ${FONT}`;
+  ctx.fillText(fitText(ctx, o.customerName, inner - phoneW - 24), PAD, y + 20);
+  if (phone) {
+    ctx.fillStyle = '#475569';
+    ctx.font = `500 18px ${FONT}`;
+    ctx.fillText(phone, W - PAD - phoneW, y + 20);
   }
-
-  // Footer
-  ctx.fillStyle = '#94a3b8';
-  ctx.font = `400 14px ${FONT}`;
-  const when = new Date(o.createdAt).toLocaleString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Africa/Lagos',
-  });
-  ctx.fillText(`Ordered ${when}`, PAD, H - 22);
 
   return new Promise((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not create image'))), 'image/png')
