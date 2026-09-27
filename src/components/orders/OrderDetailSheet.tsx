@@ -327,7 +327,7 @@ export function OrderDetailSheet({
             <button
               type="button"
               onClick={sendToRider}
-              disabled={sending}
+              disabled={sending || !loaded}
               className="flex-1 h-11 rounded-lg bg-slate-900 text-white text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <Send className="w-4 h-4" />

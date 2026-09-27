@@ -1,7 +1,7 @@
 /**
  * Draws a small card to send a rider on WhatsApp when there's a problem with an
- * order: the pickup code (biggest), cafeteria and where to deliver (bold), and
- * the customer's name with a smaller phone number. Drawn on a canvas in the browser.
+ * order: the pickup code (biggest), cafeteria and where to deliver (bold) with the
+ * food items under it, and the customer's name with a smaller phone number. Drawn on a canvas in the browser.
  */
 
 export interface RiderCardOrder {
@@ -15,6 +15,7 @@ export interface RiderCardOrder {
   items?: { pack: number | null; name: string; quantity: number }[] | null;
 }
 
+const MAX_ITEMS = 10;
 const FONT = '"Inter Variable", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 
 /** 0805 245 6433 style, from +2348052456433 / 2348052456433 / 08052456433 */
@@ -56,8 +57,16 @@ export async function drawRiderCard(o: RiderCardOrder): Promise<Blob> {
     await (document as any).fonts.ready;
   }
 
+  // Food items go under the delivery location; the card grows to fit them
+  const items = (o.items || []).filter((i) => i && i.name);
+  const shown = items.slice(0, MAX_ITEMS);
+  const hidden = items.length - shown.length;
+  const multiPack = new Set(items.map((i) => i.pack).filter((p) => p !== null)).size > 1;
+  const ITEM_LINE = 28;
+  const itemsHeight = items.length ? 22 + shown.length * ITEM_LINE + (hidden > 0 ? ITEM_LINE : 0) : 0;
+
   const W = 600; // CSS pixels; drawn at 2x for sharpness
-  const H = 600;
+  const H = 600 + itemsHeight;
   const S = 2;
   const PAD = 36;
   const inner = W - PAD * 2;
@@ -131,6 +140,28 @@ export async function drawRiderCard(o: RiderCardOrder): Promise<Blob> {
   ctx.fillStyle = '#0f172a';
   ctx.font = `800 30px ${FONT}`;
   ctx.fillText(fitText(ctx, o.deliveryAddress, textW), textX, y + 124);
+
+  if (items.length) {
+    let iy = y + 124 + 22;
+    ctx.font = `400 19px ${FONT}`;
+    for (const it of shown) {
+      iy += ITEM_LINE;
+      ctx.fillStyle = '#334155';
+      ctx.fillText(fitText(ctx, `${it.quantity}× ${it.name}`, textW - (multiPack ? 70 : 0)), textX, iy);
+      if (multiPack && it.pack !== null) {
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = `400 16px ${FONT}`;
+        const p = `pack ${it.pack}`;
+        ctx.fillText(p, W - PAD - ctx.measureText(p).width, iy);
+        ctx.font = `400 19px ${FONT}`;
+      }
+    }
+    if (hidden > 0) {
+      iy += ITEM_LINE;
+      ctx.fillStyle = '#64748b';
+      ctx.fillText(`+ ${hidden} more`, textX, iy);
+    }
+  }
 
   // Customer: name and a smaller phone number
   y = H - 66;
