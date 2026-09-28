@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, withDbRetry, getInMemoryOrders, updateInMemoryOrder, updateInMemoryOrderRider } from '@/lib/prisma';
 import { calculateRiderPayout, isSettledOrder } from '@/lib/financials';
+import { effectiveGochowStatus } from '@/lib/orderStatus';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,9 @@ export async function GET(request: NextRequest) {
     const deliveryType = searchParams.get('deliveryType') || 'All';
     const orderStatus = searchParams.get('orderStatus') || 'All';
     const riderId = searchParams.get('riderId') || 'All';
+    const cafeteria = (searchParams.get('cafeteria') || '').trim().toLowerCase();
+    const gochowStatus = (searchParams.get('gochowStatus') || 'All').toLowerCase();
+    const day = searchParams.get('date') || ''; // YYYY-MM-DD, Lagos
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limitParam = searchParams.get('limit') || '20';
     const fetchAll = limitParam === 'all';
@@ -119,6 +123,27 @@ export async function GET(request: NextRequest) {
       } else {
         processed = processed.filter((o) => o.riderId === riderId);
       }
+    }
+
+    // 5. Filter by cafeteria, GoChow status and Lagos day (used by the "By cafeteria" board)
+    if (cafeteria) {
+      processed = processed.filter((o) => (o.cafeteriaName || '').trim().toLowerCase() === cafeteria);
+    }
+    if (gochowStatus === 'open') {
+      // Everything that isn't cancelled (on either side)
+      processed = processed.filter(
+        (o) => effectiveGochowStatus(o) !== 'Cancelled' && !(o.orderStatus || '').toLowerCase().startsWith('canc')
+      );
+    } else if (gochowStatus !== 'all') {
+      processed = processed.filter((o) => effectiveGochowStatus(o).toLowerCase() === gochowStatus);
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+      const start = Date.parse(`${day}T00:00:00Z`) - 60 * 60 * 1000; // midnight WAT
+      const end = start + 24 * 60 * 60 * 1000;
+      processed = processed.filter((o) => {
+        const t = Date.parse(o.createdAt);
+        return t >= start && t < end;
+      });
     }
 
     // Pagination

@@ -6,6 +6,7 @@ import { OrderDetailSheet } from '@/components/orders/OrderDetailSheet';
 import { gochowStatusView, riderStatusView, TONE_DOT } from '@/lib/orderStatus';
 import { Header } from '@/components/Header';
 import { CsvUploadDropzone } from '@/components/orders/CsvUploadDropzone';
+import { CafeteriaBoard, type BoardPick } from '@/components/orders/CafeteriaBoard';
 import { formatNaira } from '@/lib/financials';
 import {
   Search,
@@ -71,6 +72,9 @@ export default function RawDataOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<RawOrder | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [boardPick, setBoardPick] = useState<BoardPick | null>(null);
+  const [boardRefresh, setBoardRefresh] = useState(0);
+  const listRef = React.useRef<HTMLDivElement>(null);
 
   // Edit Order Override Modal State
   const [editingOrder, setEditingOrder] = useState<RawOrder | null>(null);
@@ -104,11 +108,16 @@ export default function RawDataOrdersPage() {
         search,
         deliveryType,
         orderStatus,
-        riderId: riderFilter,
+        riderId: boardPick?.noRider ? 'unassigned' : riderFilter,
         page: page.toString(),
         limit: limit.toString(),
       });
 
+      if (boardPick) {
+        params.set('date', boardPick.date);
+        params.set('cafeteria', boardPick.cafeteria);
+        params.set('gochowStatus', boardPick.gochowStatus);
+      }
       const res = await fetch(`/api/orders?${params.toString()}`);
       const data = await res.json();
 
@@ -122,7 +131,7 @@ export default function RawDataOrdersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [search, deliveryType, orderStatus, riderFilter, page, limit]);
+  }, [search, deliveryType, orderStatus, riderFilter, page, limit, boardPick]);
 
   useEffect(() => {
     fetchOrders();
@@ -132,6 +141,7 @@ export default function RawDataOrdersPage() {
   useEffect(() => {
     const handleSync = () => {
       fetchOrders();
+      setBoardRefresh((n) => n + 1);
     };
     window.addEventListener('orders-synced', handleSync);
     return () => window.removeEventListener('orders-synced', handleSync);
@@ -264,7 +274,12 @@ export default function RawDataOrdersPage() {
 
   return (
     <AppLayout>
-      <Header onSyncComplete={fetchOrders} />
+      <Header
+        onSyncComplete={() => {
+          fetchOrders();
+          setBoardRefresh((n) => n + 1);
+        }}
+      />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
         {/* Page Header */}
@@ -290,7 +305,48 @@ export default function RawDataOrdersPage() {
           </section>
         )}
 
-        <div className="rounded-xl bg-white border border-slate-200 overflow-hidden">
+        <CafeteriaBoard
+          refreshKey={boardRefresh}
+          active={boardPick}
+          onPick={(p) => {
+            const same =
+              boardPick &&
+              boardPick.date === p.date &&
+              boardPick.cafeteria === p.cafeteria &&
+              boardPick.gochowStatus === p.gochowStatus &&
+              boardPick.noRider === p.noRider;
+            setBoardPick(same ? null : p);
+            setPage(1);
+            if (!same) setTimeout(() => listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+          }}
+        />
+
+        <div ref={listRef} className="rounded-xl bg-white border border-slate-200 overflow-hidden scroll-mt-24">
+          {boardPick && (
+            <div className="px-3 sm:px-4 py-2.5 border-b border-slate-100 bg-orange-50/60 flex items-center justify-between gap-3">
+              <p className="text-sm text-slate-700 min-w-0">
+                Showing{' '}
+                <span className="font-semibold text-slate-900">
+                  {[
+                    boardPick.cafeteria || 'all cafeterias',
+                    boardPick.noRider ? 'no rider yet' : boardPick.gochowStatus === 'All' ? null : boardPick.gochowStatus,
+                    new Date(`${boardPick.date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }),
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
+              </p>
+              <button
+                onClick={() => {
+                  setBoardPick(null);
+                  setPage(1);
+                }}
+                className="shrink-0 inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <X className="w-3.5 h-3.5" /> Clear
+              </button>
+            </div>
+          )}
           {/* Filters */}
           <div className="p-3 sm:p-4 border-b border-slate-100 flex flex-col lg:flex-row gap-2">
             <div className="relative flex-1 min-w-0">

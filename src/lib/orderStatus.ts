@@ -46,3 +46,14 @@ export function riderStatusView(order: {
   if (order.riderId) return { label: 'Accepted', tone: 'orange' };
   return { label: 'Waiting for rider', tone: 'slate' };
 }
+
+/** GoChow status, falling back to ours for orders synced before GoChow's was stored. */
+export function effectiveGochowStatus(o: { gochowStatus?: string | null; orderStatus?: string | null }): string {
+  if (o.gochowStatus) return gochowStatusView(o.gochowStatus).label;
+  const own = (o.orderStatus || '').toLowerCase();
+  if (own.startsWith('canc')) return 'Cancelled';
+  if (own === 'completed' || own === 'delivered') return 'Delivered';
+  if (own === 'ready') return 'Ready';
+  if (own === 'preparing') return 'Preparing';
+  return 'Confirmed';
+}
