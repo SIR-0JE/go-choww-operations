@@ -596,83 +596,12 @@ export default function RiderPortalPage() {
   }, [isOnline, fetchPortalData]);
 
   // ── Online / Offline Toggle ──────────────────────────────────────────────────
-  // One location reading: precise first, then a quicker network-based fix.
-  // Gives up after 25s, e.g. when the permission prompt is left unanswered.
-  const getPositionOnce = () =>
-    new Promise<GeolocationPosition>((resolveRaw, rejectRaw) => {
-      if (typeof window === 'undefined' || !navigator.geolocation) {
-        rejectRaw(new Error('unsupported'));
-        return;
-      }
-      let settled = false;
-      const giveUp = setTimeout(() => reject(new Error('timeout')), 25000);
-      function resolve(p: GeolocationPosition) {
-        if (settled) return;
-        settled = true;
-        clearTimeout(giveUp);
-        resolveRaw(p);
-      }
-      function reject(e: unknown) {
-        if (settled) return;
-        settled = true;
-        clearTimeout(giveUp);
-        rejectRaw(e);
-      }
-      navigator.geolocation.getCurrentPosition(
-        resolve,
-        (err) => {
-          if (err.code === err.PERMISSION_DENIED) {
-            reject(err);
-            return;
-          }
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: false,
-            timeout: 15000,
-            maximumAge: 60000,
-          });
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    });
-
   const toggleOnlineStatus = async () => {
     const nextStatus = !isOnline;
     const localRiderId = typeof window !== 'undefined' ? localStorage.getItem('rider_id') : null;
 
-    // Going online needs a working location, so dispatch can see every online rider on the map
-    if (nextStatus) {
-      setIsGoingOnline(true);
-      try {
-        const position = await getPositionOnce();
-        const locRes = await fetch('/api/rider/location', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            riderId: rider?.id || localRiderId,
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            heading: position.coords.heading,
-            speed: position.coords.speed,
-          }),
-        });
-        if (!locRes.ok) throw new Error('location not saved');
-        setGpsStatus('active');
-      } catch (err: any) {
-        setIsGoingOnline(false);
-        const denied = err && typeof err.code === 'number' && err.code === 1;
-        setGpsStatus(denied ? 'denied' : 'idle');
-        setShowGpsHelpModal(true);
-        showToast(
-          denied
-            ? 'Location is blocked. Allow location for this site, then tap Go online again.'
-            : 'Could not get your location. Turn on Location on your phone, then try again.',
-          'error'
-        );
-        return;
-      }
-      setIsGoingOnline(false);
-    }
-
+    // Location is not required to go online (paused while riders test the app);
+    // once online, the app still shares location in the background where the phone allows it.
     setIsOnline(nextStatus);
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
