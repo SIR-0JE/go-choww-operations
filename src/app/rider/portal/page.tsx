@@ -44,6 +44,7 @@ interface RiderOrder {
   cafeteriaName: string;
   deliveryAddress: string;
   deliveryType: string;
+  gochowStatus?: string | null; // what GoChow says: Confirmed | Preparing | Ready | Dispatched | Delivered
   orderStatus: string;
   createdAt: string;
   time: string;
@@ -78,6 +79,16 @@ interface OtherRider {
 }
 
 const MAX_ACTIVE_ORDERS = 5;
+
+// What GoChow says about the food, so riders know whether it's ready before they go
+function kitchenNote(gochowStatus?: string | null) {
+  const s = (gochowStatus || '').toLowerCase();
+  if (s === 'ready') return ' · food is ready';
+  if (s === 'preparing') return ' · cafeteria is preparing it';
+  if (s === 'confirmed') return ' · not started yet';
+  if (s === 'dispatched') return ' · marked dispatched';
+  return '';
+}
 
 export default function RiderPortalPage() {
   const router = useRouter();
@@ -1422,7 +1433,7 @@ export default function RiderPortalPage() {
                         <div className="min-w-0 flex-1 space-y-2.5">
                           <div>
                             <p className="text-base font-semibold text-slate-900 truncate">{ord.cafeteriaName || 'Campus Cafeteria'}</p>
-                            <p className="text-xs text-slate-500">Pick up</p>
+                            <p className="text-xs text-slate-500">Pick up{kitchenNote(ord.gochowStatus)}</p>
                           </div>
                           <div>
                             <p className="text-sm font-medium text-slate-800 truncate">{ord.deliveryAddress || 'Campus Hostel'}</p>
@@ -1608,7 +1619,7 @@ export default function RiderPortalPage() {
                         <div className="min-w-0 flex-1 space-y-2.5">
                           <div>
                             <p className={`text-base font-semibold truncate ${isDispatched ? 'text-slate-400' : 'text-slate-900'}`}>{ord.cafeteriaName || 'Campus Cafeteria'}</p>
-                            <p className="text-xs text-slate-500">Pick up</p>
+                            <p className="text-xs text-slate-500">Pick up{kitchenNote(ord.gochowStatus)}</p>
                           </div>
                           <div>
                             <p className={`text-base font-semibold truncate ${isDispatched ? 'text-slate-900' : 'text-slate-700'}`}>{ord.deliveryAddress || 'Campus Hostel'}</p>

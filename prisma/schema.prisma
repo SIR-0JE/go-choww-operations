@@ -44,6 +44,7 @@ model DeliveryOrder {
   totalAmountPaid Decimal  @db.Decimal(10, 2)
   deliveryType    String   // Values: "Same side", "Different side", "Pick up", "Other"
   orderStatus     String   // Values: "Completed", "Cancelled", "Pending"
+  gochowStatus    String?  // GoChow's own status as-is: Confirmed | Preparing | Ready | Dispatched | Delivered | Cancelled
   paymentStatus   String   // Values: "success", "failed", "pending"
   customerPhone   String?  // Customer contact number (from GoChow user profile)
   customerEmail   String?  // Customer email address (from GoChow user profile)

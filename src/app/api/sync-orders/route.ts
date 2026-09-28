@@ -36,6 +36,17 @@ function mapOrderStatus(raw: string): string {
   return 'Confirmed';
 }
 
+/** GoChow's own status, shown as-is next to the rider's progress (never changed by riders) */
+function mapGoChowStatus(raw: string): string {
+  const s = (raw || '').toLowerCase().trim();
+  if (s === 'delivered' || s === 'completed') return 'Delivered';
+  if (s === 'cancelled' || s === 'canceled') return 'Cancelled';
+  if (s === 'dispatched') return 'Dispatched';
+  if (s === 'ready') return 'Ready';
+  if (s === 'preparing') return 'Preparing';
+  return 'Confirmed';
+}
+
 function mapPaymentStatus(raw: string): 'success' | 'failed' | 'pending' {
   const s = (raw || '').toLowerCase().trim();
   if (s === 'success' || s === 'paid') return 'success';
@@ -237,6 +248,8 @@ async function performSync(force: boolean = false) {
       }[] = [];
       // Orders we already have but without items etc. (synced before details were stored)
       const toFillDetails: { id: string; data: Record<string, unknown> }[] = [];
+      // GoChow's status is mirrored as-is, separately from the rider's progress
+      const toSetGoChowStatus: { id: string; status: string }[] = [];
 
       for (const order of validLiveOrders) {
         const orderNumber = String(order.orderNumber || order._id || '').trim();
@@ -261,6 +274,7 @@ async function performSync(force: boolean = false) {
 
         const deliveryType = classifyDeliveryType(cafeteriaName, deliveryAddress, String(order.orderType || ''));
         const liveOrderStatus = mapOrderStatus(String(order.orderStatus || 'confirmed'));
+        const gochowStatus = mapGoChowStatus(String(order.orderStatus || 'confirmed'));
         const livePaymentStatus = 'success';
 
         const details = detailsForDb(extractOrderDetails(order));
@@ -278,6 +292,7 @@ async function performSync(force: boolean = false) {
             totalAmountPaid,
             deliveryType,
             orderStatus: liveOrderStatus,
+            gochowStatus,
             paymentStatus: livePaymentStatus,
             ...(customerPhone && { customerPhone }),
             ...(customerEmail && { customerEmail }),
@@ -285,6 +300,9 @@ async function performSync(force: boolean = false) {
             ...details,
           });
         } else {
+          if ((existing as any).gochowStatus !== gochowStatus) {
+            toSetGoChowStatus.push({ id: existing.id, status: gochowStatus });
+          }
           if ((existing as any).items == null && Object.keys(details).length > 0) {
             toFillDetails.push({
               id: existing.id,
@@ -361,6 +379,15 @@ async function performSync(force: boolean = false) {
           } catch (updateErr: any) {
             console.warn(`[sync-orders] Failed updating order ID ${u.id}:`, updateErr?.message);
           }
+        }
+      }
+
+      for (const g of toSetGoChowStatus) {
+        try {
+          await prisma.deliveryOrder.update({ where: { id: g.id }, data: { gochowStatus: g.status } });
+          statusUpdatedCount++;
+        } catch (gErr: any) {
+          console.warn(`[sync-orders] Failed setting GoChow status for ${g.id}:`, gErr?.message);
         }
       }
 

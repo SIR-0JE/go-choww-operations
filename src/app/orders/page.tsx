@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { OrderDetailSheet } from '@/components/orders/OrderDetailSheet';
+import { gochowStatusView, riderStatusView, TONE_DOT } from '@/lib/orderStatus';
 import { Header } from '@/components/Header';
 import { CsvUploadDropzone } from '@/components/orders/CsvUploadDropzone';
 import { formatNaira } from '@/lib/financials';
@@ -46,6 +47,7 @@ interface RawOrder {
   isSettled: boolean;
   pickupCode?: string | null;
   customerPhone?: string | null;
+  gochowStatus?: string | null;
   riderId?: string | null;
   rider?: {
     id: string;
@@ -221,26 +223,20 @@ export default function RawDataOrdersPage() {
     }
   };
 
-  const getOrderStatusBadge = (status: string, _payStatus?: string) => {
-    const s = (status || '').toLowerCase().trim();
-    const [label, dot] =
-      s === 'delivered' || s === 'completed'
-        ? ['Delivered', 'bg-emerald-500']
-        : s === 'in transit' || s === 'dispatched'
-        ? ['In transit', 'bg-blue-500']
-        : s === 'ready'
-        ? ['Ready', 'bg-amber-500']
-        : s === 'preparing'
-        ? ['Preparing', 'bg-amber-400']
-        : s.includes('canc')
-        ? ['Cancelled', 'bg-slate-300']
-        : s === 'confirmed' || s === 'pending'
-        ? ['Confirmed', 'bg-slate-400']
-        : [status, 'bg-slate-400'];
+  // Two statuses: what GoChow says, and where the rider is
+  const getOrderStatusBadge = (ord: RawOrder) => {
+    const g = gochowStatusView(ord.gochowStatus);
+    const r = riderStatusView(ord);
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 whitespace-nowrap">
-        <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
-        {label}
+      <span className="inline-flex flex-col gap-0.5 text-xs text-slate-600 whitespace-nowrap">
+        <span className="inline-flex items-center gap-1.5" title="GoChow status">
+          <span className={`w-1.5 h-1.5 rounded-full ${TONE_DOT[g.tone]}`} />
+          <span className="text-slate-400">GoChow</span> {g.label}
+        </span>
+        <span className="inline-flex items-center gap-1.5" title="Rider status">
+          <span className={`w-1.5 h-1.5 rounded-full ${TONE_DOT[r.tone]}`} />
+          <span className="text-slate-400">Rider</span> {r.label}
+        </span>
       </span>
     );
   };
@@ -394,7 +390,7 @@ export default function RawDataOrdersPage() {
                         </div>
                         <div className="text-right shrink-0 space-y-1">
                           <div className="text-sm font-medium text-slate-900 tabular-nums">{formatNaira(ord.deliveryFee)}</div>
-                          {getOrderStatusBadge(ord.orderStatus, ord.paymentStatus)}
+                          {getOrderStatusBadge(ord)}
                         </div>
                       </div>
                       <div className="text-sm text-slate-600">
@@ -464,7 +460,7 @@ export default function RawDataOrdersPage() {
                           <td className="px-4 py-3">{pickupCodeChip(ord.pickupCode)}</td>
                           <td className="px-4 py-3">{getDeliveryTypeBadge(ord.deliveryType)}</td>
                           <td className="px-4 py-3 text-right text-slate-900 tabular-nums">{formatNaira(ord.deliveryFee)}</td>
-                          <td className="px-4 py-3">{getOrderStatusBadge(ord.orderStatus, ord.paymentStatus)}</td>
+                          <td className="px-4 py-3">{getOrderStatusBadge(ord)}</td>
                           <td className="px-4 py-3 min-w-[150px]">
                             <select
                               value={ord.riderId || 'unassigned'}

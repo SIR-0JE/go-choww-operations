@@ -4,6 +4,7 @@ import { telHref, whatsappNumber as waNumber, prettyPhone as localPhone } from '
 import React, { useEffect, useState } from 'react';
 import { X, Phone, MessageSquare, Copy, Check, Send, Pencil, Store } from 'lucide-react';
 import { formatNaira } from '@/lib/financials';
+import { gochowStatusView, riderStatusView, type Tone } from '@/lib/orderStatus';
 import { drawRiderCard, riderCardText } from '@/lib/riderCard';
 
 interface OrderItem {
@@ -30,6 +31,8 @@ export interface OrderSummary {
   riderPayout?: number;
   pickupCode?: string | null;
   customerPhone?: string | null;
+  gochowStatus?: string | null;
+  riderId?: string | null;
   rider?: { id: string; name: string; phone?: string | null } | null;
 }
 
@@ -43,15 +46,14 @@ interface FullOrder extends OrderSummary {
 const whatsappLink = (phone: string, text?: string) =>
   `https://wa.me/${waNumber(phone)}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
 
-function statusLabel(status: string) {
-  const s = (status || '').toLowerCase();
-  if (s === 'delivered' || s === 'completed') return ['Delivered', 'bg-emerald-50 text-emerald-700'];
-  if (s.includes('canc')) return ['Cancelled', 'bg-slate-100 text-slate-500'];
-  if (s === 'in transit' || s === 'dispatched') return ['On the way', 'bg-blue-50 text-blue-700'];
-  if (s === 'ready') return ['Ready', 'bg-amber-50 text-amber-700'];
-  if (s === 'preparing') return ['Preparing', 'bg-amber-50 text-amber-700'];
-  return [status || 'Confirmed', 'bg-slate-100 text-slate-600'];
-}
+const CHIP: Record<Tone, string> = {
+  slate: 'bg-slate-100 text-slate-600',
+  amber: 'bg-amber-50 text-amber-700',
+  orange: 'bg-orange-50 text-orange-700',
+  blue: 'bg-blue-50 text-blue-700',
+  emerald: 'bg-emerald-50 text-emerald-700',
+  rose: 'bg-rose-50 text-rose-700',
+};
 
 function CopyButton({ value, label }: { value: string; label: string }) {
   const [done, setDone] = useState(false);
@@ -149,7 +151,8 @@ export function OrderDetailSheet({
     }
   };
 
-  const [statusText, statusClass] = statusLabel(order.orderStatus);
+  const gochow = gochowStatusView(order.gochowStatus);
+  const riderStage = riderStatusView(order);
   const paid = ['success', 'paid'].includes((order.paymentStatus || '').toLowerCase());
   const items = order.items || [];
   const packs = Array.from(new Set(items.map((i) => i.pack)));
@@ -179,7 +182,8 @@ export function OrderDetailSheet({
               <span className="font-mono">{order.orderId}</span> · {placed}
             </p>
             <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
-              <span className={`px-2 py-0.5 rounded-full font-medium ${statusClass}`}>{statusText}</span>
+              <span className={`px-2 py-0.5 rounded-full font-medium ${CHIP[gochow.tone]}`}>GoChow: {gochow.label}</span>
+              <span className={`px-2 py-0.5 rounded-full font-medium ${CHIP[riderStage.tone]}`}>Rider: {riderStage.label}</span>
               <span className={`px-2 py-0.5 rounded-full font-medium ${paid ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
                 {paid ? 'Paid' : order.paymentStatus || 'Unpaid'}
               </span>

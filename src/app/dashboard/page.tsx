@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { InteractiveDailyTrendChart, DailyDataPoint } from '@/components/charts/InteractiveDailyTrendChart';
 import type { SprintStatus } from '@/lib/sprint';
+import { gochowStatusView, riderStatusView, TONE_DOT } from '@/lib/orderStatus';
 
 interface MonthlyWeeklyBreakdown {
   monthKey: string;
@@ -565,7 +566,24 @@ export default function ExecutiveDashboardPage() {
                         <td className="px-5 py-3 text-slate-700">
                           {ord.rider ? ord.rider.name : <span className="text-slate-400">In pool</span>}
                         </td>
-                        <td className="px-5 py-3">{renderStatusBadge(ord.orderStatus, ord.paymentStatus)}</td>
+                        <td className="px-5 py-3">
+                          {(() => {
+                            const g = gochowStatusView(ord.gochowStatus);
+                            const r = riderStatusView(ord);
+                            return (
+                              <span className="inline-flex flex-col gap-0.5 text-xs text-slate-600 whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1.5">
+                                  <span className={`w-1.5 h-1.5 rounded-full ${TONE_DOT[g.tone]}`} />
+                                  <span className="text-slate-400">GoChow</span> {g.label}
+                                </span>
+                                <span className="inline-flex items-center gap-1.5">
+                                  <span className={`w-1.5 h-1.5 rounded-full ${TONE_DOT[r.tone]}`} />
+                                  <span className="text-slate-400">Rider</span> {r.label}
+                                </span>
+                              </span>
+                            );
+                          })()}
+                        </td>
                       </tr>
                     ))
                   )}

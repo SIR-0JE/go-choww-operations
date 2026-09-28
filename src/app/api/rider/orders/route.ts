@@ -180,6 +180,7 @@ export async function GET(request: NextRequest) {
               time: true,
               riderId: true,
               pickupCode: true,
+              gochowStatus: true,
               handoverRequestedById: true,
               handoverRequestedByName: true,
               handoverDistance: true,
@@ -214,6 +215,7 @@ export async function GET(request: NextRequest) {
               time: true,
               customerPhone: true,
               pickupCode: true,
+              gochowStatus: true,
               handoverRequestedById: true,
               handoverRequestedByName: true,
               handoverDistance: true,
@@ -244,6 +246,7 @@ export async function GET(request: NextRequest) {
               createdAt: true,
               time: true,
               pickupCode: true,
+              gochowStatus: true,
             },
           }),
         ]);
