@@ -100,3 +100,22 @@ model PushSubscription {
   @@index([userType])
   @@index([riderId])
 }
+
+// What riders do (accept, pick up, deliver, drop, transfer, handover), shown live
+// on the admin Notifications page. Written by /api/rider/orders.
+model RiderActivity {
+  id              String   @id @default(uuid())
+  createdAt       DateTime @default(now())
+  type            String   // claim | pickup | deliver | drop | transfer | handover_request | handover_accept
+  riderId         String?
+  riderName       String?
+  orderDbId       String?
+  orderNumber     String?
+  customerName    String?
+  cafeteriaName   String?
+  deliveryAddress String?
+  detail          String?
+
+  @@index([createdAt])
+  @@index([riderId])
+}

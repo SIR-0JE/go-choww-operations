@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { sendPushNotification } from '@/lib/pushService';
 import { verifyCafeteriaProximity, calculateDistanceMeters, getCafeteriaCoordinates } from '@/lib/locations';
 import { getGeofenceSettings } from '@/lib/settings';
+import { logActivity } from '@/lib/activity';
 
 export const dynamic = 'force-dynamic';
 
@@ -452,13 +453,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      await logActivity('claim', rider, order);
       const updated = { ...order, riderId: rider.id, orderStatus: 'Ready' };
 
       // Dispatch mobile push notification to Dashboard
       sendPushNotification(
         {
-          title: '🛵 Order Claimed',
-          body: `${rider.name} accepted Order #${order.orderId || order.id}`,
+          title: 'Order accepted',
+          body: `${rider.name} accepted ${order.customerName}'s order from ${order.cafeteriaName}`,
           url: '/dashboard',
           tag: `claim-${order.orderId || order.id}`,
         },
@@ -550,6 +552,12 @@ export async function POST(request: NextRequest) {
       if (requested.count === 0) {
         return orderChangedResponse('This order was just picked up or released. Refresh and try again.');
       }
+      await logActivity(
+        'handover_request',
+        rider,
+        order,
+        verifiedDistance !== null ? `${verifiedDistance} m from the cafeteria` : undefined
+      );
       const updated: any = order;
 
       return NextResponse.json({
@@ -630,6 +638,7 @@ export async function POST(request: NextRequest) {
       if (released.count === 0) {
         return orderChangedResponse('The handover request changed or the order was picked up. Refresh and try again.');
       }
+      await logActivity('handover_accept', rider, order, `to ${targetRiderName}`);
       const updated: any = order;
 
       return NextResponse.json({
@@ -705,6 +714,7 @@ export async function POST(request: NextRequest) {
       if (dropped.count === 0) {
         return orderChangedResponse('This order was just picked up or reassigned, so it can no longer be dropped.');
       }
+      await logActivity('drop', rider, order);
       const updated: any = order;
 
       return NextResponse.json({
@@ -737,13 +747,14 @@ export async function POST(request: NextRequest) {
       if (pickedUp.count === 0) {
         return orderChangedResponse('This order was just reassigned or cancelled. Refresh and try again.');
       }
+      await logActivity('pickup', rider, order);
       const updated: any = { ...order, orderStatus: 'In Transit' };
 
       // Dispatch mobile push notification
       sendPushNotification(
         {
-          title: '📦 Order Dispatched',
-          body: `${rider.name} picked up Order #${order.orderId || order.id} — now in transit`,
+          title: 'Order picked up',
+          body: `${rider.name} picked up ${order.customerName}'s order from ${order.cafeteriaName}, on the way to ${order.deliveryAddress}`,
           url: '/dashboard',
           tag: `pickup-${order.orderId || order.id}`,
         },
@@ -780,13 +791,14 @@ export async function POST(request: NextRequest) {
       if (deliveredResult.count === 0) {
         return orderChangedResponse('This order was just reassigned or cancelled. Refresh and try again.');
       }
+      await logActivity('deliver', rider, order);
       const updated: any = { ...order, orderStatus: 'Completed' };
 
       // Dispatch mobile push notification
       sendPushNotification(
         {
-          title: '✅ Order Delivered',
-          body: `${rider.name} completed delivery of Order #${order.orderId || order.id}`,
+          title: 'Order delivered',
+          body: `${rider.name} delivered ${order.customerName}'s order to ${order.deliveryAddress}`,
           url: '/dashboard',
           tag: `deliver-${order.orderId || order.id}`,
         },
@@ -900,6 +912,7 @@ export async function POST(request: NextRequest) {
           { status: 409 }
         );
       }
+      await logActivity('transfer', rider, order, `to ${targetRider.name}`);
       const updated: any = { ...order, riderId: targetRider.id };
 
       return NextResponse.json({

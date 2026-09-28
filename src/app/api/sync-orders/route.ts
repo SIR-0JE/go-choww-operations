@@ -4,6 +4,7 @@ import { prisma, withDbRetry } from '@/lib/prisma';
 import { fetchLiveGoChowOrders, fetchLiveGoChowOrdersWithStatus } from '@/services/gochowApi';
 import { classifyDeliveryType } from '@/lib/locations';
 import { extractOrderDetails, detailsForDb } from '@/lib/orderDetails';
+import { logActivity } from '@/lib/activity';
 import { getSyncSettings, isWithinOperatingWindow, getOperationalStatus, getCurrentTimeInZone } from '@/lib/settings';
 import { sendPushNotification } from '@/lib/pushService';
 import { alertIfOrdersWaiting } from '@/lib/dispatchStatus';
@@ -380,6 +381,7 @@ async function performSync(force: boolean = false) {
   const hasChanges = newlySyncedCount > 0 || statusUpdatedCount > 0;
 
   if (newlySyncedCount > 0) {
+    await logActivity('new_orders', null, {}, newlySyncedCount === 1 ? '1 new order' : `${newlySyncedCount} new orders`);
     // Asynchronously dispatch mobile phone push notification to all riders and dashboard
     sendPushNotification(
       {

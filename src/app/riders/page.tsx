@@ -95,6 +95,29 @@ function RevealPin({ pin }: { pin: string }) {
 
 export default function RidersPage() {
   const [riders, setRiders] = useState<RiderItem[]>([]);
+  // Right now: orders in the pool / with riders, refreshed every 15s
+  const [live, setLive] = useState<{
+    inPool: number;
+    accepted: number;
+    onTheWay: number;
+    deliveredToday: number;
+    riders: { id: string; accepted: number; onTheWay: number; deliveredToday: number }[];
+  } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      fetch('/api/activity', { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((d) => alive && d.success && setLive(d.live))
+        .catch(() => {});
+    load();
+    const id = setInterval(load, 15000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
   const [summary, setSummary] = useState<RiderSummary>({
     totalRiders: 0,
     activeRiders: 0,
@@ -414,6 +437,29 @@ export default function RidersPage() {
           </div>
         </div>
 
+        {/* Right now */}
+        <section aria-label="Right now" className="rounded-xl bg-white border border-slate-200">
+          <div className="px-4 sm:px-5 pt-3 flex items-center justify-between">
+            <h2 className="text-sm font-medium text-slate-900">Right now</h2>
+            <Link href="/notifications" className="text-xs text-slate-500 hover:text-slate-900">
+              See activity →
+            </Link>
+          </div>
+          <div className="grid grid-cols-4 divide-x divide-slate-100 py-3">
+            {[
+              ['In pool', live?.inPool, 'text-slate-900'],
+              ['Accepted', live?.accepted, 'text-orange-600'],
+              ['On the way', live?.onTheWay, 'text-blue-600'],
+              ['Delivered today', live?.deliveredToday, 'text-emerald-600'],
+            ].map(([label, value, color]) => (
+              <div key={label as string} className="px-2 sm:px-5 text-center sm:text-left">
+                <div className={`text-2xl font-semibold tabular-nums ${color}`}>{value ?? '–'}</div>
+                <div className="text-xs text-slate-500 leading-tight">{label}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* Summary */}
         <section aria-label="Fleet summary" className="rounded-xl bg-white border border-slate-200 grid grid-cols-2 lg:grid-cols-4 divide-slate-100 lg:divide-x">
           {[
@@ -537,6 +583,25 @@ export default function RidersPage() {
                       {inactive && <span className="text-xs text-amber-700">{rider.status}</span>}
                     </div>
                   </div>
+
+                  {/* What this rider is doing right now */}
+                  {(() => {
+                    const now = live?.riders.find((x) => x.id === rider.id);
+                    if (!now) return null;
+                    return (
+                      <div className="flex flex-wrap gap-1.5 text-xs">
+                        <span className={`px-2 py-0.5 rounded-full ${now.accepted ? 'bg-orange-50 text-orange-700' : 'bg-slate-50 text-slate-400'}`}>
+                          {now.accepted} accepted
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-full ${now.onTheWay ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-400'}`}>
+                          {now.onTheWay} on the way
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-full ${now.deliveredToday ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-50 text-slate-400'}`}>
+                          {now.deliveredToday} delivered today
+                        </span>
+                      </div>
+                    );
+                  })()}
 
                   {/* Numbers */}
                   <div className="grid grid-cols-4 gap-2 text-center">

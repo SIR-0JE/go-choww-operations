@@ -20,7 +20,6 @@ import {
   ClipboardCheck,
   Users,
 } from 'lucide-react';
-import { countUnread } from '@/lib/notifications';
 
 interface SidebarProps {
   isMobileOpen?: boolean;
@@ -52,14 +51,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
     };
   }, []);
 
+  // Unread rider activity since this device last looked at Notifications
   useEffect(() => {
-    const refresh = () => setUnreadCount(countUnread());
+    let alive = true;
+    const refresh = () => {
+      let since = '';
+      try {
+        since = localStorage.getItem('gochoww_activity_seen') || '';
+      } catch {
+        /* storage blocked */
+      }
+      fetch(`/api/activity?unreadSince=${encodeURIComponent(since)}`, { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((d) => alive && d.success && setUnreadCount(d.unread))
+        .catch(() => {});
+    };
     refresh();
+    const id = setInterval(refresh, 30000);
     window.addEventListener('notifications-updated', refresh);
-    window.addEventListener('rider-activity', refresh);
     return () => {
+      alive = false;
+      clearInterval(id);
       window.removeEventListener('notifications-updated', refresh);
-      window.removeEventListener('rider-activity', refresh);
     };
   }, []);
 

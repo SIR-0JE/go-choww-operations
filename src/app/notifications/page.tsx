@@ -1,176 +1,218 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import { AppLayout } from '@/components/AppLayout';
 import { Header } from '@/components/Header';
-import {
-  Bell,
-  Package,
-  Truck,
-  CheckCircle2,
-  ArrowRightLeft,
-  Trash2,
-  CheckCheck,
-  Info,
-  Clock,
-  ChevronRight,
-} from 'lucide-react';
-import {
-  loadNotifications,
-  markAllRead,
-  clearAllNotifications,
-  AppNotification,
-} from '@/lib/notifications';
+import { Bell, CheckCheck, Trash2 } from 'lucide-react';
 
-function timeAgo(isoString: string): string {
-  const diff = Date.now() - new Date(isoString).getTime();
-  const secs = Math.floor(diff / 1000);
-  if (secs < 60) return `${secs}s ago`;
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return new Date(isoString).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' });
+interface Activity {
+  id: string;
+  createdAt: string;
+  type: string;
+  riderName: string | null;
+  customerName: string | null;
+  cafeteriaName: string | null;
+  deliveryAddress: string | null;
+  orderNumber: string | null;
+  detail: string | null;
 }
 
-function NotificationIcon({ type }: { type: AppNotification['type'] }) {
-  switch (type) {
+interface Live {
+  inPool: number;
+  accepted: number;
+  onTheWay: number;
+  deliveredToday: number;
+}
+
+type Filter = 'all' | 'claim' | 'pickup' | 'deliver' | 'new_orders' | 'other';
+
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'claim', label: 'Accepted' },
+  { key: 'pickup', label: 'Picked up' },
+  { key: 'deliver', label: 'Delivered' },
+  { key: 'new_orders', label: 'New orders' },
+  { key: 'other', label: 'Other' },
+];
+
+// Per device: what's been seen / cleared on this browser
+const SEEN_KEY = 'gochoww_activity_seen';
+const CLEARED_KEY = 'gochoww_activity_cleared';
+
+const readTime = (key: string) => {
+  try {
+    return localStorage.getItem(key) || '';
+  } catch {
+    return '';
+  }
+};
+const writeTime = (key: string, value: string) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* storage blocked */
+  }
+  window.dispatchEvent(new Event('notifications-updated'));
+};
+
+const DOT: Record<string, string> = {
+  claim: 'bg-orange-500',
+  pickup: 'bg-blue-500',
+  deliver: 'bg-emerald-500',
+  new_orders: 'bg-slate-900',
+  drop: 'bg-rose-500',
+  transfer: 'bg-violet-500',
+  handover_request: 'bg-amber-500',
+  handover_accept: 'bg-violet-500',
+};
+
+function describe(a: Activity): { title: React.ReactNode; sub: string | null } {
+  const rider = <strong className="font-semibold">{a.riderName || 'A rider'}</strong>;
+  const customer = a.customerName ? <strong className="font-semibold">{a.customerName}</strong> : 'an order';
+  const route = [a.cafeteriaName, a.deliveryAddress].filter(Boolean).join(' → ') || null;
+  switch (a.type) {
     case 'claim':
-      return (
-        <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
-          <Package className="w-5 h-5 text-amber-600" />
-        </div>
-      );
+      return { title: <>{rider} accepted {customer}&apos;s order</>, sub: route };
     case 'pickup':
-      return (
-        <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0">
-          <Truck className="w-5 h-5 text-blue-600" />
-        </div>
-      );
+      return {
+        title: <>{rider} picked up {customer}&apos;s order{a.cafeteriaName ? ` from ${a.cafeteriaName}` : ''}</>,
+        sub: a.deliveryAddress ? `On the way to ${a.deliveryAddress}` : null,
+      };
     case 'deliver':
-      return (
-        <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-        </div>
-      );
+      return { title: <>{rider} delivered {customer}&apos;s order</>, sub: a.deliveryAddress ? `to ${a.deliveryAddress}` : null };
+    case 'drop':
+      return { title: <>{rider} put {customer}&apos;s order back in the pool</>, sub: route };
     case 'transfer':
-      return (
-        <div className="w-10 h-10 rounded-xl bg-violet-50 border border-violet-200 flex items-center justify-center shrink-0">
-          <ArrowRightLeft className="w-5 h-5 text-violet-600" />
-        </div>
-      );
-    case 'new_order':
-      return (
-        <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-          <Bell className="w-5 h-5 text-slate-600" />
-        </div>
-      );
+      return { title: <>{rider} passed {customer}&apos;s order {a.detail}</>, sub: route };
+    case 'handover_request':
+      return {
+        title: <>{rider} asked to take {customer}&apos;s order</>,
+        sub: [a.cafeteriaName, a.detail].filter(Boolean).join(' · ') || null,
+      };
+    case 'handover_accept':
+      return { title: <>{rider} handed {customer}&apos;s order {a.detail}</>, sub: route };
+    case 'new_orders':
+      return { title: <><strong className="font-semibold">{a.detail || 'New orders'}</strong> came in</>, sub: null };
     default:
-      return (
-        <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-          <Info className="w-5 h-5 text-slate-500" />
-        </div>
-      );
+      return { title: <>{rider} updated an order</>, sub: route };
   }
 }
 
-type FilterType = 'all' | 'unread' | 'claim' | 'pickup' | 'deliver' | 'new_order';
+const timeAgo = (iso: string) => {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const h = Math.floor(mins / 60);
+  return `${h} h ago`;
+};
+
+const clock = (iso: string) =>
+  new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Lagos' });
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [filter, setFilter] = useState<FilterType>('all');
+  const [activities, setActivities] = useState<Activity[] | null>(null);
+  const [live, setLive] = useState<Live | null>(null);
+  const [error, setError] = useState(false);
+  const [filter, setFilter] = useState<Filter>('all');
+  const [seenAt, setSeenAt] = useState('');
+  const [clearedAt, setClearedAt] = useState('');
 
-  const reload = useCallback(() => {
-    setNotifications(loadNotifications());
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch('/api/activity', { cache: 'no-store' });
+      const data = await res.json();
+      if (!data.success) throw new Error();
+      setActivities(data.activities);
+      setLive(data.live);
+      setError(false);
+    } catch {
+      setError(true);
+    }
   }, []);
 
   useEffect(() => {
-    reload();
-    // Listen for updates from other tabs or rider activity events
-    window.addEventListener('notifications-updated', reload);
-    window.addEventListener('rider-activity', reload);
-    // Also mark all as read when the page is opened
-    markAllRead();
-    return () => {
-      window.removeEventListener('notifications-updated', reload);
-      window.removeEventListener('rider-activity', reload);
-    };
-  }, [reload]);
+    setSeenAt(readTime(SEEN_KEY));
+    setClearedAt(readTime(CLEARED_KEY));
+    load();
+    const id = setInterval(load, 10000);
+    return () => clearInterval(id);
+  }, [load]);
 
-  const handleMarkAllRead = () => {
-    markAllRead();
-    reload();
+  const markAllRead = () => {
+    const now = new Date().toISOString();
+    writeTime(SEEN_KEY, now);
+    setSeenAt(now);
+  };
+  const clearAll = () => {
+    const now = new Date().toISOString();
+    writeTime(CLEARED_KEY, now);
+    writeTime(SEEN_KEY, now);
+    setClearedAt(now);
+    setSeenAt(now);
   };
 
-  const handleClearAll = () => {
-    clearAllNotifications();
-    reload();
-  };
-
-  const filtered = notifications.filter((n) => {
-    if (filter === 'all') return true;
-    if (filter === 'unread') return !n.read;
-    return n.type === filter;
-  });
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const filters: { key: FilterType; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'unread', label: `Unread${unreadCount > 0 ? ` (${unreadCount})` : ''}` },
-    { key: 'claim', label: 'Accepted' },
-    { key: 'pickup', label: 'Picked Up' },
-    { key: 'deliver', label: 'Delivered' },
-    { key: 'new_order', label: 'New Orders' },
-  ];
+  const visible = (activities || [])
+    .filter((a) => !clearedAt || a.createdAt > clearedAt)
+    .filter((a) =>
+      filter === 'all'
+        ? true
+        : filter === 'other'
+        ? !['claim', 'pickup', 'deliver', 'new_orders'].includes(a.type)
+        : a.type === filter
+    );
+  const unread = (activities || []).filter((a) => (!clearedAt || a.createdAt > clearedAt) && (!seenAt || a.createdAt > seenAt)).length;
 
   return (
     <AppLayout>
       <Header />
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6">
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-4">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2.5 mb-1">
-              <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Notifications</h1>
-              {unreadCount > 0 && (
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-500 text-white">
-                  {unreadCount}
-                </span>
-              )}
-            </div>
-            <p className="text-sm text-slate-500 mt-1">Rider activity from the last 24 hours.</p>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Notifications</h1>
+            <p className="text-sm text-slate-500 mt-1">What riders are doing, live. Last 24 hours.</p>
           </div>
-
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex gap-2 shrink-0">
             <button
-              onClick={handleMarkAllRead}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all"
+              onClick={markAllRead}
+              disabled={unread === 0}
+              className="h-9 px-3 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 flex items-center gap-1.5 disabled:opacity-40"
             >
-              <CheckCheck className="w-3.5 h-3.5" />
-              Mark all read
+              <CheckCheck className="w-4 h-4" />
+              <span className="hidden sm:inline">Mark all read</span>
             </button>
             <button
-              onClick={handleClearAll}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition-all"
+              onClick={clearAll}
+              className="h-9 px-3 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-500 flex items-center gap-1.5"
+              aria-label="Clear all"
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              Clear all
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Clear</span>
             </button>
           </div>
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {filters.map((f) => (
+        {/* Right now */}
+        <section className="grid grid-cols-4 rounded-xl bg-white border border-slate-200 divide-x divide-slate-100">
+          {[
+            ['In pool', live?.inPool, 'text-slate-900'],
+            ['Accepted', live?.accepted, 'text-orange-600'],
+            ['On the way', live?.onTheWay, 'text-blue-600'],
+            ['Delivered today', live?.deliveredToday, 'text-emerald-600'],
+          ].map(([label, value, color]) => (
+            <div key={label as string} className="px-2 sm:px-4 py-3 text-center sm:text-left">
+              <div className={`text-2xl font-semibold tabular-nums ${color}`}>{value ?? '–'}</div>
+              <div className="text-xs text-slate-500 leading-tight">{label}</div>
+            </div>
+          ))}
+        </section>
+
+        <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-1">
+          {FILTERS.map((f) => (
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                filter === f.key
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+              className={`h-8 px-3 rounded-full text-sm font-medium whitespace-nowrap border ${
+                filter === f.key ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200'
               }`}
             >
               {f.label}
@@ -178,65 +220,50 @@ export default function NotificationsPage() {
           ))}
         </div>
 
-        {/* Notification List */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-              <div className="w-16 h-16 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center mb-4">
-                <Bell className="w-7 h-7 text-slate-400" />
-              </div>
-              <p className="text-sm font-semibold text-slate-700">No notifications</p>
-              <p className="text-xs text-slate-400 font-medium mt-1 max-w-xs">
-                Rider actions (accept, pickup, deliver) will appear here in real time.
-                Notifications clear automatically after 24 hours.
-              </p>
+        <div className="rounded-xl bg-white border border-slate-200 overflow-hidden">
+          {error && !activities ? (
+            <p className="px-4 py-12 text-center text-sm text-slate-500">
+              Couldn&apos;t load notifications.{' '}
+              <button onClick={load} className="underline text-slate-900">
+                Try again
+              </button>
+            </p>
+          ) : !activities ? (
+            <div className="divide-y divide-slate-100">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="px-4 py-4 animate-pulse">
+                  <div className="h-4 bg-slate-100 rounded w-2/3" />
+                </div>
+              ))}
+            </div>
+          ) : visible.length === 0 ? (
+            <div className="px-4 py-14 text-center">
+              <Bell className="w-6 h-6 mx-auto mb-2 text-slate-300" />
+              <p className="text-sm font-medium text-slate-700">Nothing yet</p>
+              <p className="text-sm text-slate-500 mt-1">When a rider accepts, picks up or delivers an order, it shows here.</p>
             </div>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {filtered.map((notif) => (
-                <li
-                  key={notif.id}
-                  className={`flex items-start gap-4 px-5 py-4 transition-colors hover:bg-slate-50/60 ${
-                    !notif.read ? 'bg-slate-50/40' : ''
-                  }`}
-                >
-                  <NotificationIcon type={notif.type} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <p className={`text-sm font-semibold text-slate-900 ${!notif.read ? '' : 'font-semibold'}`}>
-                        {notif.title}
-                      </p>
-                      {!notif.read && (
-                        <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
-                      )}
+              {visible.map((a) => {
+                const { title, sub } = describe(a);
+                const isNew = !seenAt || a.createdAt > seenAt;
+                return (
+                  <li key={a.id} className={`px-4 py-3 flex gap-3 ${isNew ? 'bg-orange-50/40' : ''}`}>
+                    <span className={`mt-1.5 w-2.5 h-2.5 rounded-full shrink-0 ${DOT[a.type] || 'bg-slate-400'}`} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-slate-800">{title}</p>
+                      {sub && <p className="text-xs text-slate-500 mt-0.5 truncate">{sub}</p>}
                     </div>
-                    <p className="text-sm text-slate-600 font-medium leading-snug">{notif.body}</p>
-                    {notif.orderId && (
-                      <Link
-                        href={`/orders`}
-                        className="inline-flex items-center gap-1 text-xs font-mono text-brand-600 hover:text-brand-700 mt-1.5 transition-colors"
-                      >
-                        View in orders
-                        <ChevronRight className="w-3 h-3" />
-                      </Link>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0 mt-0.5 text-xs text-slate-400 font-medium">
-                    <Clock className="w-3 h-3" />
-                    <span>{timeAgo(notif.timestamp)}</span>
-                  </div>
-                </li>
-              ))}
+                    <div className="text-right shrink-0">
+                      <div className="text-xs text-slate-500">{timeAgo(a.createdAt)}</div>
+                      <div className="text-xs text-slate-400 tabular-nums">{clock(a.createdAt)}</div>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
-
-        {filtered.length > 0 && (
-          <p className="text-center text-xs text-slate-400 font-medium">
-            Showing {filtered.length} notification{filtered.length !== 1 ? 's' : ''} •
-            All entries auto-clear 24 hours after creation
-          </p>
-        )}
       </main>
     </AppLayout>
   );
