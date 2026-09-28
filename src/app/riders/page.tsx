@@ -1,5 +1,6 @@
 'use client';
 
+import { telHref } from '@/lib/phone';
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { AppLayout } from '@/components/AppLayout';
@@ -557,7 +558,7 @@ export default function RidersPage() {
                         </Link>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
                           {rider.phone ? (
-                            <a href={`tel:${rider.phone}`} className="inline-flex items-center gap-1 font-mono hover:text-slate-800">
+                            <a href={telHref(rider.phone)} className="inline-flex items-center gap-1 font-mono hover:text-slate-800">
                               <Phone className="w-3 h-3" />
                               {rider.phone}
                             </a>

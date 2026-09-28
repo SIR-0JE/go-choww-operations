@@ -4,6 +4,8 @@
  * food items under it, and the customer's name with a smaller phone number. Drawn on a canvas in the browser.
  */
 
+import { localPhone as callable, prettyPhone } from '@/lib/phone';
+
 export interface RiderCardOrder {
   orderId: string;
   customerName: string;
@@ -18,19 +20,12 @@ export interface RiderCardOrder {
 const MAX_ITEMS = 10;
 const FONT = '"Inter Variable", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 
-/** 0805 245 6433 style, from +2348052456433 / 2348052456433 / 08052456433 */
-export function localPhone(phone?: string | null): string {
-  const digits = (phone || '').replace(/\D/g, '');
-  if (!digits) return '';
-  const local = digits.startsWith('234') && digits.length === 13 ? '0' + digits.slice(3) : digits;
-  return local.length === 11 ? `${local.slice(0, 4)} ${local.slice(4, 7)} ${local.slice(7)}` : local;
-}
 
 export function riderCardText(o: RiderCardOrder): string {
   const lines = [
     o.pickupCode ? `Pickup code: ${o.pickupCode}` : null,
     `${o.cafeteriaName} → ${o.deliveryAddress}`,
-    `${o.customerName}${o.customerPhone ? ` · ${localPhone(o.customerPhone).replace(/\s/g, '')}` : ''}`,
+    `${o.customerName}${o.customerPhone ? ` · ${callable(o.customerPhone)}` : ''}`,
   ];
   return lines.filter(Boolean).join('\n');
 }
@@ -169,7 +164,7 @@ export async function drawRiderCard(o: RiderCardOrder): Promise<Blob> {
   ctx.fillRect(PAD, y - 24, inner, 1);
   ctx.fillStyle = '#0f172a';
   ctx.font = `600 20px ${FONT}`;
-  const phone = o.customerPhone ? localPhone(o.customerPhone) : '';
+  const phone = o.customerPhone ? prettyPhone(o.customerPhone) : '';
   ctx.font = `500 18px ${FONT}`;
   const phoneW = phone ? ctx.measureText(phone).width : 0;
   ctx.font = `600 20px ${FONT}`;

@@ -1,5 +1,6 @@
 'use client';
 
+import { telHref, whatsappNumber } from '@/lib/phone';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Search, Phone, MessageSquare, X, Users } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
@@ -34,7 +35,6 @@ const shortDate = (iso: string) =>
 const timeOfDay = (iso: string) =>
   new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Lagos' });
 
-const whatsappNumber = (phone: string) => (phone.startsWith('0') ? '234' + phone.slice(1) : phone);
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'today', label: 'Today' },
@@ -79,7 +79,7 @@ function CustomerDetail({ customer, onClose }: { customer: CustomerSummary; onCl
         {customer.phone && (
           <div className="px-5 pb-4 grid grid-cols-2 gap-2">
             <a
-              href={`tel:${customer.phone}`}
+              href={telHref(customer.phone)}
               className="h-11 rounded-lg bg-slate-900 text-white text-sm font-medium flex items-center justify-center gap-2"
             >
               <Phone className="w-4 h-4" />

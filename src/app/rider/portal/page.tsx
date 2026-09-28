@@ -1,5 +1,6 @@
 'use client';
 
+import { telHref } from '@/lib/phone';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -1624,7 +1625,7 @@ export default function RiderPortalPage() {
                         </div>
                         {ord.customerPhone ? (
                           <a
-                            href={`tel:${ord.customerPhone.replace(/\D/g, '')}`}
+                            href={telHref(ord.customerPhone)}
                             className="flex items-center gap-1.5 h-10 px-4 rounded-lg border border-slate-200 text-slate-800 font-medium text-sm hover:bg-slate-50 shrink-0"
                           >
                             <Phone className="w-4 h-4 text-emerald-600" />

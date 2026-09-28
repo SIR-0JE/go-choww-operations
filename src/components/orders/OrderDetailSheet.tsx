@@ -1,9 +1,10 @@
 'use client';
 
+import { telHref, whatsappNumber as waNumber, prettyPhone as localPhone } from '@/lib/phone';
 import React, { useEffect, useState } from 'react';
 import { X, Phone, MessageSquare, Copy, Check, Send, Pencil, Store } from 'lucide-react';
 import { formatNaira } from '@/lib/financials';
-import { drawRiderCard, localPhone, riderCardText } from '@/lib/riderCard';
+import { drawRiderCard, riderCardText } from '@/lib/riderCard';
 
 interface OrderItem {
   pack: number | null;
@@ -39,11 +40,8 @@ interface FullOrder extends OrderSummary {
   vendorPhone?: string | null;
 }
 
-const whatsappLink = (phone: string, text?: string) => {
-  const digits = phone.replace(/\D/g, '');
-  const intl = digits.startsWith('0') ? '234' + digits.slice(1) : digits;
-  return `https://wa.me/${intl}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
-};
+const whatsappLink = (phone: string, text?: string) =>
+  `https://wa.me/${waNumber(phone)}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
 
 function statusLabel(status: string) {
   const s = (status || '').toLowerCase();
@@ -208,7 +206,7 @@ export function OrderDetailSheet({
           {order.customerPhone && (
             <div className="flex gap-2 -mt-2">
               <a
-                href={`tel:${order.customerPhone.replace(/\s/g, '')}`}
+                href={telHref(order.customerPhone)}
                 className="flex-1 h-10 rounded-lg border border-slate-200 text-sm font-medium text-slate-800 flex items-center justify-center gap-1.5"
               >
                 <Phone className="w-4 h-4 text-slate-500" /> Call
@@ -234,7 +232,7 @@ export function OrderDetailSheet({
               </div>
               {order.vendorPhone && (
                 <a
-                  href={`tel:${order.vendorPhone.replace(/\s/g, '')}`}
+                  href={telHref(order.vendorPhone)}
                   className="shrink-0 h-9 px-3 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-700 flex items-center gap-1.5"
                 >
                   <Store className="w-3.5 h-3.5 text-slate-400" /> Call cafeteria

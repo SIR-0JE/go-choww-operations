@@ -1,5 +1,6 @@
 'use client';
 
+import { telHref, whatsappNumber } from '@/lib/phone';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Radio, RefreshCw, Phone, MessageSquare, MapPinOff, X } from 'lucide-react';
@@ -55,10 +56,6 @@ const LATE_AFTER_MINUTES = 30;
 const isLate = (createdAt: string) => (minutesAgo(createdAt) ?? 0) >= LATE_AFTER_MINUTES;
 const lateCount = (r: FleetRider) => r.activeOrders.filter((o) => isLate(o.createdAt)).length;
 
-const whatsappNumber = (phone: string) => {
-  const digits = (phone || '').replace(/[^0-9]/g, '');
-  return digits.startsWith('0') ? '234' + digits.slice(1) : digits;
-};
 
 // Online riders first, then those with late orders, then busiest, then by name
 const riderOrder = (a: FleetRider, b: FleetRider) =>
@@ -90,7 +87,7 @@ function RiderDetail({ rider, onClose }: { rider: FleetRider; onClose: () => voi
       {rider.phone && (
         <div className="px-4 pb-4 grid grid-cols-2 gap-2">
           <a
-            href={`tel:${rider.phone}`}
+            href={telHref(rider.phone)}
             className="h-11 rounded-lg bg-slate-900 text-white text-sm font-medium flex items-center justify-center gap-2"
           >
             <Phone className="w-4 h-4" />

@@ -1,5 +1,6 @@
 'use client';
 
+import { telHref } from '@/lib/phone';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import {
@@ -676,7 +677,7 @@ export default function BacklogReconciliationPage() {
                           <div className="font-semibold text-slate-900">{ord.customerName}</div>
                           {ord.customerPhone ? (
                             <a
-                              href={`tel:${ord.customerPhone.replace(/\D/g, '')}`}
+                              href={telHref(ord.customerPhone)}
                               className="text-xs text-brand-600 hover:underline flex items-center gap-1 mt-0.5"
                             >
                               <span>{ord.customerPhone}</span>
