@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       // Everything not finished: unassigned = in the pool, assigned = with a rider
       prisma.deliveryOrder.findMany({
         where: { orderStatus: { notIn: FINISHED } },
-        select: { riderId: true, orderStatus: true },
+        select: { riderId: true, orderStatus: true, deliveryType: true },
       }),
       prisma.deliveryOrder.groupBy({
         by: ['riderId'],
@@ -69,7 +69,8 @@ export async function GET(request: NextRequest) {
     let onTheWay = 0;
     for (const o of open) {
       if (!o.riderId) {
-        inPool++;
+        // Pick-ups never go to riders
+        if (!(o.deliveryType || '').toLowerCase().includes('pick')) inPool++;
       } else if (ON_THE_WAY.includes(o.orderStatus)) {
         onTheWay++;
         bucket(o.riderId).onTheWay++;

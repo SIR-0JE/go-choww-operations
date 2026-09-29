@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { effectiveGochowStatus } from '@/lib/orderStatus';
+import { effectiveGochowStatus, isPickup } from '@/lib/orderStatus';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     const orders = await prisma.deliveryOrder.findMany({
       where: { createdAt: { gte: start, lt: end } },
-      select: { cafeteriaName: true, gochowStatus: true, orderStatus: true, riderId: true },
+      select: { cafeteriaName: true, gochowStatus: true, orderStatus: true, riderId: true, deliveryType: true },
     });
 
     const emptyCounts = () => Object.fromEntries(GOCHOW_STATUSES.map((s) => [s, 0])) as Record<string, number>;
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       for (const r of [row, totals]) {
         r.total++;
         r.byStatus[status] = (r.byStatus[status] || 0) + 1;
-        if (!o.riderId && !cancelled) r.noRider++;
+        if (!o.riderId && !cancelled && !isPickup(o.deliveryType)) r.noRider++;
       }
     }
 

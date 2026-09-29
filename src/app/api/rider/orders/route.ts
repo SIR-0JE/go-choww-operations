@@ -6,6 +6,7 @@ import { verifyCafeteriaProximity, calculateDistanceMeters, getCafeteriaCoordina
 import { getGeofenceSettings } from '@/lib/settings';
 import { logActivity } from '@/lib/activity';
 import { currentRiderLimit, notWithCollector, RIDER_RELEASED_STAGES } from '@/lib/collectors';
+import { isPickup, NOT_PICKUP } from '@/lib/orderStatus';
 
 export const dynamic = 'force-dynamic';
 
@@ -157,9 +158,10 @@ export async function GET(request: NextRequest) {
         const shiftCutoff = dayAgo < todayMidnight ? dayAgo : todayMidnight;
 
         return await Promise.all([
-          // 1. Available Pool
+          // 1. Available Pool (never pick-up orders: the customer collects those)
           prisma.deliveryOrder.findMany({
             where: {
+              ...NOT_PICKUP,
               OR: [
                 {
                   riderId: null,
@@ -398,6 +400,12 @@ export async function POST(request: NextRequest) {
 
     // ── ACTION: CLAIM ────────────────────────────────────────────────────────
     if (action === 'claim') {
+      if (isPickup(order.deliveryType)) {
+        return NextResponse.json(
+          { success: false, error: 'This is a pick-up order. The customer collects it from the cafeteria.' },
+          { status: 400 }
+        );
+      }
       // Concurrency guard: Check if already assigned to someone else
       if (order.riderId && order.riderId !== rider.id) {
         return NextResponse.json(

@@ -34,6 +34,14 @@ export function gochowStatusView(gochowStatus?: string | null): { label: string;
   }
 }
 
+/** Pick-up orders: the customer collects from the cafeteria, so no rider is involved. */
+export function isPickup(deliveryType?: string | null): boolean {
+  return (deliveryType || '').toLowerCase().includes('pick');
+}
+
+/** Prisma condition that leaves pick-up orders out. */
+export const NOT_PICKUP = { NOT: { deliveryType: { contains: 'pick', mode: 'insensitive' as const } } };
+
 export function riderStatusView(order: {
   riderId?: string | null;
   orderStatus: string;
@@ -48,6 +56,7 @@ export function riderStatusView(order: {
   if (order.collectorStage === 'not_reachable') return { label: 'Customer not reachable', tone: 'rose' };
   if (s === 'in transit') return { label: 'Picked up', tone: 'blue' };
   if (order.riderId) return { label: 'Accepted', tone: 'orange' };
+  if (isPickup(order.deliveryType)) return { label: 'Customer collects', tone: 'slate' };
   return { label: 'Waiting for rider', tone: 'slate' };
 }
 

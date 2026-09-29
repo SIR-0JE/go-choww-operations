@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, withDbRetry, getInMemoryOrders, updateInMemoryOrder, updateInMemoryOrderRider } from '@/lib/prisma';
 import { calculateRiderPayout, isSettledOrder } from '@/lib/financials';
-import { effectiveGochowStatus } from '@/lib/orderStatus';
+import { effectiveGochowStatus, isPickup } from '@/lib/orderStatus';
 
 export const dynamic = 'force-dynamic';
 
@@ -130,9 +130,12 @@ export async function GET(request: NextRequest) {
       processed = processed.filter((o) => (o.cafeteriaName || '').trim().toLowerCase() === cafeteria);
     }
     if (gochowStatus === 'open') {
-      // Everything that isn't cancelled (on either side)
+      // Orders a rider should take: not cancelled (on either side) and not a pick-up
       processed = processed.filter(
-        (o) => effectiveGochowStatus(o) !== 'Cancelled' && !(o.orderStatus || '').toLowerCase().startsWith('canc')
+        (o) =>
+          effectiveGochowStatus(o) !== 'Cancelled' &&
+          !(o.orderStatus || '').toLowerCase().startsWith('canc') &&
+          !isPickup(o.deliveryType)
       );
     } else if (gochowStatus !== 'all') {
       processed = processed.filter((o) => effectiveGochowStatus(o).toLowerCase() === gochowStatus);
