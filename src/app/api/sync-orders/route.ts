@@ -5,6 +5,7 @@ import { fetchLiveGoChowOrders, fetchLiveGoChowOrdersWithStatus } from '@/servic
 import { classifyDeliveryType } from '@/lib/locations';
 import { extractOrderDetails, detailsForDb } from '@/lib/orderDetails';
 import { logActivity } from '@/lib/activity';
+import { attachCollectors } from '@/lib/collectors';
 import { getSyncSettings, isWithinOperatingWindow, getOperationalStatus, getCurrentTimeInZone } from '@/lib/settings';
 import { sendPushNotification } from '@/lib/pushService';
 import { alertIfOrdersWaiting } from '@/lib/dispatchStatus';
@@ -403,6 +404,9 @@ async function performSync(force: boolean = false) {
       console.error('[sync-orders] Database error during sync execution:', dbErr);
     }
   }
+
+  // Collector mode: give new hostel orders their collector (or release them when it's off)
+  await attachCollectors().catch((err) => console.warn('[sync-orders] Collector attach error:', err?.message));
 
   // ── Build response ─────────────────────────────────────────────────────────
   const hasChanges = newlySyncedCount > 0 || statusUpdatedCount > 0;

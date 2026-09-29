@@ -60,6 +60,11 @@ interface RiderOrder {
   handoverRequestedById?: string | null;
   handoverRequestedByName?: string | null;
   handoverDistance?: number | null;
+  // Collector mode: this order goes to the hostel's collector instead of the customer
+  collectorId?: string | null;
+  collectorStage?: string | null;
+  handedAt?: string | null;
+  collector?: { id: string; name: string; phone?: string | null; pointName: string } | null;
 }
 
 interface RiderProfile {
@@ -78,7 +83,10 @@ interface OtherRider {
   activeCount: number;
 }
 
-const MAX_ACTIVE_ORDERS = 5;
+
+// Collector mode: the order ends at the hostel's collector (unless it was given back)
+const viaCollector = (o: RiderOrder) => Boolean(o.collectorId && o.collector && o.collectorStage !== 'returned');
+const returnedFromCollector = (o: RiderOrder) => o.collectorStage === 'returned' && Boolean(o.collector);
 
 // What GoChow says about the food, so riders know whether it's ready before they go
 function kitchenNote(gochowStatus?: string | null) {
@@ -126,6 +134,8 @@ export default function RiderPortalPage() {
   // GPS Telemetry Heartbeat State
   const [isGoingOnline, setIsGoingOnline] = useState(false);
   const [handoverRadiusMeters, setHandoverRadiusMeters] = useState(200);
+  // Set by the admin (higher during collector mode)
+  const [MAX_ACTIVE_ORDERS, setMaxActiveOrders] = useState(5);
   const [gpsStatus, setGpsStatus] = useState<'active' | 'connecting' | 'idle' | 'off' | 'denied'>('off');
   const [showGpsHelpModal, setShowGpsHelpModal] = useState(false);
   const [isRetryingGps, setIsRetryingGps] = useState(false);
@@ -515,6 +525,9 @@ export default function RiderPortalPage() {
           if (typeof data.handoverRadiusMeters === 'number') {
             setHandoverRadiusMeters(data.handoverRadiusMeters);
           }
+          if (typeof data.riderLimit === 'number') {
+            setMaxActiveOrders(data.riderLimit);
+          }
           if (data.otherRiders) {
             setOtherRiders(data.otherRiders);
           }
@@ -685,7 +698,10 @@ export default function RiderPortalPage() {
   };
 
   // ── Order Actions ─────────────────────────────────────────────────────────────
-  const handleOrderAction = async (orderId: string, action: 'claim' | 'pickup' | 'deliver') => {
+  const handleOrderAction = async (
+    orderId: string,
+    action: 'claim' | 'pickup' | 'deliver' | 'hand_to_collector' | 'undo_hand_to_collector'
+  ) => {
     // Client-side 5-order cap guard
     if (action === 'claim' && activeTasks.length >= MAX_ACTIVE_ORDERS) {
       showToast(`You already have ${MAX_ACTIVE_ORDERS} active orders. Deliver one before accepting more.`, 'error');
@@ -740,13 +756,15 @@ export default function RiderPortalPage() {
         broadcastRiderUpdate(action, orderId, data.order);
 
         // Persist notification to localStorage for the Notifications page
-        pushNotification(
-          buildRiderNotification(
-            action,
-            rider?.name || 'A rider',
-            data.order?.orderId || orderId
-          )
-        );
+        if (action === 'claim' || action === 'pickup' || action === 'deliver') {
+          pushNotification(
+            buildRiderNotification(
+              action,
+              rider?.name || 'A rider',
+              data.order?.orderId || orderId
+            )
+          );
+        }
       } else {
         showToast(data.error || 'Action could not be completed.', 'error');
         await fetchPortalData(false);
@@ -1168,7 +1186,7 @@ export default function RiderPortalPage() {
         <div className="mx-4 mt-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2.5">
           <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <div>
-            <p className="text-xs font-semibold text-amber-800">Active Order Limit Reached (5/5)</p>
+            <p className="text-xs font-semibold text-amber-800">Active Order Limit Reached ({MAX_ACTIVE_ORDERS}/{MAX_ACTIVE_ORDERS})</p>
             <p className="text-xs text-amber-700 mt-0.5">
               Complete or deliver an active order to unlock new pickups.
             </p>
@@ -1431,13 +1449,22 @@ export default function RiderPortalPage() {
                           <span className="w-2 h-2 rounded-full border-2 border-slate-400" />
                         </div>
                         <div className="min-w-0 flex-1 space-y-2.5">
-                          <div>
-                            <p className="text-base font-semibold text-slate-900 truncate">{ord.cafeteriaName || 'Campus Cafeteria'}</p>
-                            <p className="text-xs text-slate-500">Pick up{kitchenNote(ord.gochowStatus)}</p>
-                          </div>
+                          {returnedFromCollector(ord) ? (
+                            <div>
+                              <p className="text-base font-semibold text-slate-900 truncate">{ord.collector!.name} · {ord.collector!.pointName}</p>
+                              <p className="text-xs text-amber-700">Collect from the collector · customer wasn&apos;t reachable</p>
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-base font-semibold text-slate-900 truncate">{ord.cafeteriaName || 'Campus Cafeteria'}</p>
+                              <p className="text-xs text-slate-500">Pick up{kitchenNote(ord.gochowStatus)}</p>
+                            </div>
+                          )}
                           <div>
                             <p className="text-sm font-medium text-slate-800 truncate">{ord.deliveryAddress || 'Campus Hostel'}</p>
-                            <p className="text-xs text-slate-500 truncate">Deliver to {ord.customerName}</p>
+                            <p className="text-xs text-slate-500 truncate">
+                              {viaCollector(ord) ? `Hand to ${ord.collector!.name} (collector)` : `Deliver to ${ord.customerName}`}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -1618,15 +1645,38 @@ export default function RiderPortalPage() {
                         </div>
                         <div className="min-w-0 flex-1 space-y-2.5">
                           <div>
-                            <p className={`text-base font-semibold truncate ${isDispatched ? 'text-slate-400' : 'text-slate-900'}`}>{ord.cafeteriaName || 'Campus Cafeteria'}</p>
-                            <p className="text-xs text-slate-500">Pick up{kitchenNote(ord.gochowStatus)}</p>
+                            <p className={`text-base font-semibold truncate ${isDispatched ? 'text-slate-400' : 'text-slate-900'}`}>
+                              {returnedFromCollector(ord) ? `${ord.collector!.name} · ${ord.collector!.pointName}` : ord.cafeteriaName || 'Campus Cafeteria'}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {returnedFromCollector(ord) ? 'Collect from the collector' : <>Pick up{kitchenNote(ord.gochowStatus)}</>}
+                            </p>
                           </div>
                           <div>
                             <p className={`text-base font-semibold truncate ${isDispatched ? 'text-slate-900' : 'text-slate-700'}`}>{ord.deliveryAddress || 'Campus Hostel'}</p>
-                            <p className="text-xs text-slate-500">Deliver</p>
+                            <p className="text-xs text-slate-500">{viaCollector(ord) ? `Hand to the collector, ${ord.collector!.name}` : 'Deliver'}</p>
                           </div>
                         </div>
                       </div>
+
+                      {/* Collector (collector mode) */}
+                      {viaCollector(ord) && (
+                        <div className="flex items-center justify-between gap-3 rounded-lg bg-teal-50 border border-teal-100 px-3 py-2.5">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-slate-900 truncate">{ord.collector!.name}</p>
+                            <p className="text-xs text-teal-800 truncate">Collector · {ord.collector!.pointName}</p>
+                          </div>
+                          {ord.collector!.phone && (
+                            <a
+                              href={telHref(ord.collector!.phone)}
+                              className="flex items-center gap-1.5 h-10 px-4 rounded-lg border border-teal-200 bg-white text-slate-800 font-medium text-sm shrink-0"
+                            >
+                              <Phone className="w-4 h-4 text-teal-600" />
+                              <span>Call</span>
+                            </a>
+                          )}
+                        </div>
+                      )}
 
                       {/* Customer + Phone */}
                       <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
@@ -1706,6 +1756,42 @@ export default function RiderPortalPage() {
                             : <Store className="w-4 h-4" />}
                           <span>I have picked up the food</span>
                         </button>
+                      ) : viaCollector(ord) && ord.collectorStage === 'handed' ? (
+                        <div className="rounded-xl border border-teal-200 bg-teal-50 p-3 flex items-center justify-between gap-3">
+                          <div className="min-w-0 flex items-center gap-2">
+                            <RefreshCw className="w-4 h-4 text-teal-600 animate-spin shrink-0" />
+                            <p className="text-sm text-teal-900">Waiting for {ord.collector!.name} to confirm</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleOrderAction(ord.id || ord.orderId, 'undo_hand_to_collector')}
+                            disabled={isLoadingAction}
+                            className="h-9 px-3 rounded-lg border border-teal-200 bg-white text-sm text-slate-700 shrink-0 disabled:opacity-50"
+                          >
+                            Undo
+                          </button>
+                        </div>
+                      ) : viaCollector(ord) ? (
+                        <div className="space-y-1">
+                          <button
+                            onClick={() => handleOrderAction(ord.id || ord.orderId, 'hand_to_collector')}
+                            disabled={isLoadingAction}
+                            className="w-full h-12 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-semibold px-4 rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                          >
+                            {isLoadingAction
+                              ? <RefreshCw className="w-4 h-4 animate-spin" />
+                              : <PackageCheck className="w-4 h-4" />}
+                            <span>Handed to {ord.collector!.name.replace(/^mr\.?\s+/i, '').split(' ')[0]}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOrderAction(ord.id || ord.orderId, 'deliver')}
+                            disabled={isLoadingAction}
+                            className="w-full h-9 text-xs text-slate-500 hover:text-slate-800 disabled:opacity-50"
+                          >
+                            Delivered to the customer myself instead
+                          </button>
+                        </div>
                       ) : (
                         <button
                           onClick={() => handleOrderAction(ord.id || ord.orderId, 'deliver')}
@@ -1788,7 +1874,9 @@ export default function RiderPortalPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-slate-900">{ord.orderId}</span>
-                      <span className="text-xs font-semibold text-emerald-600">• Completed</span>
+                      <span className={`text-xs font-semibold ${ord.collector && ord.collectorStage !== 'returned' ? 'text-teal-600' : 'text-emerald-600'}`}>
+                        • {ord.collector && ord.collectorStage !== 'returned' ? `Handed to ${ord.collector.name}` : 'Completed'}
+                      </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5 truncate">
                       {ord.cafeteriaName} → {ord.deliveryAddress}

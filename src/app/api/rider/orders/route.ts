@@ -5,6 +5,7 @@ import { sendPushNotification } from '@/lib/pushService';
 import { verifyCafeteriaProximity, calculateDistanceMeters, getCafeteriaCoordinates } from '@/lib/locations';
 import { getGeofenceSettings } from '@/lib/settings';
 import { logActivity } from '@/lib/activity';
+import { currentRiderLimit, notWithCollector, RIDER_RELEASED_STAGES } from '@/lib/collectors';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,6 @@ export const dynamic = 'force-dynamic';
 // have changed it in between). Stored statuses vary in case.
 const FINISHED_STATUSES = ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled', 'Canceled', 'canceled'];
 const PICKED_UP_OR_FINISHED = [...FINISHED_STATUSES, 'In Transit', 'in transit'];
-const MAX_ACTIVE_ORDERS = 5;
 
 function orderChangedResponse(message = 'This order was just updated by someone else. Refresh and try again.') {
   return NextResponse.json({ success: false, changed: true, error: message }, { status: 409 });
@@ -33,11 +33,19 @@ async function getHandoverRadiusMeters() {
   return radiusCache.value;
 }
 
+// Orders the rider is still holding (not finished, and not already with a collector)
 function countActiveOrders(riderId: string) {
   return prisma.deliveryOrder.count({
-    where: { riderId, orderStatus: { notIn: FINISHED_STATUSES } },
+    where: { riderId, orderStatus: { notIn: FINISHED_STATUSES }, ...notWithCollector },
   });
 }
+
+const COLLECTOR_SELECT = {
+  collectorId: true,
+  collectorStage: true,
+  handedAt: true,
+  collector: { select: { id: true, name: true, phone: true, pointName: true } },
+} as const;
 
 function dbBusyResponse(message = 'Server is busy — retrying automatically.') {
   return NextResponse.json(
@@ -132,6 +140,7 @@ export async function GET(request: NextRequest) {
           orderStatus: {
             notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
           },
+          ...notWithCollector,
         },
         _count: { id: true },
       }),
@@ -184,6 +193,7 @@ export async function GET(request: NextRequest) {
               handoverRequestedById: true,
               handoverRequestedByName: true,
               handoverDistance: true,
+              ...COLLECTOR_SELECT,
               rider: {
                 select: {
                   id: true,
@@ -201,6 +211,7 @@ export async function GET(request: NextRequest) {
               orderStatus: {
                 notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
               },
+              ...notWithCollector,
             },
             orderBy: { createdAt: 'desc' },
             select: {
@@ -219,16 +230,18 @@ export async function GET(request: NextRequest) {
               handoverRequestedById: true,
               handoverRequestedByName: true,
               handoverDistance: true,
+              ...COLLECTOR_SELECT,
             },
           }),
 
-          // 3. Completed Today
+          // 3. Completed Today (delivered, or handed to a collector who confirmed it)
           prisma.deliveryOrder.findMany({
             where: {
               riderId: rider.id,
-              orderStatus: {
-                in: ['Delivered', 'Completed', 'delivered', 'completed'],
-              },
+              OR: [
+                { orderStatus: { in: ['Delivered', 'Completed', 'delivered', 'completed'] } },
+                { collectorStage: { in: RIDER_RELEASED_STAGES } },
+              ],
               createdAt: {
                 gte: shiftCutoff,
               },
@@ -247,6 +260,7 @@ export async function GET(request: NextRequest) {
               time: true,
               pickupCode: true,
               gochowStatus: true,
+              ...COLLECTOR_SELECT,
             },
           }),
         ]);
@@ -322,6 +336,7 @@ export async function GET(request: NextRequest) {
           completedToday,
           otherRiders: otherRidersWithCounts,
           handoverRadiusMeters: await getHandoverRadiusMeters(),
+          riderLimit: await currentRiderLimit(),
           counts: {
             available: sortedAvailableOrders.length,
             active: activeTasks.length,
@@ -394,21 +409,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 5-order cap: rider cannot hold more than 5 active orders at once
+      // Order cap (set by the admin; higher during collector mode)
+      const limit = await currentRiderLimit();
       try {
-        const activeCount = await prisma.deliveryOrder.count({
-          where: {
-            riderId: rider.id,
-            orderStatus: {
-              notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
-            },
-          },
-        });
-        if (activeCount >= 5) {
+        if ((await countActiveOrders(rider.id)) >= limit) {
           return NextResponse.json(
             {
               success: false,
-              error: 'You already have 5 active orders. Deliver one before accepting more.',
+              error: `You already have ${limit} active orders. Deliver one before accepting more.`,
             },
             { status: 409 }
           );
@@ -445,13 +453,13 @@ export async function POST(request: NextRequest) {
 
       // Two accepts at once can both pass the cap check above; re-check now that the
       // order is ours and give it back if this one took the rider over the limit.
-      if (order.riderId !== rider.id && (await countActiveOrders(rider.id)) > MAX_ACTIVE_ORDERS) {
+      if (order.riderId !== rider.id && (await countActiveOrders(rider.id)) > limit) {
         await prisma.deliveryOrder.updateMany({
           where: { id: order.id, riderId: rider.id },
           data: { riderId: null, orderStatus: order.orderStatus },
         });
         return NextResponse.json(
-          { success: false, error: 'You already have 5 active orders. Deliver one before accepting more.' },
+          { success: false, error: `You already have ${limit} active orders. Deliver one before accepting more.` },
           { status: 409 }
         );
       }
@@ -781,14 +789,24 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'You are not assigned to this order' }, { status: 403 });
       }
 
+      if (RIDER_RELEASED_STAGES.includes(order.collectorStage || '')) {
+        return NextResponse.json(
+          { success: false, error: `${order.collectorStage === 'delivered' ? 'The collector already delivered this order.' : 'This order is with the collector now.'}` },
+          { status: 409 }
+        );
+      }
+
       const deliveredResult = await prisma.deliveryOrder.updateMany({
         where: {
           id: order.id,
           riderId: rider.id,
           orderStatus: { notIn: ['Cancelled', 'cancelled', 'Canceled', 'canceled'] },
+          ...notWithCollector,
         },
         data: {
           orderStatus: 'Completed',
+          // Delivered straight to the customer: it never reached the collector
+          ...(order.collectorId && order.collectorStage !== 'returned' && { collectorId: null, collectorStage: null, handedAt: null }),
         },
       });
       if (deliveredResult.count === 0) {
@@ -817,6 +835,55 @@ export async function POST(request: NextRequest) {
           orderStatus: updated.orderStatus,
         },
       });
+    }
+
+    // ── ACTION: HANDED TO COLLECTOR (collector mode) ─────────────────────────
+    if (action === 'hand_to_collector') {
+      if (order.riderId !== rider.id) {
+        return NextResponse.json({ success: false, error: 'You are not assigned to this order' }, { status: 403 });
+      }
+      if (!order.collectorId) {
+        return NextResponse.json({ success: false, error: 'This order has no collector. Deliver it to the customer.' }, { status: 400 });
+      }
+      const handed = await prisma.deliveryOrder.updateMany({
+        where: {
+          id: order.id,
+          riderId: rider.id,
+          collectorId: order.collectorId,
+          collectorStage: null,
+          orderStatus: { notIn: FINISHED_STATUSES },
+        },
+        data: {
+          collectorStage: 'handed',
+          handedAt: new Date(),
+          orderStatus: 'In Transit',
+          handoverRequestedById: null,
+          handoverRequestedByName: null,
+          handoverDistance: null,
+        },
+      });
+      if (handed.count === 0) {
+        return orderChangedResponse('This order was just updated. Refresh and try again.');
+      }
+      const collector = await prisma.collector.findUnique({ where: { id: order.collectorId }, select: { name: true } });
+      await logActivity('collector_handed', rider, order, collector?.name);
+      return NextResponse.json({
+        success: true,
+        message: `Handed over. Waiting for ${collector?.name || 'the collector'} to confirm.`,
+        order: { id: order.id, orderId: order.orderId, collectorStage: 'handed' },
+      });
+    }
+
+    // ── ACTION: UNDO "HANDED" (before the collector confirms) ────────────────
+    if (action === 'undo_hand_to_collector') {
+      const undone = await prisma.deliveryOrder.updateMany({
+        where: { id: order.id, riderId: rider.id, collectorStage: 'handed' },
+        data: { collectorStage: null, handedAt: null },
+      });
+      if (undone.count === 0) {
+        return orderChangedResponse('The collector already confirmed this order.');
+      }
+      return NextResponse.json({ success: true, message: 'Undone. The order is back with you.', order: { id: order.id, orderId: order.orderId } });
     }
 
     // ── ACTION: TRANSFER (RIDER TO RIDER) ────────────────────────────────────
@@ -870,21 +937,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Check 5-order cap on the recipient rider
+      // Order cap on the recipient rider
+      const limit = await currentRiderLimit();
       try {
-        const recipientActiveCount = await prisma.deliveryOrder.count({
-          where: {
-            riderId: targetRider.id,
-            orderStatus: {
-              notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'],
-            },
-          },
-        });
-        if (recipientActiveCount >= 5) {
+        if ((await countActiveOrders(targetRider.id)) >= limit) {
           return NextResponse.json(
             {
               success: false,
-              error: `${targetRider.name} already has 5 active orders (limit reached). Please select another rider.`,
+              error: `${targetRider.name} already has ${limit} active orders (limit reached). Please select another rider.`,
             },
             { status: 409 }
           );
@@ -905,13 +965,13 @@ export async function POST(request: NextRequest) {
       }
 
       // The recipient may have accepted orders at the same moment; undo if now over the cap
-      if ((await countActiveOrders(targetRider.id)) > MAX_ACTIVE_ORDERS) {
+      if ((await countActiveOrders(targetRider.id)) > limit) {
         await prisma.deliveryOrder.updateMany({
           where: { id: order.id, riderId: targetRider.id },
           data: { riderId: rider.id },
         });
         return NextResponse.json(
-          { success: false, error: `${targetRider.name} just reached 5 active orders. Please select another rider.` },
+          { success: false, error: `${targetRider.name} just reached ${limit} active orders. Please select another rider.` },
           { status: 409 }
         );
       }

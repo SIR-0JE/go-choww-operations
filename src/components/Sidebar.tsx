@@ -18,6 +18,7 @@ import {
   Settings,
   Bell,
   ClipboardCheck,
+  PackageCheck,
   Users,
 } from 'lucide-react';
 
@@ -92,6 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
         { label: 'Orders', href: '/orders', icon: Database, active: is('/orders', '/raw-data') },
         { label: 'Riders', href: '/riders', icon: Bike, active: is('/riders') },
         { label: 'Live Fleet', href: '/dashboard/fleet', icon: Radio, active: is('/dashboard/fleet') },
+        { label: 'Collectors', href: '/collectors', icon: PackageCheck, active: is('/collectors') },
         { label: 'Reconciliation', href: '/dashboard/reconciliation', icon: ClipboardCheck, active: is('/dashboard/reconciliation') },
       ],
     },

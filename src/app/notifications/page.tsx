@@ -64,6 +64,11 @@ const DOT: Record<string, string> = {
   transfer: 'bg-violet-500',
   handover_request: 'bg-amber-500',
   handover_accept: 'bg-violet-500',
+  collector_handed: 'bg-teal-500',
+  collector_received: 'bg-teal-500',
+  collector_delivered: 'bg-emerald-500',
+  collector_not_reachable: 'bg-rose-500',
+  collector_returned: 'bg-amber-500',
 };
 
 function describe(a: Activity): { title: React.ReactNode; sub: string | null } {
@@ -91,6 +96,16 @@ function describe(a: Activity): { title: React.ReactNode; sub: string | null } {
       };
     case 'handover_accept':
       return { title: <>{rider} handed {customer}&apos;s order {a.detail}</>, sub: route };
+    case 'collector_handed':
+      return { title: <>{rider} handed {customer}&apos;s order to {a.detail || 'the collector'}</>, sub: route };
+    case 'collector_received':
+      return { title: <>{rider} (collector) received {customer}&apos;s order</>, sub: a.detail || route };
+    case 'collector_delivered':
+      return { title: <>{rider} (collector) delivered {customer}&apos;s order</>, sub: a.deliveryAddress ? `at ${a.deliveryAddress}` : null };
+    case 'collector_not_reachable':
+      return { title: <>{rider} (collector) couldn&apos;t reach {customer}</>, sub: route };
+    case 'collector_returned':
+      return { title: <>{rider} (collector) gave {customer}&apos;s order back to the riders</>, sub: route };
     case 'new_orders':
       return { title: <><strong className="font-semibold">{a.detail || 'New orders'}</strong> came in</>, sub: null };
     default:

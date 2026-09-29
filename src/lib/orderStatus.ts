@@ -38,10 +38,14 @@ export function riderStatusView(order: {
   riderId?: string | null;
   orderStatus: string;
   deliveryType?: string;
+  collectorStage?: string | null;
 }): { label: string; tone: Tone } {
   const s = (order.orderStatus || '').toLowerCase();
   if (s.startsWith('canc')) return { label: 'Cancelled', tone: 'rose' };
   if (s === 'delivered' || s === 'completed') return { label: 'Delivered', tone: 'emerald' };
+  if (order.collectorStage === 'handed') return { label: 'Handed to collector', tone: 'blue' };
+  if (order.collectorStage === 'received') return { label: 'With collector', tone: 'blue' };
+  if (order.collectorStage === 'not_reachable') return { label: 'Customer not reachable', tone: 'rose' };
   if (s === 'in transit') return { label: 'Picked up', tone: 'blue' };
   if (order.riderId) return { label: 'Accepted', tone: 'orange' };
   return { label: 'Waiting for rider', tone: 'slate' };

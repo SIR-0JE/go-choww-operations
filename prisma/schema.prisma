@@ -11,20 +11,20 @@ datasource db {
 }
 
 model Rider {
-  id        String          @id @default(uuid())
-  name      String
-  phone     String?         @unique
-  pin       String          @default("1234") // 4-digit PIN for portal login
-  status         String          @default("Active") // "Active", "Inactive", "On Leave"
-  isOnline       Boolean         @default(false)    // Rider online duty toggle
-  assignedCafeterias String[]    @default([])       // Cafeterias assigned to this rider for priority dispatch
-  lastLat        Float?
-  lastLng        Float?
-  lastHeading    Float?
-  lastSpeed      Float?
-  lastLocationAt DateTime?
-  createdAt      DateTime        @default(now())
-  orders         DeliveryOrder[]
+  id                 String          @id @default(uuid())
+  name               String
+  phone              String?         @unique
+  pin                String          @default("1234") // 4-digit PIN for portal login
+  status             String          @default("Active") // "Active", "Inactive", "On Leave"
+  isOnline           Boolean         @default(false) // Rider online duty toggle
+  assignedCafeterias String[]        @default([]) // Cafeterias assigned to this rider for priority dispatch
+  lastLat            Float?
+  lastLng            Float?
+  lastHeading        Float?
+  lastSpeed          Float?
+  lastLocationAt     DateTime?
+  createdAt          DateTime        @default(now())
+  orders             DeliveryOrder[]
 
   @@index([status])
   @@index([phone])
@@ -32,34 +32,43 @@ model Rider {
 }
 
 model DeliveryOrder {
-  id              String   @id @default(uuid())
-  orderId         String   @unique
-  createdAt       DateTime @default(now())
-  time            String   // e.g. "01:45 PM"
-  customerName    String
-  cafeteriaName   String
-  deliveryAddress String
-  deliveryFee     Decimal  @db.Decimal(10, 2)
-  foodTotal       Decimal  @db.Decimal(10, 2)
-  totalAmountPaid Decimal  @db.Decimal(10, 2)
-  deliveryType    String   // Values: "Same side", "Different side", "Pick up", "Other"
-  orderStatus     String   // Values: "Completed", "Cancelled", "Pending"
-  gochowStatus    String?  // GoChow's own status as-is: Confirmed | Preparing | Ready | Dispatched | Delivered | Cancelled
-  paymentStatus   String   // Values: "success", "failed", "pending"
-  customerPhone   String?  // Customer contact number (from GoChow user profile)
-  customerEmail   String?  // Customer email address (from GoChow user profile)
-  pickupCode      String?  // Real 4-digit cafeteria vendor pickup code from GoChow (confirmationCode)
-  items            Json?    // [{ pack, name, quantity, price, category }] from GoChow containers + extras
-  serviceCharge    Decimal? @db.Decimal(10, 2)
+  id               String    @id @default(uuid())
+  orderId          String    @unique
+  createdAt        DateTime  @default(now())
+  time             String // e.g. "01:45 PM"
+  customerName     String
+  cafeteriaName    String
+  deliveryAddress  String
+  deliveryFee      Decimal   @db.Decimal(10, 2)
+  foodTotal        Decimal   @db.Decimal(10, 2)
+  totalAmountPaid  Decimal   @db.Decimal(10, 2)
+  deliveryType     String // Values: "Same side", "Different side", "Pick up", "Other"
+  orderStatus      String // Values: "Completed", "Cancelled", "Pending"
+  gochowStatus     String? // GoChow's own status as-is: Confirmed | Preparing | Ready | Dispatched | Delivered | Cancelled
+  paymentStatus    String // Values: "success", "failed", "pending"
+  customerPhone    String? // Customer contact number (from GoChow user profile)
+  customerEmail    String? // Customer email address (from GoChow user profile)
+  pickupCode       String? // Real 4-digit cafeteria vendor pickup code from GoChow (confirmationCode)
+  items            Json? // [{ pack, name, quantity, price, category }] from GoChow containers + extras
+  serviceCharge    Decimal?  @db.Decimal(10, 2)
   paymentReference String?
-  vendorPhone      String?  // cafeteria's business phone number
+  vendorPhone      String? // cafeteria's business phone number
   pickedUpAt       DateTime?
 
   riderId                 String?
-  rider                   Rider?   @relation(fields: [riderId], references: [id], onDelete: SetNull)
+  rider                   Rider?  @relation(fields: [riderId], references: [id], onDelete: SetNull)
   handoverRequestedById   String?
   handoverRequestedByName String?
   handoverDistance        Float?
+
+  // Choww collector mode: the rider hands the order to the hostel's collector, who delivers it
+  collectorId     String?
+  collector       Collector? @relation(fields: [collectorId], references: [id], onDelete: SetNull)
+  collectorStage  String? // null (on its way) | handed (rider says handed) | received (collector confirmed) | not_reachable | delivered | returned (given back to a rider)
+  handedAt        DateTime?
+  receivedAt      DateTime?
+  notReachableAt  DateTime?
+  collectorDoneAt DateTime?
 
   @@index([orderStatus, paymentStatus])
   @@index([createdAt])
@@ -68,12 +77,26 @@ model DeliveryOrder {
   @@index([handoverRequestedById])
   @@index([customerPhone])
   @@index([customerEmail])
+  @@index([collectorId])
+}
+
+// Hostel representatives who take orders from riders during collector mode (busy Sunday windows)
+model Collector {
+  id        String          @id @default(uuid())
+  name      String
+  phone     String          @unique
+  pin       String          @default("1234")
+  status    String          @default("Active") // "Active" | "Inactive"
+  pointName String // e.g. "Mathew, Mark, Luke, John"
+  hostels   String[]        @default([]) // delivery addresses this collector covers, exactly as they come from GoChow
+  createdAt DateTime        @default(now())
+  orders    DeliveryOrder[]
 }
 
 model Expense {
   id          String   @id @default(uuid())
   date        DateTime
-  category    String   // e.g. "Software", "Fuel", "Marketing", "Salaries", "Miscellaneous"
+  category    String // e.g. "Software", "Fuel", "Marketing", "Salaries", "Miscellaneous"
   description String
   amount      Decimal  @db.Decimal(10, 2)
   createdAt   DateTime @default(now())
@@ -107,7 +130,7 @@ model PushSubscription {
 model RiderActivity {
   id              String   @id @default(uuid())
   createdAt       DateTime @default(now())
-  type            String   // claim | pickup | deliver | drop | transfer | handover_request | handover_accept
+  type            String // claim | pickup | deliver | drop | transfer | handover_request | handover_accept
   riderId         String?
   riderName       String?
   orderDbId       String?

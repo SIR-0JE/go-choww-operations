@@ -8,7 +8,13 @@ export type ActivityType =
   | 'transfer'
   | 'handover_request'
   | 'handover_accept'
-  | 'new_orders';
+  | 'new_orders'
+  // collector mode (for collector actions the "rider" fields hold the collector)
+  | 'collector_handed'
+  | 'collector_received'
+  | 'collector_delivered'
+  | 'collector_not_reachable'
+  | 'collector_returned';
 
 /**
  * Records a rider action so the admin sees it on the Notifications page,
