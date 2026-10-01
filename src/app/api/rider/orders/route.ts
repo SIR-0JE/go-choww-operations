@@ -216,6 +216,9 @@ export async function GET(request: NextRequest) {
               ...notWithCollector,
             },
             orderBy: { createdAt: 'desc' },
+            // A rider can only hold a small number of active tasks at once.
+            // Cap at 50 to prevent this query growing with uncleared historical data.
+            take: 50,
             select: {
               id: true,
               orderId: true,

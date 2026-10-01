@@ -103,6 +103,9 @@ export default function ExecutiveDashboardPage() {
     try {
       const [analyticsRes, ordersRes, expensesRes, sprintRes] = await Promise.all([
         fetch('/api/analytics'),
+        // Scoped to last 90 days — the API applies this window automatically
+        // when called with ?limit=all (no explicit date). This avoids fetching
+        // the entire lifetime order history on every 30-second dashboard poll.
         fetch('/api/orders?limit=all'),
         fetch('/api/expenses'),
         fetch('/api/sprint', { cache: 'no-store' }),
@@ -320,10 +323,18 @@ export default function ExecutiveDashboardPage() {
     fetchData(true);
   }, [fetchData]);
 
-  // Listen for global auto-sync events so data updates live without manual page refresh
+  // Listen for global auto-sync events so data updates live without manual page refresh.
+  // Only re-fetch when the sync found genuine changes — most syncs return hasChanges: false
+  // (no new orders). Triggering a full reload on every no-op sync was a major egress driver.
   useEffect(() => {
-    const handleSync = () => {
-      fetchData(false);
+    const handleSync = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      const hasChanges = detail?.hasChanges ?? (
+        (detail?.newlySyncedCount ?? 0) > 0 || (detail?.statusUpdatedCount ?? 0) > 0
+      );
+      if (hasChanges) {
+        fetchData(false);
+      }
     };
     window.addEventListener('orders-synced', handleSync);
 
@@ -332,7 +343,13 @@ export default function ExecutiveDashboardPage() {
     };
   }, [fetchData]);
 
+
   // ── Rider Activity Notifications ────────────────────────────────────────────
+  // Debounce the data re-fetch so rapid successive rider actions (claim → pickup → deliver
+  // within seconds) don't each independently trigger a full dashboard reload.
+  // Notification toasts are unaffected — they still appear for every action immediately.
+  const riderActivityDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     const handleRiderActivity = (e: Event) => {
       const detail = (e as CustomEvent).detail as {
@@ -353,13 +370,24 @@ export default function ExecutiveDashboardPage() {
         setRiderNotifications((prev) => prev.filter((n) => n.id !== id));
       }, 8000);
 
-      // Refresh dashboard data immediately
-      fetchData(false);
+      // Debounced data refresh — only fires once per 10-second window regardless
+      // of how many rider actions arrive in that period.
+      if (riderActivityDebounceRef.current) {
+        clearTimeout(riderActivityDebounceRef.current);
+      }
+      riderActivityDebounceRef.current = setTimeout(() => {
+        fetchData(false);
+        riderActivityDebounceRef.current = null;
+      }, 10000);
     };
 
     window.addEventListener('rider-activity', handleRiderActivity);
-    return () => window.removeEventListener('rider-activity', handleRiderActivity);
+    return () => {
+      window.removeEventListener('rider-activity', handleRiderActivity);
+      if (riderActivityDebounceRef.current) clearTimeout(riderActivityDebounceRef.current);
+    };
   }, [fetchData]);
+
 
   // ── Periodic background poll every 30s so dashboard stays fresh ─────────────
   useEffect(() => {

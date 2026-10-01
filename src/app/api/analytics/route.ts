@@ -4,20 +4,33 @@ import { calculateMetrics, calculateRiderPayout, isSettledOrder, isRevenueOrder 
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     let orders: any[] = [];
     let expenses: any[] = [];
     let isDbConnected = false;
+
+    // ── Date-window scoping ───────────────────────────────────────────────────
+    // Default: last 60 days — covers all meaningful operational history while
+    // avoiding a full lifetime table scan on every 30-second dashboard poll.
+    // Pass ?days=all to retrieve the complete history (used by Reports page).
+    const { searchParams } = new URL(request.url);
+    const daysParam = searchParams.get('days') || '60';
+    const fetchAll = daysParam === 'all';
+    const dateFilter = fetchAll
+      ? undefined
+      : { gte: new Date(Date.now() - Number(daysParam) * 24 * 60 * 60 * 1000) };
 
     try {
       const [fetchedOrders, fetchedExpenses] = await withDbRetry(async () => {
         return await Promise.all([
           prisma.deliveryOrder.findMany({
             orderBy: { createdAt: 'asc' },
+            ...(dateFilter ? { where: { createdAt: dateFilter } } : {}),
           }),
           prisma.expense.findMany({
             orderBy: { date: 'asc' },
+            ...(dateFilter ? { where: { date: dateFilter } } : {}),
           }),
         ]);
       }, 3, 400);
