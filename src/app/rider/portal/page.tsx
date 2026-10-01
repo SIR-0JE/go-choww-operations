@@ -561,22 +561,13 @@ export default function RiderPortalPage() {
     // Initial load
     fetchPortalData(false);
 
-    // Poll every 8s — well within the 10-second acceptable latency for status updates.
-    // The backend queries are now lightweight (scoped selects + take limits), so 8s
-    // gives near-real-time feel without hammering the database.
-    const fastInterval = setInterval(fetchFast, 8000);
+    // Fast 3.5s poll for instant state transitions across riders
+    const fastInterval = setInterval(fetchFast, 3500);
 
-    // Instant sync on screen unlock / tab focus — with a cooldown so unlocking
-    // a phone repeatedly doesn't fire a fetch on every unlock.
-    let lastFocusFetch = 0;
-    const FOCUS_COOLDOWN_MS = 10_000;
+    // Instant sync on screen unlock / tab focus
     const handleVisibilityOrFocus = () => {
       if (document.visibilityState === 'visible') {
-        const now = Date.now();
-        if (now - lastFocusFetch > FOCUS_COOLDOWN_MS) {
-          lastFocusFetch = now;
-          fetchFast();
-        }
+        fetchFast();
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityOrFocus);
@@ -604,7 +595,6 @@ export default function RiderPortalPage() {
       if (channel) channel.close();
     };
   }, [fetchPortalData]);
-
 
   // ── Pull new GoChow orders while this rider is online ──────────────────────
   // Keeps the pool filling even when no admin dashboard is open; the server

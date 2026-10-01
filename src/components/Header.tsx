@@ -7,10 +7,7 @@ import { RefreshCw, CheckCircle2, AlertCircle, Menu } from 'lucide-react';
 import { useSidebar } from './AppLayout';
 import { pushNotification } from '@/lib/notifications';
 
-// Auto-sync interval: 30 seconds during operating hours.
-// This halves the previous 15s rate. New GoChow orders still appear within 30s max,
-// which is well within operational requirements for a campus food delivery service.
-const DEFAULT_POLL_INTERVAL_MS = 30_000;
+const DEFAULT_POLL_INTERVAL_MS = 15_000; // 15 seconds
 
 interface HeaderProps {
   onSyncComplete?: () => void;
@@ -213,20 +210,13 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
     // Run immediately when operating window is active
     poll();
 
-    const intervalMs = (syncScheduleStatus?.intervalSeconds || 30) * 1000;
+    const intervalMs = (syncScheduleStatus?.intervalSeconds || 15) * 1000;
     pollIntervalRef.current = setInterval(poll, intervalMs);
 
-    // Sync on tab focus or phone screen unlock — with a cooldown so rapidly
-    // switching tabs doesn't fire multiple consecutive syncs.
-    let lastFocusSync = 0;
-    const FOCUS_COOLDOWN_MS = 30_000;
+    // Instant sync on tab focus or phone screen unlock
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        const now = Date.now();
-        if (now - lastFocusSync > FOCUS_COOLDOWN_MS) {
-          lastFocusSync = now;
-          poll();
-        }
+        poll();
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -239,7 +229,6 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
       window.removeEventListener('focus', handleVisibilityChange);
     };
   }, [runSync, syncScheduleStatus?.intervalSeconds, syncScheduleStatus?.isOperating, syncScheduleStatus?.mode]);
-
 
   // ── Manual sync button handler (Always bypasses schedule with force: true) ─
   const handleSyncOrders = async () => {

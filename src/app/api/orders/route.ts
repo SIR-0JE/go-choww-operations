@@ -18,100 +18,37 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limitParam = searchParams.get('limit') || '20';
     const fetchAll = limitParam === 'all';
-    // Cap at 500 for safety; ?limit=all uses a date-windowed query instead
-    const limit = fetchAll ? 500 : Math.min(500, Math.max(5, parseInt(limitParam, 10)));
-
-    // ── Date-window scoping ──────────────────────────────────────────────────
-    // ?startDate / ?endDate: explicit range from the orders page date pickers
-    // ?limit=all with no date: dashboard KPI view — default to last 90 days so
-    //   we get all recent operational data without scanning lifetime history.
-    const startDateParam = searchParams.get('startDate');
-    const endDateParam = searchParams.get('endDate');
-
-    let createdAtFilter: any = undefined;
-    if (startDateParam || endDateParam) {
-      createdAtFilter = {};
-      if (startDateParam) createdAtFilter.gte = new Date(startDateParam);
-      if (endDateParam) createdAtFilter.lte = new Date(endDateParam);
-    } else if (fetchAll) {
-      // Dashboard calls ?limit=all — scope to last 90 days
-      createdAtFilter = { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) };
-    }
-
-    // ── Build Prisma WHERE clause ────────────────────────────────────────────
-    const where: any = {};
-
-    if (createdAtFilter) where.createdAt = createdAtFilter;
-
-    // Search — partial match on orderId, customerName, cafeteriaName, address
-    if (search) {
-      where.OR = [
-        { orderId: { contains: search, mode: 'insensitive' } },
-        { customerName: { contains: search, mode: 'insensitive' } },
-        { cafeteriaName: { contains: search, mode: 'insensitive' } },
-        { deliveryAddress: { contains: search, mode: 'insensitive' } },
-        { rider: { name: { contains: search, mode: 'insensitive' } } },
-      ];
-    }
-
-    if (deliveryType !== 'All') {
-      where.deliveryType = { equals: deliveryType, mode: 'insensitive' };
-    }
-
-    if (orderStatus !== 'All') {
-      const target = orderStatus.toLowerCase();
-      if (target === 'delivered' || target === 'completed') {
-        where.orderStatus = { in: ['Delivered', 'Completed', 'delivered', 'completed'] };
-      } else {
-        where.orderStatus = { equals: orderStatus, mode: 'insensitive' };
-      }
-    }
-
-    if (riderId !== 'All') {
-      where.riderId = riderId === 'unassigned' ? null : riderId;
-    }
+    const limit = fetchAll ? 999999 : Math.min(5000, Math.max(5, parseInt(limitParam, 10)));
 
     let rawOrders: any[] = [];
-    let totalCount = 0;
-    let activeTotalCount = 0;
 
     try {
-      const [fetchedOrders, fetchedTotal, fetchedActive] = await withDbRetry(async () => {
-        return await Promise.all([
-          prisma.deliveryOrder.findMany({
-            where,
+      rawOrders = await withDbRetry(async () => {
+        try {
+          return await prisma.deliveryOrder.findMany({
             orderBy: { createdAt: 'desc' },
-            skip: (page - 1) * limit,
-            take: limit,
             include: {
               rider: {
-                select: { id: true, name: true, phone: true, status: true },
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  status: true,
+                },
               },
             },
-          }),
-          // Total count with all filters applied
-          prisma.deliveryOrder.count({ where }),
-          // Active (non-cancelled) count with all filters applied
-          prisma.deliveryOrder.count({
-            where: {
-              ...where,
-              orderStatus: { not: { contains: 'canc', mode: 'insensitive' } },
-            },
-          }),
-        ]);
+          });
+        } catch {
+          // Safe fallback if rider relation column is not yet pushed to DB
+          return await prisma.deliveryOrder.findMany({
+            orderBy: { createdAt: 'desc' },
+          });
+        }
       }, 3, 400);
-
-      rawOrders = fetchedOrders;
-      totalCount = fetchedTotal;
-      activeTotalCount = fetchedActive;
     } catch (dbErr) {
       console.error('[Orders GET DB error]:', dbErr);
       if (process.env.NODE_ENV === 'development') {
         rawOrders = getInMemoryOrders();
-        totalCount = rawOrders.length;
-        activeTotalCount = rawOrders.filter(
-          (o: any) => !(o.orderStatus || '').toLowerCase().includes('canc')
-        ).length;
       } else {
         return NextResponse.json(
           { success: false, error: 'Database connection busy. Please refresh.' },
@@ -193,6 +130,7 @@ export async function GET(request: NextRequest) {
       processed = processed.filter((o) => (o.cafeteriaName || '').trim().toLowerCase() === cafeteria);
     }
     if (gochowStatus === 'open') {
+      // Orders a rider should take: not cancelled (on either side) and not a pick-up
       processed = processed.filter(
         (o) =>
           effectiveGochowStatus(o) !== 'Cancelled' &&
@@ -211,12 +149,18 @@ export async function GET(request: NextRequest) {
       });
     }
 
-
+    // Pagination
+    const totalCount = processed.length;
+    const activeTotalCount = processed.filter(
+      (o) => !o.orderStatus.toLowerCase().includes('canc')
+    ).length;
     const totalPages = Math.ceil(totalCount / limit) || 1;
+    const startIndex = (page - 1) * limit;
+    const paginatedOrders = processed.slice(startIndex, startIndex + limit);
 
     return NextResponse.json({
       success: true,
-      orders: processed,
+      orders: paginatedOrders,
       pagination: {
         page,
         limit,
@@ -233,7 +177,6 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
 
 export async function PATCH(request: NextRequest) {
   try {
