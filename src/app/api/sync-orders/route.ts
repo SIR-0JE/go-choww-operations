@@ -223,6 +223,7 @@ async function performSync(force: boolean = false) {
 
   let newlySyncedCount = 0;
   let statusUpdatedCount = 0;
+  let createdOrdersList: { customerName?: string; cafeteriaName?: string }[] = [];
 
   if (orderNumbers.length > 0) {
     try {
@@ -337,6 +338,10 @@ async function performSync(force: boolean = false) {
 
       // Batch insert new orders in a single query with retry
       if (toCreate.length > 0) {
+        createdOrdersList = toCreate.map((o) => ({
+          customerName: o.customerName,
+          cafeteriaName: o.cafeteriaName,
+        }));
         try {
           const result = await withDbRetry(async () => {
             return await prisma.deliveryOrder.createMany({
@@ -448,7 +453,7 @@ async function performSync(force: boolean = false) {
     operatingStatus: status,
     newlySyncedCount,
     syncedCount: newlySyncedCount,
-    newOrders: toCreate.map((o) => ({ customerName: o.customerName, cafeteriaName: o.cafeteriaName })),
+    newOrders: createdOrdersList,
     statusUpdatedCount,
     totalFetched: liveOrders.length,
     message,
