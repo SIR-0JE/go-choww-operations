@@ -87,6 +87,7 @@ export default function ExecutiveDashboardPage() {
     { id: number; riderName: string; action: string; orderId: string; timestamp: Date }[]
   >([]);
   const notifIdRef = useRef(0);
+  const knownOrdersRef = useRef<Map<string, { riderName?: string; status?: string }>>(new Map());
 
   // Operational Volume Breakdown stats
   const [volumeStats, setVolumeStats] = useState({
@@ -122,6 +123,41 @@ export default function ExecutiveDashboardPage() {
 
       const allOrders: any[] = ordersData.orders || [];
       const allExpenses: any[] = expensesData.expenses || [];
+
+      // Detect cross-device rider events on background polls
+      if (knownOrdersRef.current.size > 0 && !isInitial) {
+        for (const ord of allOrders) {
+          const prev = knownOrdersRef.current.get(ord.orderId);
+          if (prev) {
+            const currentRider = ord.rider?.name;
+            const currentStatus = (ord.orderStatus || '').toLowerCase();
+            const prevStatus = (prev.status || '').toLowerCase();
+
+            // Order claimed by a rider
+            if (!prev.riderName && currentRider) {
+              announceRiderAction('claim', currentRider, ord.customerName, ord.cafeteriaName, ord.orderId);
+            }
+            // Order delivered/completed
+            else if (
+              currentRider &&
+              (currentStatus === 'delivered' || currentStatus === 'completed') &&
+              !(prevStatus === 'delivered' || prevStatus === 'completed')
+            ) {
+              announceRiderAction('deliver', currentRider, ord.customerName, ord.cafeteriaName, ord.orderId);
+            }
+          }
+        }
+      }
+
+      // Update known orders cache for future polls
+      const nextKnown = new Map<string, { riderName?: string; status?: string }>();
+      for (const ord of allOrders) {
+        nextKnown.set(ord.orderId, {
+          riderName: ord.rider?.name,
+          status: ord.orderStatus || '',
+        });
+      }
+      knownOrdersRef.current = nextKnown;
 
       // Extract latest 10 orders for live incoming dispatches feed
       setRecentOrders(allOrders.slice(0, 10));
@@ -359,7 +395,8 @@ export default function ExecutiveDashboardPage() {
         detail.action,
         detail.riderName,
         (detail as any).orderDetails?.customerName,
-        (detail as any).orderDetails?.cafeteriaName
+        (detail as any).orderDetails?.cafeteriaName,
+        detail.orderId
       );
 
       // Refresh dashboard data immediately

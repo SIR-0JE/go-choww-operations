@@ -188,6 +188,15 @@ interface QueuedSpeech {
 const speechQueue: QueuedSpeech[] = [];
 let isSpeaking = false;
 
+// Preload and cache voices
+let cachedVoices: SpeechSynthesisVoice[] = [];
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  cachedVoices = window.speechSynthesis.getVoices();
+  window.speechSynthesis.onvoiceschanged = () => {
+    cachedVoices = window.speechSynthesis.getVoices();
+  };
+}
+
 function processQueue(): void {
   if (speechQueue.length === 0) {
     isSpeaking = false;
@@ -210,13 +219,21 @@ function processQueue(): void {
   // Slight pause after chime so chime finishes cleanly before speaking
   setTimeout(() => {
     try {
+      // Resume if stuck in paused state in Chrome
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+
       const utterance = new SpeechSynthesisUtterance(item.text);
       utterance.rate = 1.0;
       utterance.pitch = 1.0;
+      utterance.volume = 1.0;
       utterance.lang = 'en-US';
 
-      // Pick natural sounding voice if available
-      const voices = window.speechSynthesis.getVoices();
+      // CRITICAL FOR CHROME: Store reference on window to prevent garbage collection before speech finishes
+      (window as any)._activeUtterance = utterance;
+
+      const voices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
       const bestVoice = voices.find(
         (v) =>
           v.lang.startsWith('en') &&
@@ -231,11 +248,13 @@ function processQueue(): void {
       }
 
       utterance.onend = () => {
+        (window as any)._activeUtterance = null;
         setTimeout(processQueue, 250);
       };
 
       utterance.onerror = (e) => {
         console.warn('[VoiceNotifications] Utterance error:', e);
+        (window as any)._activeUtterance = null;
         setTimeout(processQueue, 100);
       };
 
@@ -304,6 +323,8 @@ export function announceNewOrders(orders: VoiceOrderSummary[]): void {
   speakAnnouncement(`${orders.length} new orders received: ${cafeBreakdown}.`, { withChime: true });
 }
 
+const recentRiderActions = new Map<string, number>();
+
 /**
  * Announce rider lifecycle events:
  * - claim: "Mr Sodiq has accepted Tola's order from B-B-S-F Cafeteria"
@@ -314,8 +335,17 @@ export function announceRiderAction(
   action: 'claim' | 'pickup' | 'deliver' | string,
   riderName: string,
   customerName?: string | null,
-  cafeteriaName?: string | null
+  cafeteriaName?: string | null,
+  orderId?: string
 ): void {
+  if (orderId) {
+    const key = `${orderId}:${action}`;
+    const now = Date.now();
+    const last = recentRiderActions.get(key) || 0;
+    if (now - last < 60000) return; // Suppress duplicate announcement within 60s
+    recentRiderActions.set(key, now);
+  }
+
   const rider = formatSpokenRider(riderName);
   const customer = customerName ? `${formatSpokenCustomer(customerName)}'s` : 'an';
   const caf = cafeteriaName ? ` from ${formatSpokenCafeteria(cafeteriaName)}` : '';
@@ -327,4 +357,16 @@ export function announceRiderAction(
   } else if (action === 'pickup') {
     speakAnnouncement(`${rider} picked up ${customer} order${caf}.`, { withChime: true });
   }
+}
+
+/**
+ * Test announcement triggered by clicking "Test Voice" in the UI.
+ * Speaks a sample new order followed by a rider acceptance announcement.
+ */
+export function testVoiceAnnouncement(): void {
+  setVoiceEnabled(true);
+  speakAnnouncement(
+    "Test alert. New order received from B-B-S-F Cafeteria for Tola. Mr Sodiq has accepted the order.",
+    { withChime: true, interrupt: true }
+  );
 }

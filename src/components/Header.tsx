@@ -12,6 +12,8 @@ import {
   announceNewOrders,
   unlockAudioOnFirstInteraction,
   playAlertChime,
+  speakAnnouncement,
+  testVoiceAnnouncement,
 } from '@/lib/voiceNotifications';
 
 const DEFAULT_POLL_INTERVAL_MS = 15_000; // 15 seconds
@@ -61,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
     setVoiceEnabled(next);
     setVoiceState(next);
     if (next) {
-      playAlertChime();
+      speakAnnouncement('Voice alerts are now active.', { withChime: true });
       showToast('🔊 Live voice notifications enabled', 'success');
     } else {
       showToast('🔇 Voice notifications muted', 'success');
@@ -343,6 +345,20 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
               <VolumeX className="w-4 h-4 text-slate-400" />
             )}
             <span className="hidden sm:inline">{voiceEnabled ? 'Voice On' : 'Voice Off'}</span>
+          </button>
+
+          {/* Test voice preview button */}
+          <button
+            type="button"
+            onClick={() => {
+              testVoiceAnnouncement();
+              showToast('🔊 Playing test announcement...', 'success');
+            }}
+            className="inline-flex items-center gap-1.5 h-9 px-2.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+            title="Click to test and hear sample voice alerts"
+          >
+            <Volume2 className="w-3.5 h-3.5 text-brand-600" />
+            <span>Test Voice</span>
           </button>
 
           <button
