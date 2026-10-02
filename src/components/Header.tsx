@@ -3,9 +3,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { RefreshCw, CheckCircle2, AlertCircle, Menu } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertCircle, Menu, Volume2, VolumeX } from 'lucide-react';
 import { useSidebar } from './AppLayout';
 import { pushNotification } from '@/lib/notifications';
+import {
+  isVoiceEnabled,
+  setVoiceEnabled,
+  announceNewOrders,
+  unlockAudioOnFirstInteraction,
+  playAlertChime,
+} from '@/lib/voiceNotifications';
 
 const DEFAULT_POLL_INTERVAL_MS = 15_000; // 15 seconds
 
@@ -34,6 +41,32 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
     mode: string;
     intervalSeconds?: number;
   } | null>(null);
+
+  // Voice announcements state
+  const [voiceEnabled, setVoiceState] = useState(false);
+
+  useEffect(() => {
+    setVoiceState(isVoiceEnabled());
+    unlockAudioOnFirstInteraction();
+
+    const handleVoiceChange = (e: any) => {
+      setVoiceState(Boolean(e.detail?.enabled));
+    };
+    window.addEventListener('voice-settings-updated', handleVoiceChange);
+    return () => window.removeEventListener('voice-settings-updated', handleVoiceChange);
+  }, []);
+
+  const toggleVoice = () => {
+    const next = !voiceEnabled;
+    setVoiceEnabled(next);
+    setVoiceState(next);
+    if (next) {
+      playAlertChime();
+      showToast('🔊 Live voice notifications enabled', 'success');
+    } else {
+      showToast('🔇 Voice notifications muted', 'success');
+    }
+  };
 
   const { openSidebar } = useSidebar();
   const router = useRouter();
@@ -134,6 +167,12 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
               title: 'New Orders Synced',
               body: `${data.newlySyncedCount} new order${data.newlySyncedCount > 1 ? 's' : ''} arrived from GoChoww`,
             });
+            // Announce newly arrived orders aloud
+            if (Array.isArray(data.newOrders) && data.newOrders.length > 0) {
+              announceNewOrders(data.newOrders);
+            } else {
+              announceNewOrders([{ customerName: 'Student', cafeteriaName: 'Campus Cafeteria' }]);
+            }
           }
 
           // Only notify listening components if there were genuine new orders or status updates
@@ -287,6 +326,25 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
           <span className="hidden md:inline text-sm text-slate-500">
             {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
           </span>
+          {/* Voice alerts toggle button */}
+          <button
+            type="button"
+            onClick={toggleVoice}
+            className={`inline-flex items-center gap-1.5 h-9 px-2.5 rounded-lg border text-xs font-semibold transition-colors ${
+              voiceEnabled
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+            }`}
+            title={voiceEnabled ? 'Voice notifications active (click to mute)' : 'Voice notifications muted (click to enable)'}
+          >
+            {voiceEnabled ? (
+              <Volume2 className="w-4 h-4 text-emerald-600" />
+            ) : (
+              <VolumeX className="w-4 h-4 text-slate-400" />
+            )}
+            <span className="hidden sm:inline">{voiceEnabled ? 'Voice On' : 'Voice Off'}</span>
+          </button>
+
           <button
             id="sync-orders-btn"
             onClick={handleSyncOrders}

@@ -19,6 +19,7 @@ import {
 import { InteractiveDailyTrendChart, DailyDataPoint } from '@/components/charts/InteractiveDailyTrendChart';
 import type { SprintStatus } from '@/lib/sprint';
 import { gochowStatusView, riderStatusView, TONE_DOT } from '@/lib/orderStatus';
+import { announceRiderAction } from '@/lib/voiceNotifications';
 
 interface MonthlyWeeklyBreakdown {
   monthKey: string;
@@ -352,6 +353,14 @@ export default function ExecutiveDashboardPage() {
       setTimeout(() => {
         setRiderNotifications((prev) => prev.filter((n) => n.id !== id));
       }, 8000);
+
+      // Spoken voice notification
+      announceRiderAction(
+        detail.action,
+        detail.riderName,
+        (detail as any).orderDetails?.customerName,
+        (detail as any).orderDetails?.cafeteriaName
+      );
 
       // Refresh dashboard data immediately
       fetchData(false);

@@ -448,6 +448,7 @@ async function performSync(force: boolean = false) {
     operatingStatus: status,
     newlySyncedCount,
     syncedCount: newlySyncedCount,
+    newOrders: toCreate.map((o) => ({ customerName: o.customerName, cafeteriaName: o.cafeteriaName })),
     statusUpdatedCount,
     totalFetched: liveOrders.length,
     message,

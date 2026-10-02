@@ -36,6 +36,7 @@ import {
 import { pushNotification, buildRiderNotification } from '@/lib/notifications';
 import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner';
 import { GpsPermissionModal } from '@/components/GpsPermissionModal';
+import { announceNewOrders, isVoiceEnabled, setVoiceEnabled } from '@/lib/voiceNotifications';
 
 interface RiderOrder {
   id: string;
@@ -237,6 +238,7 @@ export default function RiderPortalPage() {
   }, []);
 
   useEffect(() => {
+    setSoundEnabled(isVoiceEnabled());
     const unlock = () => initOrResumeAudio();
     window.addEventListener('click', unlock, { once: true });
     window.addEventListener('touchstart', unlock, { once: true });
@@ -515,6 +517,13 @@ export default function RiderPortalPage() {
                 playAlertChime();
                 showToast('🔔 New order available in the dispatch pool!', 'success');
               }
+              // Spoken voice notification
+              announceNewOrders(
+                newArrivals.map((o) => ({
+                  customerName: o.customerName,
+                  cafeteriaName: o.cafeteriaName,
+                }))
+              );
             }
           }
           prevAvailableIdsRef.current = new Set(newAvailable.map((o) => o.orderId));
@@ -753,7 +762,10 @@ export default function RiderPortalPage() {
         await fetchPortalData(false);
         
         // Broadcast to all other tabs/windows in real time
-        broadcastRiderUpdate(action, orderId, data.order);
+        const currentOrder =
+          targetOrder || activeTasks.find((o) => o.id === orderId || o.orderId === orderId);
+        const orderDetails = { ...currentOrder, ...data.order };
+        broadcastRiderUpdate(action, orderId, orderDetails);
 
         // Persist notification to localStorage for the Notifications page
         if (action === 'claim' || action === 'pickup' || action === 'deliver') {
@@ -1076,8 +1088,9 @@ export default function RiderPortalPage() {
               onClick={() => {
                 const next = !soundEnabled;
                 setSoundEnabled(next);
-                if (next) { initOrResumeAudio(); playAlertChime(); showToast('🔊 Sound enabled', 'success'); }
-                else showToast('🔇 Sound muted', 'success');
+                setVoiceEnabled(next);
+                if (next) { initOrResumeAudio(); playAlertChime(); showToast('🔊 Sound & voice alerts enabled', 'success'); }
+                else showToast('🔇 Sound & voice muted', 'success');
               }}
               className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 transition-all"
               title={soundEnabled ? 'Mute' : 'Enable sound'}

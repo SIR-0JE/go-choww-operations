@@ -493,6 +493,8 @@ export async function POST(request: NextRequest) {
           id: updated.id,
           orderId: updated.orderId,
           orderStatus: updated.orderStatus,
+          customerName: updated.customerName,
+          cafeteriaName: updated.cafeteriaName,
         },
       });
     }
@@ -787,6 +789,8 @@ export async function POST(request: NextRequest) {
           id: updated.id,
           orderId: updated.orderId,
           orderStatus: updated.orderStatus,
+          customerName: updated.customerName,
+          cafeteriaName: updated.cafeteriaName,
         },
       });
     }
@@ -841,6 +845,8 @@ export async function POST(request: NextRequest) {
           id: updated.id,
           orderId: updated.orderId,
           orderStatus: updated.orderStatus,
+          customerName: updated.customerName,
+          cafeteriaName: updated.cafeteriaName,
         },
       });
     }
