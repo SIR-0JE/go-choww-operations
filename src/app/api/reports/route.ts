@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma, withDbRetry, getInMemoryOrders, getInMemoryExpenses } from '@/lib/prisma';
+import { prisma, ORDER_COLUMNS_NO_ITEMS, withDbRetry, getInMemoryOrders, getInMemoryExpenses } from '@/lib/prisma';
 import { calculateRiderPayout, isSettledOrder, isRevenueOrder } from '@/lib/financials';
 
 export const dynamic = 'force-dynamic';
@@ -13,6 +13,7 @@ export async function GET() {
       const [fetchedOrders, fetchedExpenses] = await withDbRetry(async () => {
         return await Promise.all([
           prisma.deliveryOrder.findMany({
+            select: ORDER_COLUMNS_NO_ITEMS,
             orderBy: { createdAt: 'asc' },
           }),
           prisma.expense.findMany({

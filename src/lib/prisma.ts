@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { GeneratedOrder, GeneratedExpense, GeneratedRider } from './mockData';
 
 const globalForPrisma = globalThis as unknown as {
@@ -195,3 +195,14 @@ export const clearAllInMemoryData = () => {
   globalForPrisma.mockRiders = [];
   globalForPrisma.mockSubscriptions = [];
 };
+
+/**
+ * Every order column except the bulky `items` JSON (about two thirds of each row).
+ * Use it on any query that loads many orders and doesn't show the food items; each
+ * row that leaves the database counts towards Supabase egress.
+ */
+export const ORDER_COLUMNS_NO_ITEMS = Object.fromEntries(
+  Object.keys(Prisma.DeliveryOrderScalarFieldEnum)
+    .filter((k) => k !== 'items')
+    .map((k) => [k, true])
+) as { [K in Exclude<keyof typeof Prisma.DeliveryOrderScalarFieldEnum, 'items'>]: true };

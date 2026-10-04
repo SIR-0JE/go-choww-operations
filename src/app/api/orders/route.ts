@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, withDbRetry, getInMemoryOrders, updateInMemoryOrder, updateInMemoryOrderRider } from '@/lib/prisma';
+import { prisma, ORDER_COLUMNS_NO_ITEMS, withDbRetry, getInMemoryOrders, updateInMemoryOrder, updateInMemoryOrderRider } from '@/lib/prisma';
 import { calculateRiderPayout, isSettledOrder } from '@/lib/financials';
 import { effectiveGochowStatus, isPickup } from '@/lib/orderStatus';
 
@@ -27,7 +27,8 @@ export async function GET(request: NextRequest) {
         try {
           return await prisma.deliveryOrder.findMany({
             orderBy: { createdAt: 'desc' },
-            include: {
+            select: {
+              ...ORDER_COLUMNS_NO_ITEMS,
               rider: {
                 select: {
                   id: true,
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
         } catch {
           // Safe fallback if rider relation column is not yet pushed to DB
           return await prisma.deliveryOrder.findMany({
+            select: ORDER_COLUMNS_NO_ITEMS,
             orderBy: { createdAt: 'desc' },
           });
         }
