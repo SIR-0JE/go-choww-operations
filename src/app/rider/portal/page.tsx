@@ -1454,7 +1454,7 @@ export default function RiderPortalPage() {
                     )}
 
                     <div className="p-4 space-y-3">
-                      {/* Route: cafeteria -> hostel */}
+                      {/* Route: cafeteria -> hostel, with the pickup code so riders can tell orders apart */}
                       <div className="flex gap-3">
                         <div className="flex flex-col items-center pt-1.5 shrink-0" aria-hidden="true">
                           <span className="w-2 h-2 rounded-full bg-orange-500" />
@@ -1479,6 +1479,10 @@ export default function RiderPortalPage() {
                               {viaCollector(ord) ? `Hand to ${ord.collector!.name} (collector)` : `Deliver to ${ord.customerName}`}
                             </p>
                           </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs text-slate-500">Code</p>
+                          <p className="text-xl font-semibold font-mono tracking-[0.12em] text-slate-900 leading-tight">{ord.pickupCode || '—'}</p>
                         </div>
                       </div>
 
