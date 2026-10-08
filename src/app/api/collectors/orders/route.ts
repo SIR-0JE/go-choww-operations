@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logActivity } from '@/lib/activity';
+import { sendPushNotification } from '@/lib/pushService';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +14,10 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     const { orderId, action } = await request.json();
-    const order = await prisma.deliveryOrder.findUnique({ where: { id: String(orderId || '') } });
+    const order = await prisma.deliveryOrder.findUnique({
+      where: { id: String(orderId || '') },
+      include: { collector: { select: { id: true, name: true, pointName: true } } },
+    });
     if (!order || !order.collectorId) return NextResponse.json({ success: false, error: 'Order not found.' }, { status: 404 });
     const now = new Date();
 
@@ -25,8 +30,7 @@ export async function POST(request: NextRequest) {
         })
       ).count;
     } else if (action === 'back_to_riders') {
-      count = (
-        await prisma.deliveryOrder.updateMany({
+      const result = await prisma.deliveryOrder.updateMany({
           where: { id: order.id, collectorStage: { in: ['received', 'not_reachable'] } },
           data: {
             collectorStage: 'returned',
@@ -37,8 +41,20 @@ export async function POST(request: NextRequest) {
             handoverRequestedByName: null,
             handoverDistance: null,
           },
-        })
-      ).count;
+        });
+      count = result.count;
+      if (count > 0 && order.collector) {
+        await logActivity('collector_returned', { id: order.collector.id, name: order.collector.name }, order, 'by admin');
+        sendPushNotification(
+          {
+            title: 'Order to collect from a collector',
+            body: `${order.customerName}'s order is with ${order.collector.name} at ${order.collector.pointName}. Any rider can take it.`,
+            url: '/rider/portal',
+            tag: `returned-${order.orderId}`,
+          },
+          { userType: 'rider' }
+        ).catch(() => {});
+      }
     } else if (action === 'deliver_direct') {
       count = (
         await prisma.deliveryOrder.updateMany({

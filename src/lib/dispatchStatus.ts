@@ -1,5 +1,6 @@
 import { prisma } from './prisma';
 import { sendPushNotification } from './pushService';
+import { getCollectorSettings } from './collectors';
 
 /** An order waiting longer than this for a rider triggers the dashboard warning and a push alert. */
 export const WAITING_ALERT_MINUTES = 5;
@@ -16,6 +17,28 @@ const PICKED_UP_OR_FINISHED = [
   'Cancelled', 'cancelled', 'Canceled', 'canceled',
 ];
 
+/** Food a collector is holding because the customer couldn't be reached. */
+export interface NotReachableOrder {
+  id: string;
+  orderId: string;
+  customerName: string;
+  customerPhone: string | null;
+  collectorName: string;
+  pointName: string;
+  minutes: number;
+}
+
+/** Rider says they handed the food over, but the collector hasn't confirmed within the alert time. */
+export interface UnconfirmedHandover {
+  id: string;
+  orderId: string;
+  customerName: string;
+  riderName: string;
+  collectorName: string;
+  pointName: string;
+  minutes: number;
+}
+
 export interface DispatchStatus {
   waitingCount: number;
   waitingOverThreshold: number;
@@ -26,13 +49,32 @@ export interface DispatchStatus {
   /** Accepted but not delivered, placed over STUCK_AFTER_HOURS ago — likely delivered but never tapped "Delivered". */
   stuckOrders: { orderId: string; riderName: string; hours: number; status: string }[];
   stuckAfterHours: number;
+  notReachable: NotReachableOrder[];
+  unconfirmedHandovers: UnconfirmedHandover[];
 }
 
 /** Paid delivery orders from the last 12 hours that no rider has accepted yet. */
-export async function getDispatchStatus(now: Date = new Date()): Promise<DispatchStatus> {
+export async function getDispatchStatus(
+  now: Date = new Date(),
+  opts: { withCollectors?: boolean } = {}
+): Promise<DispatchStatus> {
+  const withCollectors = opts.withCollectors !== false;
   const since = new Date(now.getTime() - LOOKBACK_HOURS * 60 * 60 * 1000);
   const stuckBefore = new Date(now.getTime() - STUCK_AFTER_HOURS * 60 * 60 * 1000);
-  const [waiting, ridersOnline, stuck] = await Promise.all([
+  const collectorSettings = withCollectors ? await getCollectorSettings() : null;
+  const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const handoverCutoff = new Date(now.getTime() - (collectorSettings?.handoverAlertMinutes ?? 10) * 60 * 1000);
+  const collectorSelect = {
+    id: true,
+    orderId: true,
+    customerName: true,
+    customerPhone: true,
+    notReachableAt: true,
+    handedAt: true,
+    rider: { select: { name: true } },
+    collector: { select: { name: true, pointName: true } },
+  } as const;
+  const [waiting, ridersOnline, stuck, notReachableRows, handedRows] = await Promise.all([
     prisma.deliveryOrder.findMany({
       where: {
         riderId: null,
@@ -55,7 +97,22 @@ export async function getDispatchStatus(now: Date = new Date()): Promise<Dispatc
       orderBy: { createdAt: 'asc' },
       take: 20,
     }),
+    withCollectors
+      ? prisma.deliveryOrder.findMany({
+          where: { createdAt: { gte: dayAgo }, collectorStage: 'not_reachable' },
+          select: collectorSelect,
+          orderBy: { notReachableAt: 'asc' },
+        })
+      : Promise.resolve([]),
+    withCollectors
+      ? prisma.deliveryOrder.findMany({
+          where: { createdAt: { gte: dayAgo }, collectorStage: 'handed', handedAt: { lt: handoverCutoff } },
+          select: collectorSelect,
+          orderBy: { handedAt: 'asc' },
+        })
+      : Promise.resolve([]),
   ]);
+  const minsSince = (d: Date | null) => (d ? Math.max(0, Math.floor((now.getTime() - d.getTime()) / 60000)) : 0);
 
   const thresholdMs = WAITING_ALERT_MINUTES * 60 * 1000;
   const oldest = waiting[0];
@@ -73,6 +130,24 @@ export async function getDispatchStatus(now: Date = new Date()): Promise<Dispatc
       status: o.orderStatus,
     })),
     stuckAfterHours: STUCK_AFTER_HOURS,
+    notReachable: notReachableRows.map((o) => ({
+      id: o.id,
+      orderId: o.orderId,
+      customerName: o.customerName,
+      customerPhone: o.customerPhone,
+      collectorName: o.collector?.name || 'Collector',
+      pointName: o.collector?.pointName || '',
+      minutes: minsSince(o.notReachableAt),
+    })),
+    unconfirmedHandovers: handedRows.map((o) => ({
+      id: o.id,
+      orderId: o.orderId,
+      customerName: o.customerName,
+      riderName: o.rider?.name || 'Rider',
+      collectorName: o.collector?.name || 'Collector',
+      pointName: o.collector?.pointName || '',
+      minutes: minsSince(o.handedAt),
+    })),
   };
 }
 
@@ -81,7 +156,7 @@ export async function getDispatchStatus(now: Date = new Date()): Promise<Dispatc
  * Called from the background sync, so it works with no dashboard open.
  */
 export async function alertIfOrdersWaiting(): Promise<void> {
-  const status = await getDispatchStatus();
+  const status = await getDispatchStatus(new Date(), { withCollectors: false });
   if (status.waitingOverThreshold === 0) return;
 
   const last = await prisma.systemSetting.findUnique({ where: { key: ALERT_SETTING_KEY } });

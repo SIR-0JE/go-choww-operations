@@ -18,6 +18,15 @@ const LAGOS_OFFSET_MS = 60 * 60 * 1000;
  */
 export async function GET(request: NextRequest) {
   try {
+    // ?lite=1: just the people (for dropdowns), without the day's board
+    if (request.nextUrl.searchParams.get('lite') === '1') {
+      const list = await prisma.collector.findMany({
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, name: true, pointName: true, status: true },
+      });
+      return NextResponse.json({ success: true, collectors: list }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+
     const now = new Date();
     const todayKey = new Date(now.getTime() + LAGOS_OFFSET_MS).toISOString().slice(0, 10);
     const param = request.nextUrl.searchParams.get('date') || '';

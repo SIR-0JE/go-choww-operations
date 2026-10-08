@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
     const deliveryType = searchParams.get('deliveryType') || 'All';
     const orderStatus = searchParams.get('orderStatus') || 'All';
     const riderId = searchParams.get('riderId') || 'All';
+    const collectorFilter = searchParams.get('collectorId') || 'All'; // All | any | none | <collector id>
     const cafeteria = (searchParams.get('cafeteria') || '').trim().toLowerCase();
     const gochowStatus = (searchParams.get('gochowStatus') || 'All').toLowerCase();
     const day = searchParams.get('date') || ''; // YYYY-MM-DD, Lagos
@@ -29,6 +30,7 @@ export async function GET(request: NextRequest) {
             orderBy: { createdAt: 'desc' },
             select: {
               ...ORDER_COLUMNS_NO_ITEMS,
+              collector: { select: { id: true, name: true, pointName: true } },
               rider: {
                 select: {
                   id: true,
@@ -125,6 +127,13 @@ export async function GET(request: NextRequest) {
       } else {
         processed = processed.filter((o) => o.riderId === riderId);
       }
+    }
+
+    // 4b. Filter by collector
+    if (collectorFilter !== 'All') {
+      processed = processed.filter((o) =>
+        collectorFilter === 'any' ? !!o.collectorId : collectorFilter === 'none' ? !o.collectorId : o.collectorId === collectorFilter
+      );
     }
 
     // 5. Filter by cafeteria, GoChow status and Lagos day (used by the "By cafeteria" board)

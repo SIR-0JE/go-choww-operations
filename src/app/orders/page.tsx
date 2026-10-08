@@ -50,6 +50,9 @@ interface RawOrder {
   customerPhone?: string | null;
   gochowStatus?: string | null;
   riderId?: string | null;
+  collectorId?: string | null;
+  collectorStage?: string | null;
+  collector?: { id: string; name: string; pointName: string } | null;
   rider?: {
     id: string;
     name: string;
@@ -65,6 +68,8 @@ export default function RawDataOrdersPage() {
   const [deliveryType, setDeliveryType] = useState('All');
   const [orderStatus, setOrderStatus] = useState('All');
   const [riderFilter, setRiderFilter] = useState('All');
+  const [collectorFilter, setCollectorFilter] = useState('All');
+  const [collectorsList, setCollectorsList] = useState<{ id: string; name: string; pointName: string; status: string }[]>([]);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
@@ -99,6 +104,10 @@ export default function RawDataOrdersPage() {
 
   useEffect(() => {
     fetchRiders();
+    fetch('/api/collectors?lite=1', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => d.success && setCollectorsList(d.collectors || []))
+      .catch(() => {});
   }, []);
 
   const fetchOrders = useCallback(async () => {
@@ -109,6 +118,7 @@ export default function RawDataOrdersPage() {
         deliveryType,
         orderStatus,
         riderId: boardPick?.noRider ? 'unassigned' : riderFilter,
+        collectorId: collectorFilter,
         page: page.toString(),
         limit: limit.toString(),
       });
@@ -131,7 +141,7 @@ export default function RawDataOrdersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [search, deliveryType, orderStatus, riderFilter, page, limit, boardPick]);
+  }, [search, deliveryType, orderStatus, riderFilter, collectorFilter, page, limit, boardPick]);
 
   useEffect(() => {
     fetchOrders();
@@ -247,6 +257,13 @@ export default function RawDataOrdersPage() {
           <span className={`w-1.5 h-1.5 rounded-full ${TONE_DOT[r.tone]}`} />
           <span className="text-slate-400">Rider</span> {r.label}
         </span>
+        {ord.collector && (
+          <span className="inline-flex items-center gap-1.5" title={`Collector at ${ord.collector.pointName}`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+            <span className="text-slate-400">Collector</span> {ord.collector.name}
+            <span className="text-slate-400 truncate max-w-[9rem]">· {ord.collector.pointName}</span>
+          </span>
+        )}
       </span>
     );
   };
@@ -411,6 +428,26 @@ export default function RawDataOrdersPage() {
                   </option>
                 ))}
               </select>
+              {collectorsList.length > 0 && (
+                <select
+                  value={collectorFilter}
+                  onChange={(e) => {
+                    setCollectorFilter(e.target.value);
+                    setPage(1);
+                  }}
+                  className={`${selectCls} col-span-3 sm:col-span-1`}
+                  aria-label="Collector"
+                >
+                  <option value="All">All collectors</option>
+                  <option value="any">With a collector</option>
+                  <option value="none">No collector</option>
+                  {collectorsList.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} · {c.pointName}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
 

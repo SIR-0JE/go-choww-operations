@@ -15,11 +15,14 @@ import {
   Target,
   Package,
   Truck,
+  Phone,
+  UserX,
 } from 'lucide-react';
 import { InteractiveDailyTrendChart, DailyDataPoint } from '@/components/charts/InteractiveDailyTrendChart';
 import type { SprintStatus } from '@/lib/sprint';
 import { gochowStatusView, riderStatusView, TONE_DOT } from '@/lib/orderStatus';
-import { announceRiderAction } from '@/lib/voiceNotifications';
+import { announceRiderAction, playAlertChime } from '@/lib/voiceNotifications';
+import { telHref } from '@/lib/phone';
 
 interface MonthlyWeeklyBreakdown {
   monthKey: string;
@@ -60,7 +63,36 @@ export default function ExecutiveDashboardPage() {
     thresholdMinutes: number;
     stuckOrders: { orderId: string; riderName: string; hours: number; status: string }[];
     stuckAfterHours: number;
+    notReachable: { id: string; orderId: string; customerName: string; customerPhone: string | null; collectorName: string; pointName: string; minutes: number }[];
+    unconfirmedHandovers: { id: string; orderId: string; customerName: string; riderName: string; collectorName: string; pointName: string; minutes: number }[];
   } | null>(null);
+  // Collector alerts: flash the card and chime when a new "not reachable" appears
+  const seenNotReachableRef = useRef<Set<string> | null>(null);
+  const [flashNotReachable, setFlashNotReachable] = useState(false);
+  const [givingBackId, setGivingBackId] = useState<string | null>(null);
+
+  const giveBackToRiders = async (o: { id: string; customerName: string; collectorName: string }) => {
+    if (!window.confirm(`Give ${o.customerName}'s food back to the riders? ${o.collectorName} will stop holding it.`)) return;
+    setGivingBackId(o.id);
+    try {
+      const res = await fetch('/api/collectors/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: o.id, action: 'back_to_riders' }),
+      });
+      const data = await res.json();
+      if (!data.success) window.alert(data.error || 'Could not give it back. Try again.');
+      const refreshed = await fetch('/api/dispatch/status', { cache: 'no-store' }).then((r) => r.json());
+      if (refreshed.success) {
+        setDispatch(refreshed);
+        seenNotReachableRef.current = new Set((refreshed.notReachable || []).map((x: { id: string }) => x.id));
+      }
+    } catch {
+      window.alert('No connection. Try again.');
+    } finally {
+      setGivingBackId(null);
+    }
+  };
 
   // Orders waiting for a rider — refreshed every 20s
   useEffect(() => {
@@ -69,7 +101,17 @@ export default function ExecutiveDashboardPage() {
       try {
         const res = await fetch('/api/dispatch/status', { cache: 'no-store' });
         const data = await res.json();
-        if (!cancelled && data.success) setDispatch(data);
+        if (!cancelled && data.success) {
+          setDispatch(data);
+          const ids: string[] = (data.notReachable || []).map((o: { id: string }) => o.id);
+          const seen = seenNotReachableRef.current;
+          if (seen && ids.some((id) => !seen.has(id))) {
+            setFlashNotReachable(true);
+            setTimeout(() => setFlashNotReachable(false), 8000);
+            playAlertChime();
+          }
+          seenNotReachableRef.current = new Set(ids);
+        }
       } catch {
         // keep the last reading
       }
@@ -665,6 +707,73 @@ export default function ExecutiveDashboardPage() {
                 </div>
               )}
             </div>
+
+            {dispatch && dispatch.notReachable.length > 0 && (
+              <div
+                className={`rounded-lg border p-3 transition-colors ${
+                  flashNotReachable ? 'border-rose-400 bg-rose-100 animate-pulse' : 'border-rose-200 bg-rose-50'
+                }`}
+              >
+                <div className="flex items-center gap-2 text-sm font-semibold text-rose-800">
+                  <UserX className="w-4 h-4" />
+                  Customer not reachable
+                  <span className="ml-auto rounded-full bg-rose-600 px-2 py-0.5 text-xs font-semibold text-white tabular-nums">
+                    {dispatch.notReachable.length}
+                  </span>
+                </div>
+                <ul className="mt-2 divide-y divide-rose-100">
+                  {dispatch.notReachable.map((o) => (
+                    <li key={o.id} className="py-2 first:pt-0 last:pb-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-900 truncate">{o.customerName}</p>
+                          <p className="text-xs text-rose-700">
+                            {o.minutes} min · with {o.collectorName}
+                          </p>
+                        </div>
+                        {o.customerPhone && (
+                          <a
+                            href={telHref(o.customerPhone)}
+                            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-rose-200 bg-white text-xs font-medium text-slate-800 shrink-0"
+                          >
+                            <Phone className="w-3.5 h-3.5 text-emerald-600" /> Call
+                          </a>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => giveBackToRiders(o)}
+                        disabled={givingBackId === o.id}
+                        className="mt-2 w-full h-9 rounded-lg border border-amber-200 bg-amber-50 text-xs font-medium text-amber-800 disabled:opacity-50"
+                      >
+                        {givingBackId === o.id ? 'Giving back…' : 'Give back to riders'}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {dispatch && dispatch.unconfirmedHandovers.length > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+                  <AlertOctagon className="w-4 h-4" />
+                  Collector hasn&apos;t confirmed
+                  <span className="ml-auto rounded-full bg-amber-500 px-2 py-0.5 text-xs font-semibold text-white tabular-nums">
+                    {dispatch.unconfirmedHandovers.length}
+                  </span>
+                </div>
+                <ul className="mt-2 space-y-1.5">
+                  {dispatch.unconfirmedHandovers.map((o) => (
+                    <li key={o.id} className="text-xs text-amber-900">
+                      <span className="font-medium">{o.customerName}</span> · {o.riderName} handed to {o.collectorName} {o.minutes} min ago
+                    </li>
+                  ))}
+                </ul>
+                <Link href="/collectors" className="mt-2 inline-block text-xs font-medium text-amber-900 underline decoration-amber-300">
+                  Open Collectors
+                </Link>
+              </div>
+            )}
 
             <div className="border-t border-slate-100 pt-4">
               <div className="text-sm text-slate-500">
