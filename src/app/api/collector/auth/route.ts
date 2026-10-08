@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const all = await prisma.collector.findMany();
     const collector = all.find((c) => normalizePhone(c.phone) === input);
     if (!collector) {
-      return NextResponse.json({ success: false, error: 'No collector registered with this phone number.' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'No rep registered with this phone number.' }, { status: 404 });
     }
     if (collector.status !== 'Active') {
       return NextResponse.json({ success: false, error: 'This account is switched off. Please contact operations.' }, { status: 403 });
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ success: true, collector: session });
   } catch (err: any) {
-    console.error('[Collector auth]', err);
+    console.error('[Rep auth]', err);
     return NextResponse.json({ success: false, error: 'Could not sign in. Please try again.' }, { status: 503 });
   }
 }

@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       { headers: NO_STORE }
     );
   } catch (err) {
-    console.error('[Collector orders GET]', err);
+    console.error('[Rep orders GET]', err);
     return NextResponse.json({ success: false, busy: true, error: 'Server is busy, retrying.' }, { status: 503, headers: NO_STORE });
   }
 }
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: 'Received. It\'s with you now.' });
     }
 
-    // Rider tapped "handed" but the collector didn't get it: send it back to the rider
+    // Rider tapped "handed" but the rep didn't get it: send it back to the rider
     if (action === 'not_received') {
       const r = await prisma.deliveryOrder.updateMany({
         where: { id: order.id, collectorId: collector.id, collectorStage: 'handed' },
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
       if (order.riderId) {
         sendPushNotification(
           {
-            title: 'Collector didn\'t get this order',
+            title: 'Rep didn\'t get this order',
             body: `${collector.name} says they haven't received ${order.customerName}'s order. Please check.`,
             url: '/rider/portal',
             tag: `not-received-${order.orderId}`,
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
       await logActivity('collector_returned', actor, order);
       sendPushNotification(
         {
-          title: 'Order to collect from a collector',
+          title: 'Order to collect from a rep',
           body: `${order.customerName}'s order is with ${collector.name} at ${collector.pointName}. Any rider can take it.`,
           url: '/rider/portal',
           tag: `returned-${order.orderId}`,
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: false, error: `Unknown action: ${action}` }, { status: 400 });
   } catch (err) {
-    console.error('[Collector orders POST]', err);
+    console.error('[Rep orders POST]', err);
     return NextResponse.json({ success: false, busy: true, error: 'Could not save that. Please try again.' }, { status: 503 });
   }
 }

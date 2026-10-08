@@ -9,7 +9,7 @@ export type ActivityType =
   | 'handover_request'
   | 'handover_accept'
   | 'new_orders'
-  // collector mode (for collector actions the "rider" fields hold the collector)
+  // collector mode (for rep actions the "rider" fields hold the rep)
   | 'collector_handed'
   | 'collector_received'
   | 'collector_delivered'

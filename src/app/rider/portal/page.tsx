@@ -61,7 +61,7 @@ interface RiderOrder {
   handoverRequestedById?: string | null;
   handoverRequestedByName?: string | null;
   handoverDistance?: number | null;
-  // Collector mode: this order goes to the hostel's collector instead of the customer
+  // Rep mode: this order goes to the hostel's collector instead of the customer
   collectorId?: string | null;
   collectorStage?: string | null;
   handedAt?: string | null;
@@ -85,7 +85,7 @@ interface OtherRider {
 }
 
 
-// Collector mode: the order ends at the hostel's collector (unless it was given back)
+// Rep mode: the order ends at the hostel's collector (unless it was given back)
 const viaCollector = (o: RiderOrder) => Boolean(o.collectorId && o.collector && o.collectorStage !== 'returned');
 const returnedFromCollector = (o: RiderOrder) => o.collectorStage === 'returned' && Boolean(o.collector);
 
@@ -1465,7 +1465,7 @@ export default function RiderPortalPage() {
                           {returnedFromCollector(ord) ? (
                             <div>
                               <p className="text-base font-semibold text-slate-900 truncate">{ord.collector!.name} · {ord.collector!.pointName}</p>
-                              <p className="text-xs text-amber-700">Collect from the collector · customer wasn&apos;t reachable</p>
+                              <p className="text-xs text-amber-700">Collect from the rep · customer wasn&apos;t reachable</p>
                             </div>
                           ) : (
                             <div>
@@ -1476,7 +1476,7 @@ export default function RiderPortalPage() {
                           <div>
                             <p className="text-sm font-medium text-slate-800 truncate">{ord.deliveryAddress || 'Campus Hostel'}</p>
                             <p className="text-xs text-slate-500 truncate">
-                              {viaCollector(ord) ? `Hand to ${ord.collector!.name} (collector)` : `Deliver to ${ord.customerName}`}
+                              {viaCollector(ord) ? `Hand to ${ord.collector!.name} (rep)` : `Deliver to ${ord.customerName}`}
                             </p>
                           </div>
                         </div>
@@ -1666,22 +1666,22 @@ export default function RiderPortalPage() {
                               {returnedFromCollector(ord) ? `${ord.collector!.name} · ${ord.collector!.pointName}` : ord.cafeteriaName || 'Campus Cafeteria'}
                             </p>
                             <p className="text-xs text-slate-500">
-                              {returnedFromCollector(ord) ? 'Collect from the collector' : <>Pick up{kitchenNote(ord.gochowStatus)}</>}
+                              {returnedFromCollector(ord) ? 'Collect from the rep' : <>Pick up{kitchenNote(ord.gochowStatus)}</>}
                             </p>
                           </div>
                           <div>
                             <p className={`text-base font-semibold truncate ${isDispatched ? 'text-slate-900' : 'text-slate-700'}`}>{ord.deliveryAddress || 'Campus Hostel'}</p>
-                            <p className="text-xs text-slate-500">{viaCollector(ord) ? `Hand to the collector, ${ord.collector!.name}` : 'Deliver'}</p>
+                            <p className="text-xs text-slate-500">{viaCollector(ord) ? `Hand to the rep, ${ord.collector!.name}` : 'Deliver'}</p>
                           </div>
                         </div>
                       </div>
 
-                      {/* Collector (collector mode) */}
+                      {/* Rep (collector mode) */}
                       {viaCollector(ord) && (
                         <div className="flex items-center justify-between gap-3 rounded-lg bg-teal-50 border border-teal-100 px-3 py-2.5">
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-slate-900 truncate">{ord.collector!.name}</p>
-                            <p className="text-xs text-teal-800 truncate">Collector · {ord.collector!.pointName}</p>
+                            <p className="text-xs text-teal-800 truncate">Rep · {ord.collector!.pointName}</p>
                           </div>
                           {ord.collector!.phone && (
                             <a

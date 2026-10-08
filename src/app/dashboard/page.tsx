@@ -66,7 +66,7 @@ export default function ExecutiveDashboardPage() {
     notReachable: { id: string; orderId: string; customerName: string; customerPhone: string | null; collectorName: string; pointName: string; minutes: number }[];
     unconfirmedHandovers: { id: string; orderId: string; customerName: string; riderName: string; collectorName: string; pointName: string; minutes: number }[];
   } | null>(null);
-  // Collector alerts: flash the card and chime when a new "not reachable" appears
+  // Rep alerts: flash the card and chime when a new "not reachable" appears
   const seenNotReachableRef = useRef<Set<string> | null>(null);
   const [flashNotReachable, setFlashNotReachable] = useState(false);
   const [givingBackId, setGivingBackId] = useState<string | null>(null);
@@ -757,7 +757,7 @@ export default function ExecutiveDashboardPage() {
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
                 <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
                   <AlertOctagon className="w-4 h-4" />
-                  Collector hasn&apos;t confirmed
+                  Rep hasn&apos;t confirmed
                   <span className="ml-auto rounded-full bg-amber-500 px-2 py-0.5 text-xs font-semibold text-white tabular-nums">
                     {dispatch.unconfirmedHandovers.length}
                   </span>
@@ -770,7 +770,7 @@ export default function ExecutiveDashboardPage() {
                   ))}
                 </ul>
                 <Link href="/collectors" className="mt-2 inline-block text-xs font-medium text-amber-900 underline decoration-amber-300">
-                  Open Collectors
+                  Open Reps
                 </Link>
               </div>
             )}

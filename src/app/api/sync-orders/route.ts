@@ -410,8 +410,8 @@ async function performSync(force: boolean = false) {
     }
   }
 
-  // Collector mode: give new hostel orders their collector (or release them when it's off)
-  await attachCollectors().catch((err) => console.warn('[sync-orders] Collector attach error:', err?.message));
+  // Rep mode: give new hostel orders their rep (or release them when it's off)
+  await attachCollectors().catch((err) => console.warn('[sync-orders] Rep attach error:', err?.message));
 
   // ── Build response ─────────────────────────────────────────────────────────
   const hasChanges = newlySyncedCount > 0 || statusUpdatedCount > 0;

@@ -24,7 +24,7 @@ interface Live {
   deliveredToday: number;
 }
 
-type Filter = 'all' | 'claim' | 'pickup' | 'deliver' | 'new_orders' | 'other';
+type Filter = 'all' | 'claim' | 'pickup' | 'deliver' | 'new_orders' | 'reps' | 'other';
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -32,6 +32,7 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'pickup', label: 'Picked up' },
   { key: 'deliver', label: 'Delivered' },
   { key: 'new_orders', label: 'New orders' },
+  { key: 'reps', label: 'Reps' },
   { key: 'other', label: 'Other' },
 ];
 
@@ -97,15 +98,15 @@ function describe(a: Activity): { title: React.ReactNode; sub: string | null } {
     case 'handover_accept':
       return { title: <>{rider} handed {customer}&apos;s order {a.detail}</>, sub: route };
     case 'collector_handed':
-      return { title: <>{rider} handed {customer}&apos;s order to {a.detail || 'the collector'}</>, sub: route };
+      return { title: <>{rider} handed {customer}&apos;s order to {a.detail || 'the rep'}</>, sub: route };
     case 'collector_received':
-      return { title: <>{rider} (collector) received {customer}&apos;s order</>, sub: a.detail || route };
+      return { title: <>{rider} (rep) received {customer}&apos;s order</>, sub: a.detail || route };
     case 'collector_delivered':
-      return { title: <>{rider} (collector) delivered {customer}&apos;s order</>, sub: a.deliveryAddress ? `at ${a.deliveryAddress}` : null };
+      return { title: <>{rider} (rep) delivered {customer}&apos;s order</>, sub: a.deliveryAddress ? `at ${a.deliveryAddress}` : null };
     case 'collector_not_reachable':
-      return { title: <>{rider} (collector) couldn&apos;t reach {customer}</>, sub: route };
+      return { title: <>{rider} (rep) couldn&apos;t reach {customer}</>, sub: route };
     case 'collector_returned':
-      return { title: <>{rider} (collector) gave {customer}&apos;s order back to the riders</>, sub: route };
+      return { title: <>{rider} (rep) gave {customer}&apos;s order back to the riders</>, sub: route };
     case 'new_orders':
       return { title: <><strong className="font-semibold">{a.detail || 'New orders'}</strong> came in</>, sub: null };
     default:
@@ -171,8 +172,10 @@ export default function NotificationsPage() {
     .filter((a) =>
       filter === 'all'
         ? true
+        : filter === 'reps'
+        ? a.type.startsWith('collector_')
         : filter === 'other'
-        ? !['claim', 'pickup', 'deliver', 'new_orders'].includes(a.type)
+        ? !['claim', 'pickup', 'deliver', 'new_orders'].includes(a.type) && !a.type.startsWith('collector_')
         : a.type === filter
     );
   const unread = (activities || []).filter((a) => (!clearedAt || a.createdAt > clearedAt) && (!seenAt || a.createdAt > seenAt)).length;

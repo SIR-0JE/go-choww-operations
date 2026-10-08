@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 4b. Filter by collector
+    // 4b. Filter by rep
     if (collectorFilter !== 'All') {
       processed = processed.filter((o) =>
         collectorFilter === 'any' ? !!o.collectorId : collectorFilter === 'none' ? !o.collectorId : o.collectorId === collectorFilter

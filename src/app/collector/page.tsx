@@ -129,7 +129,7 @@ export default function CollectorPage() {
         setMode(data.mode);
         setOrders(data.orders);
         setConnectionIssue(false);
-        // Open on whatever needs the collector first
+        // Open on whatever needs the rep first
         if (!tabTouched.current) {
           const has = (t: Tab) => data.orders.some((o: Order) => TAB_PHASES[t].includes(o.phase));
           setTab(has('confirm') ? 'confirm' : has('withme') ? 'withme' : 'coming');
@@ -216,10 +216,10 @@ export default function CollectorPage() {
   const modeText = mode
     ? mode.active
       ? mode.setting === 'on'
-        ? 'Collector mode is on'
-        : `Collector mode on until ${clock12(mode.endTime)}`
+        ? 'Rep mode is on'
+        : `Rep mode on until ${clock12(mode.endTime)}`
       : mode.setting === 'off'
-        ? 'Collector mode is off'
+        ? 'Rep mode is off'
         : `Next: ${mode.days.map((d) => DAY_NAMES[d]).join(', ')} ${clock12(mode.startTime)}–${clock12(mode.endTime)}`
     : '';
 
@@ -228,7 +228,7 @@ export default function CollectorPage() {
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
         <div className="px-4 py-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-base font-semibold text-slate-900 truncate">{collector?.pointName || 'Collector'}</p>
+            <p className="text-base font-semibold text-slate-900 truncate">{collector?.pointName || 'Rep'}</p>
             <p className="text-xs text-slate-500 truncate">{collector?.name}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">

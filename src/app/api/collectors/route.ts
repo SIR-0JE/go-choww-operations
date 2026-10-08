@@ -14,7 +14,7 @@ const LAGOS_OFFSET_MS = 60 * 60 * 1000;
 
 /**
  * GET /api/collectors?date=YYYY-MM-DD
- * Collectors, the mode settings, the hostels you can pick from, and the live board for the day.
+ * Reps, the mode settings, the hostels you can pick from, and the live board for the day.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -89,11 +89,11 @@ export async function GET(request: NextRequest) {
     );
   } catch (err) {
     console.error('[GET /api/collectors]', err);
-    return NextResponse.json({ success: false, error: 'Could not load collectors.' }, { status: 503 });
+    return NextResponse.json({ success: false, error: 'Could not load reps.' }, { status: 503 });
   }
 }
 
-/** POST /api/collectors: add a collector */
+/** POST /api/collectors: add a rep */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -110,6 +110,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, collector });
   } catch (err) {
     console.error('[POST /api/collectors]', err);
-    return NextResponse.json({ success: false, error: 'Could not add the collector.' }, { status: 503 });
+    return NextResponse.json({ success: false, error: 'Could not add the rep.' }, { status: 503 });
   }
 }

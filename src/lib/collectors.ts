@@ -5,7 +5,7 @@
  *
  * Stages on an order (DeliveryOrder.collectorStage):
  *   null           on its way: waiting for a rider, accepted, or picked up
- *   handed         rider says they handed it over, waiting for the collector to confirm
+ *   handed         rider says they handed it over, waiting for the rep to confirm
  *   received       collector confirmed; the rider is done with it
  *   not_reachable  collector couldn't reach the customer; still holding it
  *   delivered      collector delivered it (orderStatus is then Completed)
@@ -22,7 +22,7 @@ export interface CollectorModeSettings {
   endTime: string; // "15:00", Lagos
   riderLimitNormal: number;
   riderLimitCollector: number;
-  returnAfterMinutes: number; // after "not reachable", when the collector may give it back to a rider
+  returnAfterMinutes: number; // after "not reachable", when the rep may give it back to a rider
   handoverAlertMinutes: number; // rider says handed, collector hasn't confirmed: goes red after this
   lastUpdated?: string;
 }
@@ -104,10 +104,10 @@ export async function currentRiderLimit(): Promise<number> {
   return isCollectorModeActive(s) ? s.riderLimitCollector : s.riderLimitNormal;
 }
 
-// Stages where the rider no longer holds the food (it's with the collector)
+// Stages where the rider no longer holds the food (it's with the rep)
 export const RIDER_RELEASED_STAGES = ['received', 'not_reachable', 'delivered'];
 
-/** Prisma condition: the order is not sitting with a collector. */
+/** Prisma condition: the order is not sitting with a rep. */
 export const notWithCollector = {
   OR: [{ collectorStage: null }, { collectorStage: { notIn: RIDER_RELEASED_STAGES } }],
 };
@@ -117,7 +117,7 @@ const OPEN_NOT_PICKED = ['Delivered', 'Completed', 'delivered', 'completed', 'Ca
 /**
  * Runs on every sync. While collector mode is on, today's orders to a covered hostel that
  * haven't been picked up yet get that hostel's collector. When it's off, orders not yet
- * picked up go back to normal direct delivery. Orders already on their way keep their collector.
+ * picked up go back to normal direct delivery. Orders already on their way keep their rep.
  */
 export async function attachCollectors(now: Date = new Date()) {
   const s = await getCollectorSettings(0);
@@ -175,7 +175,7 @@ export async function getCollectorFromRequest(req: { headers: Headers; cookies: 
   return c && c.status === 'Active' ? c : null;
 }
 
-/** Fields both the collector app and the admin board show for an order. */
+/** Fields both the rep app and the admin board show for an order. */
 export const COLLECTOR_ORDER_SELECT = {
   id: true,
   orderId: true,
@@ -201,7 +201,7 @@ export const COLLECTOR_ORDER_SELECT = {
   collector: { select: { id: true, name: true, phone: true, pointName: true } },
 } as const;
 
-/** Where a collector order is right now, in plain words. */
+/** Where a rep order is right now, in plain words. */
 export function collectorPhase(o: { collectorStage: string | null; riderId: string | null; orderStatus: string }):
   | 'waiting_rider'
   | 'with_rider'
@@ -237,11 +237,11 @@ export async function validateCollector(
     const p = normalizePhone(data.phone);
     if (p.length < 10) return 'Enter a full phone number.';
     const all = await prisma.collector.findMany({ select: { id: true, phone: true } });
-    if (all.some((c) => c.id !== selfId && normalizePhone(c.phone) === p)) return 'Another collector already uses this phone number.';
+    if (all.some((c) => c.id !== selfId && normalizePhone(c.phone) === p)) return 'Another rep already uses this phone number.';
   }
   if (data.hostels !== undefined) {
     if (!data.hostels.length) return 'Pick at least one hostel.';
-    // One hostel, one collector
+    // One hostel, one rep
     const others = await prisma.collector.findMany({ where: { status: 'Active', ...(selfId && { id: { not: selfId } }) } });
     for (const h of data.hostels) {
       const owner = others.find((c) => c.hostels.includes(h));

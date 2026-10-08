@@ -30,7 +30,7 @@ interface Settings {
   handoverAlertMinutes: number;
 }
 
-interface Collector {
+interface Rep {
   id: string;
   name: string;
   phone: string;
@@ -73,7 +73,7 @@ interface Data {
   isToday: boolean;
   settings: Settings;
   modeActive: boolean;
-  collectors: Collector[];
+  collectors: Rep[];
   board: BoardRow[];
   addresses: { address: string; orders: number }[];
 }
@@ -95,7 +95,7 @@ const PHASE: Record<string, { label: string; dot: string }> = {
   with_rider: { label: 'Rider going to cafeteria', dot: 'bg-orange-500' },
   on_the_way: { label: 'On the way', dot: 'bg-blue-500' },
   handed: { label: 'Handed, not confirmed', dot: 'bg-teal-500' },
-  with_collector: { label: 'With collector', dot: 'bg-teal-600' },
+  with_collector: { label: 'With rep', dot: 'bg-teal-600' },
   not_reachable: { label: 'Not reachable', dot: 'bg-rose-500' },
   delivered: { label: 'Delivered', dot: 'bg-emerald-500' },
   returned: { label: 'Given back to riders', dot: 'bg-amber-500' },
@@ -119,7 +119,7 @@ export default function CollectorsPage() {
   const [draft, setDraft] = useState<Settings | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
   const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(null);
-  const [editing, setEditing] = useState<Partial<Collector> & { pin?: string } | null>(null);
+  const [editing, setEditing] = useState<Partial<Rep> & { pin?: string } | null>(null);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [phaseFilter, setPhaseFilter] = useState<Record<string, string | null>>({});
 
@@ -166,7 +166,7 @@ export default function CollectorsPage() {
       const json = await res.json();
       if (json.success) {
         setDraft(json.settings);
-        setNotice({ text: json.modeActive ? 'Saved. Collector mode is on now.' : 'Saved. Collector mode is off right now.', ok: true });
+        setNotice({ text: json.modeActive ? 'Saved. Rep mode is on now.' : 'Saved. Rep mode is off right now.', ok: true });
         load();
       } else setNotice({ text: json.error || 'Could not save.', ok: false });
     } catch {
@@ -205,14 +205,14 @@ export default function CollectorsPage() {
     const json = res ? await res.json().catch(() => null) : null;
     if (json?.success) {
       setEditing(null);
-      setNotice({ text: isNew ? `${editing.name} added. They sign in at /collector.` : 'Saved.', ok: true });
+      setNotice({ text: isNew ? `${editing.name} added. They sign in at /rep.` : 'Saved.', ok: true });
       load();
     } else {
       setNotice({ text: json?.error || 'Could not save.', ok: false });
     }
   };
 
-  const setStatus = async (c: Collector, status: 'Active' | 'Inactive') => {
+  const setStatus = async (c: Rep, status: 'Active' | 'Inactive') => {
     const res = await fetch(`/api/collectors/${c.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -223,7 +223,7 @@ export default function CollectorsPage() {
     load();
   };
 
-  const remove = async (c: Collector) => {
+  const remove = async (c: Rep) => {
     if (!window.confirm(`Remove ${c.name}? Their past orders keep their name.`)) return;
     const res = await fetch(`/api/collectors/${c.id}`, { method: 'DELETE' }).catch(() => null);
     const json = res ? await res.json().catch(() => null) : null;
@@ -256,16 +256,16 @@ export default function CollectorsPage() {
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Collectors</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Reps</h1>
             <p className="text-sm text-slate-500 mt-1">
-              During busy windows riders hand hostel orders to a collector, who delivers them.
+              During busy windows riders hand hostel orders to a rep, who delivers them.
             </p>
           </div>
           <button
             onClick={() => setEditing({ name: '', phone: '', pin: '', pointName: '', hostels: [] })}
             className="inline-flex items-center gap-2 h-9 px-3.5 rounded-lg bg-slate-900 text-white text-sm font-medium self-start sm:self-auto"
           >
-            <Plus className="w-4 h-4" /> Add collector
+            <Plus className="w-4 h-4" /> Add rep
           </button>
         </div>
 
@@ -280,13 +280,13 @@ export default function CollectorsPage() {
           </div>
         )}
 
-        {/* ── Collector mode ───────────────────────────────────────────── */}
+        {/* ── Rep mode ───────────────────────────────────────────── */}
         {draft && data && (
           <section className="rounded-xl bg-white border border-slate-200">
             <div className="px-4 sm:px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-                  Collector mode
+                  Rep mode
                   <span
                     className={`inline-flex items-center gap-1.5 h-6 px-2 rounded-full text-xs font-medium ${
                       data.modeActive ? 'bg-teal-50 text-teal-800' : 'bg-slate-100 text-slate-600'
@@ -304,7 +304,7 @@ export default function CollectorsPage() {
                       : 'Off until you switch it on or pick Schedule'}
                 </p>
               </div>
-              <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-lg w-full sm:w-auto" role="radiogroup" aria-label="Collector mode">
+              <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-lg w-full sm:w-auto" role="radiogroup" aria-label="Rep mode">
                 {([
                   { key: 'off', label: 'Off' },
                   { key: 'auto', label: 'Schedule' },
@@ -370,7 +370,7 @@ export default function CollectorsPage() {
                     />
                   </label>
                   <label className="text-xs text-slate-500">
-                    During collector mode
+                    During rep mode
                     <input
                       type="number"
                       min={1}
@@ -423,13 +423,13 @@ export default function CollectorsPage() {
         )}
 
         {/* ── Live board ───────────────────────────────────────────────── */}
-        <section className="space-y-3" aria-label="Collector board">
+        <section className="space-y-3" aria-label="Rep board">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-slate-900">Board</h2>
               {data && (
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {totals.total} orders · {totals.coming} coming · {totals.withCollector + totals.notReachable} with collectors · {totals.delivered} delivered
+                  {totals.total} orders · {totals.coming} coming · {totals.withCollector + totals.notReachable} with reps · {totals.delivered} delivered
                   {totals.late > 0 && <span className="text-rose-600 font-medium"> · {totals.late} handover{totals.late === 1 ? '' : 's'} not confirmed</span>}
                 </p>
               )}
@@ -463,12 +463,12 @@ export default function CollectorsPage() {
           {loading && !data ? (
             <div className="h-40 rounded-xl bg-white border border-slate-200 animate-pulse" />
           ) : failed && !data ? (
-            <p className="rounded-xl bg-white border border-slate-200 px-4 py-8 text-center text-sm text-slate-500">Couldn&apos;t load collectors.</p>
+            <p className="rounded-xl bg-white border border-slate-200 px-4 py-8 text-center text-sm text-slate-500">Couldn&apos;t load reps.</p>
           ) : !data?.collectors.length ? (
             <div className="rounded-xl bg-white border border-dashed border-slate-300 px-6 py-12 text-center">
               <PackageCheck className="w-10 h-10 mx-auto mb-3 text-slate-300 stroke-[1.5]" />
-              <p className="text-sm font-semibold text-slate-700">No collectors yet</p>
-              <p className="text-xs text-slate-500 mt-1">Add one for each hostel group. They sign in on their phone at /collector.</p>
+              <p className="text-sm font-semibold text-slate-700">No reps yet</p>
+              <p className="text-xs text-slate-500 mt-1">Add one for each hostel group. They sign in on their phone at /rep.</p>
             </div>
           ) : (
             data.collectors.map((c) => {
@@ -478,7 +478,7 @@ export default function CollectorsPage() {
               const stats: { key: string; label: string; n: number; phases: string[]; tone: string }[] = [
                 { key: 'coming', label: 'Coming', n: (b?.waitingRider || 0) + (b?.withRider || 0), phases: ['waiting_rider', 'with_rider', 'on_the_way'], tone: 'text-slate-900' },
                 { key: 'handed', label: 'To confirm', n: b?.handed || 0, phases: ['handed'], tone: b?.handedLate ? 'text-rose-600' : 'text-teal-700' },
-                { key: 'with', label: 'With collector', n: b?.withCollector || 0, phases: ['with_collector'], tone: 'text-teal-700' },
+                { key: 'with', label: 'With rep', n: b?.withCollector || 0, phases: ['with_collector'], tone: 'text-teal-700' },
                 { key: 'nr', label: 'Not reachable', n: b?.notReachable || 0, phases: ['not_reachable'], tone: b?.notReachable ? 'text-rose-600' : 'text-slate-900' },
                 { key: 'done', label: 'Delivered', n: b?.delivered || 0, phases: ['delivered'], tone: 'text-emerald-700' },
                 { key: 'ret', label: 'Given back', n: b?.returned || 0, phases: ['returned'], tone: 'text-amber-700' },
@@ -590,7 +590,7 @@ export default function CollectorsPage() {
                               )}
                               {['waiting_rider', 'with_rider', 'on_the_way', 'handed'].includes(o.phase) && (
                                 <button onClick={() => orderAction(o.id, 'deliver_direct')} className="h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-600">
-                                  Skip collector
+                                  Skip rep
                                 </button>
                               )}
                             </div>
@@ -606,15 +606,15 @@ export default function CollectorsPage() {
 
           {data && data.collectors.length > 0 && (
             <p className="text-xs text-slate-500 flex items-center gap-1.5">
-              Collectors sign in at
+              Reps sign in at
               <button
                 onClick={() => {
-                  navigator.clipboard?.writeText(`${window.location.origin}/collector`).catch(() => {});
+                  navigator.clipboard?.writeText(`${window.location.origin}/rep`).catch(() => {});
                   setNotice({ text: 'Link copied.', ok: true });
                 }}
                 className="inline-flex items-center gap-1 font-medium text-slate-700 underline decoration-slate-300"
               >
-                {typeof window !== 'undefined' ? window.location.host : ''}/collector <Copy className="w-3 h-3" />
+                {typeof window !== 'undefined' ? window.location.host : ''}/rep <Copy className="w-3 h-3" />
               </button>
               with their phone number and PIN.
             </p>
@@ -646,11 +646,11 @@ function CollectorForm({
   addresses,
   inputCls,
 }: {
-  value: Partial<Collector> & { pin?: string };
-  onChange: (v: Partial<Collector> & { pin?: string }) => void;
+  value: Partial<Rep> & { pin?: string };
+  onChange: (v: Partial<Rep> & { pin?: string }) => void;
   onClose: () => void;
   onSave: () => void;
-  collectors: Collector[];
+  collectors: Rep[];
   addresses: { address: string; orders: number }[];
   inputCls: string;
 }) {
@@ -673,10 +673,10 @@ function CollectorForm({
         className="w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
-        aria-label={isNew ? 'Add collector' : 'Edit collector'}
+        aria-label={isNew ? 'Add rep' : 'Edit rep'}
       >
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-slate-900">{isNew ? 'Add collector' : `Edit ${value.name}`}</h3>
+          <h3 className="text-base font-semibold text-slate-900">{isNew ? 'Add rep' : `Edit ${value.name}`}</h3>
           <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-700" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
@@ -758,7 +758,7 @@ function CollectorForm({
             disabled={saving}
             className="h-10 px-4 rounded-lg bg-slate-900 text-white text-sm font-medium disabled:opacity-50"
           >
-            {isNew ? 'Add collector' : 'Save'}
+            {isNew ? 'Add rep' : 'Save'}
           </button>
         </div>
       </div>

@@ -73,8 +73,8 @@ export default function CollectorLoginPage() {
           <div className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-orange-500 mb-5">
             <PackageCheck className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Collector sign in</h1>
-          <p className="text-sm text-slate-500 mt-1">Go Choww collectors. Use the phone number you registered with.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Rep sign in</h1>
+          <p className="text-sm text-slate-500 mt-1">Go Choww reps. Use the phone number you registered with.</p>
         </div>
 
         {/* Login Card */}

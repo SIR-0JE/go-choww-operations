@@ -258,9 +258,9 @@ export default function RawDataOrdersPage() {
           <span className="text-slate-400">Rider</span> {r.label}
         </span>
         {ord.collector && (
-          <span className="inline-flex items-center gap-1.5" title={`Collector at ${ord.collector.pointName}`}>
+          <span className="inline-flex items-center gap-1.5" title={`Rep at ${ord.collector.pointName}`}>
             <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-            <span className="text-slate-400">Collector</span> {ord.collector.name}
+            <span className="text-slate-400">Rep</span> {ord.collector.name}
             <span className="text-slate-400 truncate max-w-[9rem]">· {ord.collector.pointName}</span>
           </span>
         )}
@@ -436,11 +436,11 @@ export default function RawDataOrdersPage() {
                     setPage(1);
                   }}
                   className={`${selectCls} col-span-3 sm:col-span-1`}
-                  aria-label="Collector"
+                  aria-label="Rep"
                 >
-                  <option value="All">All collectors</option>
-                  <option value="any">With a collector</option>
-                  <option value="none">No collector</option>
+                  <option value="All">All reps</option>
+                  <option value="any">With a rep</option>
+                  <option value="none">No rep</option>
                   {collectorsList.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name} · {c.pointName}

@@ -18,7 +18,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     // Switching someone back on re-checks that nobody else took their hostels meanwhile
     const current = await prisma.collector.findUnique({ where: { id: params.id } });
-    if (!current) return NextResponse.json({ success: false, error: 'Collector not found.' }, { status: 404 });
+    if (!current) return NextResponse.json({ success: false, error: 'Rep not found.' }, { status: 404 });
     const hostelsToCheck = data.hostels ?? ((data.status ?? current.status) === 'Active' ? current.hostels : undefined);
     const error = await validateCollector(
       { ...data, hostels: (data.status ?? current.status) === 'Active' ? hostelsToCheck : undefined },

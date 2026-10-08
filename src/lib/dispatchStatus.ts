@@ -17,7 +17,7 @@ const PICKED_UP_OR_FINISHED = [
   'Cancelled', 'cancelled', 'Canceled', 'canceled',
 ];
 
-/** Food a collector is holding because the customer couldn't be reached. */
+/** Food a rep is holding because the customer couldn't be reached. */
 export interface NotReachableOrder {
   id: string;
   orderId: string;
@@ -28,7 +28,7 @@ export interface NotReachableOrder {
   minutes: number;
 }
 
-/** Rider says they handed the food over, but the collector hasn't confirmed within the alert time. */
+/** Rider says they handed the food over, but the rep hasn't confirmed within the alert time. */
 export interface UnconfirmedHandover {
   id: string;
   orderId: string;
@@ -135,7 +135,7 @@ export async function getDispatchStatus(
       orderId: o.orderId,
       customerName: o.customerName,
       customerPhone: o.customerPhone,
-      collectorName: o.collector?.name || 'Collector',
+      collectorName: o.collector?.name || 'Rep',
       pointName: o.collector?.pointName || '',
       minutes: minsSince(o.notReachableAt),
     })),
@@ -144,7 +144,7 @@ export async function getDispatchStatus(
       orderId: o.orderId,
       customerName: o.customerName,
       riderName: o.rider?.name || 'Rider',
-      collectorName: o.collector?.name || 'Collector',
+      collectorName: o.collector?.name || 'Rep',
       pointName: o.collector?.pointName || '',
       minutes: minsSince(o.handedAt),
     })),

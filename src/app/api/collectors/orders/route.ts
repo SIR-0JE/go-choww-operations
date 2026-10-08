@@ -8,8 +8,8 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/collectors/orders  { orderId, action }  (admin overrides)
  *  confirm_handover  rider handed it, collector forgot to confirm
- *  back_to_riders    take it off the collector; any rider can collect it from them
- *  deliver_direct    stop using the collector for this order (rider delivers to the customer)
+ *  back_to_riders    take it off the rep; any rider can collect it from them
+ *  deliver_direct    stop using the rep for this order (rider delivers to the customer)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
         await logActivity('collector_returned', { id: order.collector.id, name: order.collector.name }, order, 'by admin');
         sendPushNotification(
           {
-            title: 'Order to collect from a collector',
+            title: 'Order to collect from a rep',
             body: `${order.customerName}'s order is with ${order.collector.name} at ${order.collector.pointName}. Any rider can take it.`,
             url: '/rider/portal',
             tag: `returned-${order.orderId}`,

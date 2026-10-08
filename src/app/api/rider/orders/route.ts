@@ -34,7 +34,7 @@ async function getHandoverRadiusMeters() {
   return radiusCache.value;
 }
 
-// Orders the rider is still holding (not finished, and not already with a collector)
+// Orders the rider is still holding (not finished, and not already with a rep)
 function countActiveOrders(riderId: string) {
   return prisma.deliveryOrder.count({
     where: { riderId, orderStatus: { notIn: FINISHED_STATUSES }, ...notWithCollector },
@@ -236,7 +236,7 @@ export async function GET(request: NextRequest) {
             },
           }),
 
-          // 3. Completed Today (delivered, or handed to a collector who confirmed it)
+          // 3. Completed Today (delivered, or handed to a rep who confirmed it)
           prisma.deliveryOrder.findMany({
             where: {
               riderId: rider.id,
@@ -803,7 +803,7 @@ export async function POST(request: NextRequest) {
 
       if (RIDER_RELEASED_STAGES.includes(order.collectorStage || '')) {
         return NextResponse.json(
-          { success: false, error: `${order.collectorStage === 'delivered' ? 'The collector already delivered this order.' : 'This order is with the collector now.'}` },
+          { success: false, error: `${order.collectorStage === 'delivered' ? 'The rep already delivered this order.' : 'This order is with the rep now.'}` },
           { status: 409 }
         );
       }
@@ -817,7 +817,7 @@ export async function POST(request: NextRequest) {
         },
         data: {
           orderStatus: 'Completed',
-          // Delivered straight to the customer: it never reached the collector
+          // Delivered straight to the customer: it never reached the rep
           ...(order.collectorId && order.collectorStage !== 'returned' && { collectorId: null, collectorStage: null, handedAt: null }),
         },
       });
@@ -857,7 +857,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'You are not assigned to this order' }, { status: 403 });
       }
       if (!order.collectorId) {
-        return NextResponse.json({ success: false, error: 'This order has no collector. Deliver it to the customer.' }, { status: 400 });
+        return NextResponse.json({ success: false, error: 'This order has no rep. Deliver it to the customer.' }, { status: 400 });
       }
       const handed = await prisma.deliveryOrder.updateMany({
         where: {
@@ -883,19 +883,19 @@ export async function POST(request: NextRequest) {
       await logActivity('collector_handed', rider, order, collector?.name);
       return NextResponse.json({
         success: true,
-        message: `Handed over. Waiting for ${collector?.name || 'the collector'} to confirm.`,
+        message: `Handed over. Waiting for ${collector?.name || 'the rep'} to confirm.`,
         order: { id: order.id, orderId: order.orderId, collectorStage: 'handed' },
       });
     }
 
-    // ── ACTION: UNDO "HANDED" (before the collector confirms) ────────────────
+    // ── ACTION: UNDO "HANDED" (before the rep confirms) ────────────────
     if (action === 'undo_hand_to_collector') {
       const undone = await prisma.deliveryOrder.updateMany({
         where: { id: order.id, riderId: rider.id, collectorStage: 'handed' },
         data: { collectorStage: null, handedAt: null },
       });
       if (undone.count === 0) {
-        return orderChangedResponse('The collector already confirmed this order.');
+        return orderChangedResponse('The rep already confirmed this order.');
       }
       return NextResponse.json({ success: true, message: 'Undone. The order is back with you.', order: { id: order.id, orderId: order.orderId } });
     }
