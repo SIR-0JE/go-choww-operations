@@ -6,6 +6,7 @@ import { classifyDeliveryType } from '@/lib/locations';
 import { extractOrderDetails, detailsForDb } from '@/lib/orderDetails';
 import { logActivity } from '@/lib/activity';
 import { attachCollectors } from '@/lib/collectors';
+import { ADMIN_COOKIE, verifySessionToken } from '@/lib/adminSession';
 import { getSyncSettings, isWithinOperatingWindow, getOperationalStatus, getCurrentTimeInZone } from '@/lib/settings';
 import { sendPushNotification } from '@/lib/pushService';
 import { alertIfOrdersWaiting } from '@/lib/dispatchStatus';
@@ -494,6 +495,18 @@ async function synchronizedSync(force: boolean = false) {
   return currentPromise;
 }
 
+/**
+ * This endpoint stays open (the scheduled job and the rider app call it with no admin
+ * sign-in), but only a signed-in admin can force a fresh pull or see customer names.
+ */
+async function runSync(request: NextRequest, force: boolean) {
+  const isAdmin = await verifySessionToken(request.cookies.get(ADMIN_COOKIE)?.value);
+  const result = await synchronizedSync(force && isAdmin);
+  if (isAdmin) return NextResponse.json(result);
+  const { newOrders: _names, ...publicResult } = result as any;
+  return NextResponse.json(publicResult);
+}
+
 export async function POST(request: NextRequest) {
   try {
     let force = false;
@@ -508,8 +521,7 @@ export async function POST(request: NextRequest) {
       force = true;
     }
 
-    const result = await synchronizedSync(force);
-    return NextResponse.json(result);
+    return await runSync(request, force);
   } catch (error: any) {
     console.error('[sync-orders] Error:', error);
     return NextResponse.json(
@@ -524,8 +536,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const force = searchParams.get('force') === 'true';
 
-    const result = await synchronizedSync(force);
-    return NextResponse.json(result);
+    return await runSync(request, force);
   } catch (error: any) {
     console.error('[sync-orders] Error:', error);
     return NextResponse.json(

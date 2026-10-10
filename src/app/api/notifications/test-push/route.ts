@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendPushNotification } from '@/lib/pushService';
+import { ADMIN_COOKIE, verifySessionToken } from '@/lib/adminSession';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,15 @@ export async function POST(req: NextRequest) {
       // Body optional
     }
 
-    const { userType = 'all', riderId, title, message } = body;
+    // Open to the rider app for its own "test my phone" button; only a signed-in admin
+    // may broadcast, or send their own wording.
+    const isAdmin = await verifySessionToken(req.cookies.get(ADMIN_COOKIE)?.value);
+    if (!isAdmin && (body.userType !== 'rider' || !body.riderId)) {
+      return NextResponse.json({ success: false, error: 'Please sign in.', unauthorized: true }, { status: 401 });
+    }
+    const { userType = 'all', riderId } = body;
+    const title = isAdmin ? body.title : undefined;
+    const message = isAdmin ? body.message : undefined;
 
     const notifTitle = title || '🔔 GoChoww Phone Alert Test';
     const notifBody =

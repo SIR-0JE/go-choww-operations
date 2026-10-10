@@ -19,6 +19,7 @@ import {
   Bell,
   ClipboardCheck,
   PackageCheck,
+  LogOut,
   Users,
 } from 'lucide-react';
 
@@ -206,6 +207,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
             </div>
             <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
           </Link>
+          <button
+            onClick={async () => {
+              await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+              window.location.href = '/login';
+            }}
+            className="mt-1 w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
+            Sign out
+          </button>
         </div>
       </aside>
     </>
