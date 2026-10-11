@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma, ORDER_COLUMNS_NO_ITEMS, withDbRetry, getInMemoryOrders, updateInMemoryOrder, updateInMemoryOrderRider } from '@/lib/prisma';
 import { calculateRiderPayout, isSettledOrder } from '@/lib/financials';
 import { effectiveGochowStatus, isPickup } from '@/lib/orderStatus';
+import { getSlowLimits, loadEvents } from '@/lib/orderEvents';
 
 export const dynamic = 'force-dynamic';
 
@@ -167,10 +168,19 @@ export async function GET(request: NextRequest) {
     ).length;
     const totalPages = Math.ceil(totalCount / limit) || 1;
     const startIndex = (page - 1) * limit;
-    const paginatedOrders = processed.slice(startIndex, startIndex + limit);
+    let paginatedOrders: any[] = processed.slice(startIndex, startIndex + limit);
+
+    // Timeline steps for this page of orders (skipped for "all" requests from other screens)
+    let slowLimits = null;
+    if (paginatedOrders.length > 0 && paginatedOrders.length <= 200) {
+      const [eventsById, limits] = await Promise.all([loadEvents(paginatedOrders.map((o) => o.id)), getSlowLimits()]);
+      slowLimits = limits;
+      paginatedOrders = paginatedOrders.map((o) => ({ ...o, events: eventsById.get(o.id) || [] }));
+    }
 
     return NextResponse.json({
       success: true,
+      slowLimits,
       orders: paginatedOrders,
       pagination: {
         page,

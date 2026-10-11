@@ -6,6 +6,8 @@ import { X, Phone, MessageSquare, Copy, Check, Send, Pencil, Store } from 'lucid
 import { formatNaira } from '@/lib/financials';
 import { gochowStatusView, riderStatusView, type Tone } from '@/lib/orderStatus';
 import { drawRiderCard, riderCardText } from '@/lib/riderCard';
+import { OrderTimeline } from '@/components/orders/OrderTimeline';
+import type { SlowLimits, TimelineEvent } from '@/lib/orderTimeline';
 
 interface OrderItem {
   pack: number | null;
@@ -89,6 +91,8 @@ export function OrderDetailSheet({
 }) {
   const [order, setOrder] = useState<FullOrder>(summary);
   const [loaded, setLoaded] = useState(false);
+  const [events, setEvents] = useState<TimelineEvent[]>([]);
+  const [limits, setLimits] = useState<SlowLimits | null>(null);
   const [sending, setSending] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -97,7 +101,11 @@ export function OrderDetailSheet({
     fetch(`/api/orders/${encodeURIComponent(summary.id)}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => {
-        if (alive && d.success) setOrder({ ...summary, ...d.order });
+        if (alive && d.success) {
+          setOrder({ ...summary, ...d.order });
+          setEvents(d.events || []);
+          setLimits(d.slowLimits || null);
+        }
       })
       .catch(() => {})
       .finally(() => alive && setLoaded(true));
@@ -283,6 +291,9 @@ export function OrderDetailSheet({
               </div>
             )}
           </section>
+
+          {/* Timeline */}
+          {loaded && <OrderTimeline order={order as any} events={events} limits={limits} />}
 
           {/* Money */}
           <section className="text-sm space-y-1 border-t border-slate-100 pt-3">

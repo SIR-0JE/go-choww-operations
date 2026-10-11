@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { OrderDetailSheet } from '@/components/orders/OrderDetailSheet';
+import { KeyTimes } from '@/components/orders/KeyTimes';
+import type { SlowLimits, TimelineEvent } from '@/lib/orderTimeline';
 import { gochowStatusView, riderStatusView, TONE_DOT } from '@/lib/orderStatus';
 import { Header } from '@/components/Header';
 import { CsvUploadDropzone } from '@/components/orders/CsvUploadDropzone';
@@ -50,6 +52,7 @@ interface RawOrder {
   customerPhone?: string | null;
   gochowStatus?: string | null;
   riderId?: string | null;
+  events?: TimelineEvent[];
   collectorId?: string | null;
   collectorStage?: string | null;
   collector?: { id: string; name: string; pointName: string } | null;
@@ -69,6 +72,7 @@ export default function RawDataOrdersPage() {
   const [orderStatus, setOrderStatus] = useState('All');
   const [riderFilter, setRiderFilter] = useState('All');
   const [collectorFilter, setCollectorFilter] = useState('All');
+  const [slowLimits, setSlowLimits] = useState<SlowLimits | null>(null);
   const [collectorsList, setCollectorsList] = useState<{ id: string; name: string; pointName: string; status: string }[]>([]);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
@@ -133,6 +137,7 @@ export default function RawDataOrdersPage() {
 
       if (data.success) {
         setOrders(data.orders || []);
+        setSlowLimits(data.slowLimits || null);
         setTotalCount(data.pagination?.activeTotalCount ?? data.pagination?.totalCount ?? 0);
         setTotalPages(data.pagination?.totalPages || 1);
       }
@@ -264,6 +269,7 @@ export default function RawDataOrdersPage() {
             <span className="text-slate-400 truncate max-w-[9rem]">· {ord.collector.pointName}</span>
           </span>
         )}
+        <KeyTimes order={ord} limits={slowLimits} />
       </span>
     );
   };

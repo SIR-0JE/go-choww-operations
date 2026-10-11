@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const BASE_URL = 'https://api.gochoww.com/api/v1';
+// Overridable only so the sync can be tested against a fake server; production uses the default
+const BASE_URL = process.env.GOCHOW_API_BASE_URL || 'https://api.gochoww.com/api/v1';
 
 let cachedToken: string | null = null;
 let tokenExpiresAt = 0;

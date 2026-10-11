@@ -63,12 +63,13 @@ model DeliveryOrder {
 
   // Choww collector mode: the rider hands the order to the hostel's collector, who delivers it
   collectorId     String?
-  collector       Collector? @relation(fields: [collectorId], references: [id], onDelete: SetNull)
+  collector       Collector?   @relation(fields: [collectorId], references: [id], onDelete: SetNull)
   collectorStage  String? // null (on its way) | handed (rider says handed) | received (collector confirmed) | not_reachable | delivered | returned (given back to a rider)
   handedAt        DateTime?
   receivedAt      DateTime?
   notReachableAt  DateTime?
   collectorDoneAt DateTime?
+  OrderEvent      OrderEvent[]
 
   @@index([orderStatus, paymentStatus])
   @@index([createdAt])
@@ -142,4 +143,24 @@ model RiderActivity {
 
   @@index([createdAt])
   @@index([riderId])
+}
+
+// A timestamped step in an order's life: GoChow status changes (as the sync first saw
+// them, or GoChow's own time when it supplies one), rider taps and rep taps.
+// The partial unique index on (orderDbId, kind) for kind like 'gochow_%' lives in
+// supabase/order_events.sql (Prisma can't express it).
+model OrderEvent {
+  id        String        @id @default(uuid())
+  orderDbId String
+  order     DeliveryOrder @relation(fields: [orderDbId], references: [id], onDelete: Cascade)
+  kind      String // gochow_confirmed | gochow_preparing | gochow_ready | gochow_dispatched | gochow_delivered | gochow_cancelled | rider_accepted | rider_picked_up | rider_delivered | rider_dropped | rider_transferred | rep_handed | rep_received | rep_delivered | rep_not_reachable | rep_returned
+  at        DateTime
+  source    String // gochow | rider | rep | admin
+  exact     Boolean       @default(true) // false: "first seen by our sync", good to about a minute
+  actorName String?
+  detail    String?
+  createdAt DateTime      @default(now())
+
+  @@index([orderDbId, at])
+  @@index([kind, at])
 }

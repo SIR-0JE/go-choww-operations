@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, getInMemoryOrders, updateInMemoryOrder } from '@/lib/prisma';
 import { calculateRiderPayout, isSettledOrder } from '@/lib/financials';
+import { getSlowLimits, loadEvents } from '@/lib/orderEvents';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,8 +40,12 @@ export async function GET(
     const riderPayout = settled ? calculateRiderPayout(order.deliveryType) : 0;
     const netProfit = settled ? deliveryFee - riderPayout : 0;
 
+    const [eventsById, slowLimits] = await Promise.all([loadEvents([order.id]), getSlowLimits()]);
+
     return NextResponse.json({
       success: true,
+      slowLimits,
+      events: eventsById.get(order.id) || [],
       order: {
         ...order,
         deliveryFee,

@@ -6,6 +6,9 @@ import { classifyDeliveryType } from '@/lib/locations';
 import { extractOrderDetails, detailsForDb } from '@/lib/orderDetails';
 import { logActivity } from '@/lib/activity';
 import { attachCollectors } from '@/lib/collectors';
+import { randomUUID } from 'crypto';
+import { logGoChowSteps } from '@/lib/orderEvents';
+import { buildSteps, extractGoChowTimes, noteTimeKeys } from '@/lib/gochowTimes';
 import { ADMIN_COOKIE, verifySessionToken } from '@/lib/adminSession';
 import { getSyncSettings, isWithinOperatingWindow, getOperationalStatus, getCurrentTimeInZone } from '@/lib/settings';
 import { sendPushNotification } from '@/lib/pushService';
@@ -253,6 +256,9 @@ async function performSync(force: boolean = false) {
       const toFillDetails: { id: string; data: Record<string, unknown> }[] = [];
       // GoChow's status is mirrored as-is, separately from the rider's progress
       const toSetGoChowStatus: { id: string; status: string }[] = [];
+      // GoChow's own status times, when its data carries them (keyed by our order id)
+      const timeHints = new Map<string, { kind: string; at: Date }[]>();
+      void noteTimeKeys(validLiveOrders as any[]);
 
       for (const order of validLiveOrders) {
         const orderNumber = String(order.orderNumber || order._id || '').trim();
@@ -282,8 +288,12 @@ async function performSync(force: boolean = false) {
 
         const details = detailsForDb(extractOrderDetails(order));
         const existing = existingMap.get(orderNumber);
+        const hints = extractGoChowTimes(order, parsedDate);
         if (!existing) {
+          const newId = randomUUID();
+          if (hints.length) timeHints.set(newId, hints);
           toCreate.push({
+            id: newId,
             orderId: orderNumber,
             createdAt: parsedDate,
             time,
@@ -305,6 +315,7 @@ async function performSync(force: boolean = false) {
         } else {
           if ((existing as any).gochowStatus !== gochowStatus) {
             toSetGoChowStatus.push({ id: existing.id, status: gochowStatus });
+            if (hints.length) timeHints.set(existing.id, hints);
           }
           if ((existing as any).items == null && Object.keys(details).length > 0) {
             toFillDetails.push({
@@ -366,6 +377,20 @@ async function performSync(force: boolean = false) {
         }
       }
 
+      // Timeline: the first GoChow status of each new order
+      if (toCreate.length > 0) {
+        try {
+          const saved = await prisma.deliveryOrder.findMany({ where: { id: { in: toCreate.map((o) => o.id) } }, select: { id: true } });
+          const savedIds = new Set(saved.map((r) => r.id));
+          const now = new Date();
+          await logGoChowSteps(
+            toCreate.filter((o) => savedIds.has(o.id)).flatMap((o) => buildSteps(o.id, o.gochowStatus, timeHints.get(o.id) || [], now))
+          );
+        } catch (evErr: any) {
+          console.warn('[sync-orders] Timeline (new orders) skipped:', evErr?.message);
+        }
+      }
+
       // Update orders with changed status
       if (toUpdate.length > 0) {
         for (const u of toUpdate) {
@@ -389,14 +414,20 @@ async function performSync(force: boolean = false) {
         }
       }
 
+      const timelineSteps: ReturnType<typeof buildSteps> = [];
+      const stepsNow = new Date();
       for (const g of toSetGoChowStatus) {
         try {
           await prisma.deliveryOrder.update({ where: { id: g.id }, data: { gochowStatus: g.status } });
           statusUpdatedCount++;
+          timelineSteps.push(...buildSteps(g.id, g.status, timeHints.get(g.id) || [], stepsNow));
         } catch (gErr: any) {
           console.warn(`[sync-orders] Failed setting GoChow status for ${g.id}:`, gErr?.message);
         }
       }
+
+      // Timeline: each GoChow status that just changed, stamped with the time we saw it
+      await logGoChowSteps(timelineSteps);
 
       // Fill in details only where they're still missing; never touches status or rider
       for (const f of toFillDetails) {

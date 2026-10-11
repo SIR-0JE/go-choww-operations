@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { ACTIVITY_TO_EVENT, logOrderEvent } from '@/lib/orderEvents';
 
 export type ActivityType =
   | 'claim'
@@ -42,5 +43,11 @@ export async function logActivity(
     });
   } catch (err) {
     console.warn('[activity] could not record', type, err);
+  }
+
+  // The same tap, as a step on the order's timeline
+  const step = ACTIVITY_TO_EVENT[type];
+  if (step && order.id) {
+    await logOrderEvent(order.id, step.kind, { source: step.source, actorName: rider?.name ?? null, detail: detail ?? null });
   }
 }
