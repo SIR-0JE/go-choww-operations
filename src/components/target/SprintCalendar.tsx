@@ -153,9 +153,13 @@ export function SprintCalendar() {
             );
           }
           const isToday = date === data.today;
+          const moneyOnly = day.hitBy === 'money';
           const body = (
             <>
-              <span className={`text-xs ${day.status === 'future' ? 'text-slate-300' : 'opacity-70'}`}>{dayNo}</span>
+              <span className={`flex items-center justify-between text-xs ${day.status === 'future' ? 'text-slate-300' : 'opacity-70'}`}>
+                {dayNo}
+                {moneyOnly && <span className="font-semibold" aria-label="Hit by money">₦</span>}
+              </span>
               {day.status !== 'future' && (
                 <span className="mt-0.5 block text-center leading-tight">
                   <span className="text-sm sm:text-base font-semibold tabular-nums">{day.orders}</span>
@@ -176,7 +180,9 @@ export function SprintCalendar() {
               key={date}
               href={`/orders?date=${date}`}
               className={`${cls} hover:brightness-95`}
-              title={`${day.orders} orders · target ${day.target}${isToday ? ' (today, so far)' : ''}`}
+              title={`${day.orders} orders of ${day.target} · ₦${day.fees.toLocaleString()} of ₦${(day.needed ?? 0).toLocaleString()} needed${
+                moneyOnly ? ' · hit on money' : ''
+              }${isToday ? ' (today, so far)' : ''}`}
             >
               {body}
             </Link>
@@ -197,9 +203,12 @@ export function SprintCalendar() {
         <span className="inline-flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded ring-2 ring-slate-900 bg-white" /> Today
         </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="font-semibold text-slate-600">₦</span> Hit on money, not orders
+        </span>
       </div>
       <p className="mt-2 text-xs text-slate-400">
-        Each day shows orders over its own target. The target is worked out every morning, so a past day shows the target it had then. Tap a day to see its orders. Today isn&apos;t counted in the summary until it&apos;s over.
+        Each day shows orders over its own target. A day is hit when it reaches that order target <em>or</em> brings in the money the target stands for (hover a day for the naira). The target is worked out every morning, so a past day shows the target it had then. Tap a day to see its orders. Today isn&apos;t counted in the summary until it&apos;s over.
       </p>
     </section>
   );

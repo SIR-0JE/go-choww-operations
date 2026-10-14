@@ -203,8 +203,11 @@ export async function getSprintStatus(now = new Date()): Promise<SprintStatus> {
 export interface CalendarDay {
   date: string; // YYYY-MM-DD, Lagos
   orders: number; // paid, non-cancelled orders that day
-  fees: number;
+  fees: number; // delivery fees that day
   target: number | null; // that day's order target; null for days still to come
+  needed: number | null; // the money that day had to bring in (the target in naira); null for days still to come
+  // A day is hit by reaching its order target or the money needed, whichever comes first
+  hitBy: 'orders' | 'money' | 'both' | null;
   status: 'hit' | 'near' | 'missed' | 'today' | 'future';
 }
 
@@ -269,7 +272,7 @@ export async function getSprintCalendar(now = new Date()): Promise<SprintCalenda
     feesThrough += day.fees;
 
     if (date > today) {
-      days.push({ date, orders: 0, fees: 0, target: null, status: 'future' });
+      days.push({ date, orders: 0, fees: 0, target: null, needed: null, hitBy: null, status: 'future' });
       continue;
     }
 
@@ -291,9 +294,15 @@ export async function getSprintCalendar(now = new Date()): Promise<SprintCalenda
     const daysLeft = Math.max(1, daysBetween(date, config.endDate) + 1);
     const target = feePerOrder > 0 ? Math.ceil(remaining / daysLeft / feePerOrder) : 0;
 
+    // Hit by orders, or by money: a day with fewer but higher-fee orders still counts
+    const needed = remaining / daysLeft;
+    const byOrders = target === 0 || day.orders >= target;
+    const byMoney = needed <= 0 || day.fees >= needed;
+    const share = Math.max(target > 0 ? day.orders / target : 1, needed > 0 ? day.fees / needed : 1);
+    const hitBy: CalendarDay['hitBy'] = byOrders && byMoney ? 'both' : byOrders ? 'orders' : byMoney ? 'money' : null;
     const status: CalendarDay['status'] =
-      date === today ? 'today' : target === 0 || day.orders >= target ? 'hit' : day.orders >= target * 0.8 ? 'near' : 'missed';
-    days.push({ date, orders: day.orders, fees: Math.round(day.fees), target, status });
+      date === today ? 'today' : hitBy ? 'hit' : share >= 0.8 ? 'near' : 'missed';
+    days.push({ date, orders: day.orders, fees: Math.round(day.fees), target, needed: Math.round(needed), hitBy, status });
 
     feesBefore += day.fees;
     expensesBefore += expensePerDay.get(date) || 0;

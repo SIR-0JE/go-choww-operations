@@ -86,8 +86,12 @@ export default function TargetPage() {
   };
 
   const s = sprint;
-  const todayPct = s && s.dailyTargetOrders > 0 ? (s.todayOrders / s.dailyTargetOrders) * 100 : 0;
-  const hitToday = s ? s.dailyTargetOrders > 0 && s.todayOrders >= s.dailyTargetOrders : false;
+  // Hit by orders or by money, same rule as the calendar
+  const todayOrdersPct = s && s.dailyTargetOrders > 0 ? (s.todayOrders / s.dailyTargetOrders) * 100 : 0;
+  const todayMoneyPct = s && s.neededPerDay > 0 ? (s.todayFees / s.neededPerDay) * 100 : 0;
+  const todayPct = Math.max(todayOrdersPct, todayMoneyPct);
+  const hitToday = s ? (s.dailyTargetOrders > 0 && s.todayOrders >= s.dailyTargetOrders) || (s.neededPerDay > 0 && s.todayFees >= s.neededPerDay) : false;
+  const hitTodayOnMoneyOnly = !!s && hitToday && !(s.dailyTargetOrders > 0 && s.todayOrders >= s.dailyTargetOrders);
   const onTrack = s ? s.paceOrdersPerDay >= s.dailyTargetOrders : false;
   const finishBeforeDeadline = s?.projectedFinishDate ? s.projectedFinishDate <= s.config.endDate : false;
 
@@ -211,7 +215,7 @@ export default function TargetPage() {
                     <span className="font-medium tabular-nums">{s.todayOrders}</span> so far today
                   </span>
                   <span className={hitToday ? 'text-emerald-700 font-medium' : 'text-slate-500'}>
-                    {hitToday ? 'Target hit' : `${s.dailyTargetOrders - s.todayOrders} to go`}
+                    {hitToday ? (hitTodayOnMoneyOnly ? 'Target hit on money' : 'Target hit') : `${s.dailyTargetOrders - s.todayOrders} to go`}
                   </span>
                 </div>
               </div>
