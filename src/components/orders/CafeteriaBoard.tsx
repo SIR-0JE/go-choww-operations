@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Store } from 'lucide-react';
 import { gochowStatusView, TONE_DOT } from '@/lib/orderStatus';
 
@@ -46,7 +46,9 @@ export function CafeteriaBoard({
   refreshKey,
   active,
   onPick,
+  initialDay,
 }: {
+  initialDay?: string;
   refreshKey: number;
   active: BoardPick | null;
   onPick: (p: BoardPick) => void;
@@ -56,26 +58,36 @@ export function CafeteriaBoard({
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
+  // Only the newest request may update the board (an older, slower one must not overwrite it)
+  const latestRequest = useRef(0);
+
   const load = useCallback(async () => {
+    const mine = ++latestRequest.current;
     setLoading(true);
     try {
       const res = await fetch(`/api/orders/by-cafeteria${day ? `?date=${day}` : ''}`);
       const json = await res.json();
+      if (mine !== latestRequest.current) return;
       if (json.success) {
         setData(json);
         setFailed(false);
         if (!day) setDay(json.date);
       } else setFailed(true);
     } catch {
-      setFailed(true);
+      if (mine === latestRequest.current) setFailed(true);
     } finally {
-      setLoading(false);
+      if (mine === latestRequest.current) setLoading(false);
     }
   }, [day]);
 
   useEffect(() => {
     load();
   }, [load, refreshKey]);
+
+  // Opened on a specific day (from the target calendar)
+  useEffect(() => {
+    if (initialDay) setDay(initialDay);
+  }, [initialDay]);
 
   const statuses = data?.statuses || ['Confirmed', 'Preparing', 'Ready', 'Dispatched', 'Delivered', 'Cancelled'];
   const date = data?.date || day;

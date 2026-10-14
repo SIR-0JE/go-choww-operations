@@ -195,3 +195,109 @@ export async function getSprintStatus(now = new Date()): Promise<SprintStatus> {
     status,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Calendar: every day of the sprint against the target it had that morning
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface CalendarDay {
+  date: string; // YYYY-MM-DD, Lagos
+  orders: number; // paid, non-cancelled orders that day
+  fees: number;
+  target: number | null; // that day's order target; null for days still to come
+  status: 'hit' | 'near' | 'missed' | 'today' | 'future';
+}
+
+export interface SprintCalendar {
+  config: SprintConfig;
+  today: string;
+  days: CalendarDay[]; // startDate .. endDate
+}
+
+const addDays = (key: string, n: number) => new Date(Date.parse(`${key}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
+
+/**
+ * For each day up to today, the target it would have had on the morning of that day,
+ * worked out with the same rule as getSprintStatus: what was still owed (fees before
+ * that day − expenses before it) ÷ days left ÷ average fee over the 14 days before.
+ * Today's figures come out identical to the target page's.
+ */
+export async function getSprintCalendar(now = new Date()): Promise<SprintCalendar> {
+  const config = await getSprintConfig();
+  const today = lagosDateKey(now);
+  const sprintStart = lagosDayStart(config.startDate);
+  const from = new Date(sprintStart.getTime() - FEE_LOOKBACK_DAYS * DAY_MS);
+
+  const [orders, expenses] = await Promise.all([
+    prisma.deliveryOrder.findMany({
+      where: { createdAt: { gte: from } },
+      select: { deliveryFee: true, orderStatus: true, paymentStatus: true, createdAt: true },
+    }),
+    prisma.expense.findMany({ where: { date: { gte: sprintStart } }, select: { date: true, amount: true } }),
+  ]);
+
+  // Orders and fees per Lagos day
+  const perDay = new Map<string, { orders: number; fees: number }>();
+  for (const o of orders) {
+    if (!isRevenueOrder(o)) continue;
+    const k = lagosDateKey(o.createdAt);
+    const cur = perDay.get(k) || { orders: 0, fees: 0 };
+    cur.orders += 1;
+    cur.fees += Number(o.deliveryFee) || 0;
+    perDay.set(k, cur);
+  }
+  const expensePerDay = new Map<string, number>();
+  let allExpenses = 0;
+  for (const e of expenses) {
+    const k = lagosDateKey(e.date);
+    const amt = Number(e.amount) || 0;
+    expensePerDay.set(k, (expensePerDay.get(k) || 0) + amt);
+    allExpenses += amt;
+  }
+
+  const days: CalendarDay[] = [];
+  let feesBefore = 0; // sprint fees on days before the one being looked at
+  let expensesBefore = 0;
+  let ordersThrough = 0; // sprint orders up to and including this day (fallback average)
+  let feesThrough = 0;
+  const totalDays = daysBetween(config.startDate, config.endDate) + 1;
+
+  for (let i = 0; i < totalDays; i++) {
+    const date = addDays(config.startDate, i);
+    const day = perDay.get(date) || { orders: 0, fees: 0 };
+    ordersThrough += day.orders;
+    feesThrough += day.fees;
+
+    if (date > today) {
+      days.push({ date, orders: 0, fees: 0, target: null, status: 'future' });
+      continue;
+    }
+
+    // Average fee over the 14 days before this one (falls back to the sprint average)
+    let recentOrders = 0;
+    let recentFees = 0;
+    for (let b = 1; b <= FEE_LOOKBACK_DAYS; b++) {
+      const r = perDay.get(addDays(date, -b));
+      if (r) {
+        recentOrders += r.orders;
+        recentFees += r.fees;
+      }
+    }
+    const feePerOrder = recentOrders > 0 ? recentFees / recentOrders : ordersThrough > 0 ? feesThrough / ordersThrough : 0;
+
+    // Today counts every expense logged so far, exactly like the target page
+    const spent = date === today ? allExpenses : expensesBefore;
+    const remaining = Math.max(0, config.targetAmount - (feesBefore - spent));
+    const daysLeft = Math.max(1, daysBetween(date, config.endDate) + 1);
+    const target = feePerOrder > 0 ? Math.ceil(remaining / daysLeft / feePerOrder) : 0;
+
+    const status: CalendarDay['status'] =
+      date === today ? 'today' : target === 0 || day.orders >= target ? 'hit' : day.orders >= target * 0.8 ? 'near' : 'missed';
+    days.push({ date, orders: day.orders, fees: Math.round(day.fees), target, status });
+
+    feesBefore += day.fees;
+    expensesBefore += expensePerDay.get(date) || 0;
+  }
+
+  return { config, today, days };
+}

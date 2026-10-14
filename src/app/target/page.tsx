@@ -5,6 +5,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { Header } from '@/components/Header';
 import { formatNaira } from '@/lib/financials';
 import type { SprintStatus } from '@/lib/sprint';
+import { SprintCalendar } from '@/components/target/SprintCalendar';
 
 const longDate = (key: string) =>
   new Date(`${key}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -280,6 +281,9 @@ export default function TargetPage() {
             </section>
           </>
         )}
+
+        {/* Calendar of every sprint day against its own target */}
+        {s && s.status !== 'not_started' && <SprintCalendar />}
       </main>
     </AppLayout>
   );

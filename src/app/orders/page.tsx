@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { OrderDetailSheet } from '@/components/orders/OrderDetailSheet';
 import { KeyTimes } from '@/components/orders/KeyTimes';
@@ -82,6 +82,7 @@ export default function RawDataOrdersPage() {
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [boardPick, setBoardPick] = useState<BoardPick | null>(null);
+  const [initialDay, setInitialDay] = useState<string | undefined>(undefined);
   const [boardRefresh, setBoardRefresh] = useState(0);
   const listRef = React.useRef<HTMLDivElement>(null);
 
@@ -106,6 +107,15 @@ export default function RawDataOrdersPage() {
     }
   };
 
+  // Opened from the target calendar: /orders?date=YYYY-MM-DD shows just that day
+  useEffect(() => {
+    const d = new URLSearchParams(window.location.search).get('date');
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      setInitialDay(d);
+      setBoardPick({ date: d, cafeteria: '', gochowStatus: 'All', noRider: false });
+    }
+  }, []);
+
   useEffect(() => {
     fetchRiders();
     fetch('/api/collectors?lite=1', { cache: 'no-store' })
@@ -114,7 +124,11 @@ export default function RawDataOrdersPage() {
       .catch(() => {});
   }, []);
 
+  // Only the newest request may update the list (a slow, older one must not overwrite it)
+  const latestRequest = useRef(0);
+
   const fetchOrders = useCallback(async () => {
+    const mine = ++latestRequest.current;
     setIsLoading(true);
     try {
       const params = new URLSearchParams({
@@ -134,6 +148,7 @@ export default function RawDataOrdersPage() {
       }
       const res = await fetch(`/api/orders?${params.toString()}`);
       const data = await res.json();
+      if (mine !== latestRequest.current) return;
 
       if (data.success) {
         setOrders(data.orders || []);
@@ -144,7 +159,7 @@ export default function RawDataOrdersPage() {
     } catch (err) {
       console.error('Failed to load raw orders:', err);
     } finally {
-      setIsLoading(false);
+      if (mine === latestRequest.current) setIsLoading(false);
     }
   }, [search, deliveryType, orderStatus, riderFilter, collectorFilter, page, limit, boardPick]);
 
@@ -329,6 +344,7 @@ export default function RawDataOrdersPage() {
         )}
 
         <CafeteriaBoard
+          initialDay={initialDay}
           refreshKey={boardRefresh}
           active={boardPick}
           onPick={(p) => {
