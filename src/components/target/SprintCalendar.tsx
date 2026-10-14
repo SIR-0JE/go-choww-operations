@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { CalendarDay, SprintCalendar as CalendarData } from '@/lib/sprint';
+import { summariseMonth } from '@/lib/calendarSummary';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -53,6 +54,13 @@ export function SprintCalendar() {
   }, []);
 
   const byDate = useMemo(() => new Map((data?.days || []).map((d) => [d.date, d])), [data]);
+  const summary = useMemo(() => {
+    if (!data || !month) return null;
+    const first = monthOf(data.config.startDate);
+    const last = monthOf(data.config.endDate);
+    const m = month < first ? first : month > last ? last : month;
+    return summariseMonth(data.days, m, data.today);
+  }, [data, month]);
 
   if (failed && !data) return <p className="rounded-xl bg-white border border-slate-200 px-4 py-8 text-center text-sm text-slate-500">Couldn&apos;t load the calendar.</p>;
   if (!data || !month) return <div className="h-80 rounded-xl bg-white border border-slate-200 animate-pulse" />;
@@ -91,6 +99,37 @@ export function SprintCalendar() {
           </button>
         </div>
       </div>
+
+      {summary && (
+        <div className="mt-3 grid grid-cols-3 gap-2" aria-label="Month summary">
+          {summary.finished === 0 ? (
+            <p className="col-span-3 text-sm text-slate-500">No finished days in {monthTitle(m)} yet.</p>
+          ) : (
+            <>
+              <div className="rounded-lg bg-slate-50 px-3 py-2">
+                <div className="text-lg font-semibold tabular-nums text-slate-900">
+                  {summary.hit}
+                  <span className="text-sm font-normal text-slate-400"> of {summary.finished}</span>
+                </div>
+                <div className="text-xs text-slate-500">days hit</div>
+              </div>
+              <div className="rounded-lg bg-slate-50 px-3 py-2">
+                <div className="text-lg font-semibold tabular-nums text-slate-900">
+                  {summary.streak}
+                  <span className="text-sm font-normal text-slate-400"> {summary.streak === 1 ? 'day' : 'days'}</span>
+                </div>
+                <div className="text-xs text-slate-500">{summary.streakIsCurrent ? 'current streak' : 'longest streak'}</div>
+              </div>
+              <div className="rounded-lg bg-slate-50 px-3 py-2">
+                <div className="text-lg font-semibold tabular-nums text-slate-900">{summary.best?.orders ?? '—'}</div>
+                <div className="text-xs text-slate-500">
+                  best{summary.best ? ` · ${new Date(`${summary.best.date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })}` : ''}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs text-slate-400">
         {WEEKDAYS.map((w) => (
@@ -160,7 +199,7 @@ export function SprintCalendar() {
         </span>
       </div>
       <p className="mt-2 text-xs text-slate-400">
-        Each day shows orders over its own target. The target is worked out every morning, so a past day shows the target it had then. Tap a day to see its orders.
+        Each day shows orders over its own target. The target is worked out every morning, so a past day shows the target it had then. Tap a day to see its orders. Today isn&apos;t counted in the summary until it&apos;s over.
       </p>
     </section>
   );
