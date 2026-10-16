@@ -24,7 +24,7 @@ interface Live {
   deliveredToday: number;
 }
 
-type Filter = 'all' | 'claim' | 'pickup' | 'deliver' | 'new_orders' | 'reps' | 'other';
+type Filter = 'all' | 'claim' | 'pickup' | 'deliver' | 'new_orders' | 'reps' | 'runners' | 'other';
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -33,6 +33,7 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'deliver', label: 'Delivered' },
   { key: 'new_orders', label: 'New orders' },
   { key: 'reps', label: 'Reps' },
+  { key: 'runners', label: 'Runners' },
   { key: 'other', label: 'Other' },
 ];
 
@@ -70,6 +71,8 @@ const DOT: Record<string, string> = {
   collector_delivered: 'bg-emerald-500',
   collector_not_reachable: 'bg-rose-500',
   collector_returned: 'bg-amber-500',
+  runner_ready: 'bg-emerald-500',
+  runner_undo: 'bg-slate-400',
 };
 
 function describe(a: Activity): { title: React.ReactNode; sub: string | null } {
@@ -107,6 +110,10 @@ function describe(a: Activity): { title: React.ReactNode; sub: string | null } {
       return { title: <>{rider} (rep) couldn&apos;t reach {customer}</>, sub: route };
     case 'collector_returned':
       return { title: <>{rider} (rep) gave {customer}&apos;s order back to the riders</>, sub: route };
+    case 'runner_ready':
+      return { title: <>{rider} (runner) packed {customer}&apos;s order</>, sub: a.detail || a.cafeteriaName || null };
+    case 'runner_undo':
+      return { title: <>{rider} (runner) took back Ready on {customer}&apos;s order</>, sub: a.detail || a.cafeteriaName || null };
     case 'new_orders':
       return { title: <><strong className="font-semibold">{a.detail || 'New orders'}</strong> came in</>, sub: null };
     default:
@@ -174,8 +181,10 @@ export default function NotificationsPage() {
         ? true
         : filter === 'reps'
         ? a.type.startsWith('collector_')
+        : filter === 'runners'
+        ? a.type.startsWith('runner_')
         : filter === 'other'
-        ? !['claim', 'pickup', 'deliver', 'new_orders'].includes(a.type) && !a.type.startsWith('collector_')
+        ? !['claim', 'pickup', 'deliver', 'new_orders'].includes(a.type) && !a.type.startsWith('collector_') && !a.type.startsWith('runner_')
         : a.type === filter
     );
   const unread = (activities || []).filter((a) => (!clearedAt || a.createdAt > clearedAt) && (!seenAt || a.createdAt > seenAt)).length;

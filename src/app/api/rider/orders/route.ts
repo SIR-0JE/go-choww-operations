@@ -303,9 +303,22 @@ export async function GET(request: NextRequest) {
       // 1. Orders from rider's assigned cafeterias (Highest priority)
       // 2. Peer-claimed orders awaiting pickup
       // 3. Other campus orders (newest first)
+      // Which of these did the cafeteria's runner mark packed and ready? (skipped if unavailable)
+      const packedAt = new Map<string, string>();
+      try {
+        const rows = await prisma.orderEvent.findMany({
+          where: { kind: 'runner_ready', orderDbId: { in: [...availableOrders, ...activeTasks].map((o) => o.id) } },
+          select: { orderDbId: true, at: true },
+        });
+        for (const r of rows) packedAt.set(r.orderDbId, r.at.toISOString());
+      } catch {
+        // timeline table not available: carry on without packed flags
+      }
+
       const mappedAvailableOrders = availableOrders.map((ord) => ({
         ...ord,
         isAssignedStation: isAssignedStation(ord.cafeteriaName),
+        packedAt: packedAt.get(ord.id) ?? null,
       }));
 
       const sortedAvailableOrders = mappedAvailableOrders.sort((a, b) => {
@@ -319,6 +332,9 @@ export async function GET(request: NextRequest) {
 
         if (aIsClaimed && !bIsClaimed) return -1;
         if (!aIsClaimed && bIsClaimed) return 1;
+
+        // Food that is already packed first, so riders go where the food is waiting
+        if (Boolean(a.packedAt) !== Boolean(b.packedAt)) return a.packedAt ? -1 : 1;
 
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
@@ -334,7 +350,7 @@ export async function GET(request: NextRequest) {
             assignedCafeterias,
           },
           available: sortedAvailableOrders,
-          active: activeTasks,
+          active: activeTasks.map((o) => ({ ...o, packedAt: packedAt.get(o.id) ?? null })),
           completedToday,
           otherRiders: otherRidersWithCounts,
           handoverRadiusMeters: await getHandoverRadiusMeters(),

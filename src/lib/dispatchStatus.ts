@@ -1,6 +1,7 @@
 import { prisma } from './prisma';
 import { sendPushNotification } from './pushService';
 import { getCollectorSettings } from './collectors';
+import { getRunnerSettings, sameCafeteria, toPackWhere } from './runners';
 
 /** An order waiting longer than this for a rider triggers the dashboard warning and a push alert. */
 export const WAITING_ALERT_MINUTES = 5;
@@ -39,6 +40,14 @@ export interface UnconfirmedHandover {
   minutes: number;
 }
 
+/** Orders a cafeteria's runner hasn't marked Ready within the alert time. */
+export interface NotPackedGroup {
+  cafeteria: string;
+  runnerName: string;
+  count: number;
+  oldestMinutes: number;
+}
+
 export interface DispatchStatus {
   waitingCount: number;
   waitingOverThreshold: number;
@@ -51,6 +60,33 @@ export interface DispatchStatus {
   stuckAfterHours: number;
   notReachable: NotReachableOrder[];
   unconfirmedHandovers: UnconfirmedHandover[];
+  notPacked: NotPackedGroup[];
+  packAlertMinutes: number;
+}
+
+/** Per cafeteria with a runner on duty: orders still waiting to be packed past the alert time. */
+async function getNotPacked(now: Date): Promise<{ groups: NotPackedGroup[]; alertMinutes: number }> {
+  const settings = await getRunnerSettings();
+  try {
+    const runners = await prisma.runner.findMany({ where: { status: 'Active' } });
+    if (!runners.length) return { groups: [], alertMinutes: settings.alertMinutes };
+    const since = new Date(now.getTime() - 8 * 60 * 60 * 1000);
+    const cutoff = new Date(now.getTime() - settings.alertMinutes * 60 * 1000);
+    const late = await prisma.deliveryOrder.findMany({
+      where: { ...toPackWhere(null, since), createdAt: { gte: since, lt: cutoff } },
+      select: { cafeteriaName: true, createdAt: true },
+    });
+    const groups: NotPackedGroup[] = [];
+    for (const r of runners) {
+      const mine = late.filter((o) => sameCafeteria(o.cafeteriaName, r.cafeteria));
+      if (!mine.length) continue;
+      const oldest = Math.max(...mine.map((o) => Math.floor((now.getTime() - o.createdAt.getTime()) / 60000)));
+      groups.push({ cafeteria: r.cafeteria, runnerName: r.name, count: mine.length, oldestMinutes: oldest });
+    }
+    return { groups: groups.sort((a, b) => b.oldestMinutes - a.oldestMinutes), alertMinutes: settings.alertMinutes };
+  } catch {
+    return { groups: [], alertMinutes: settings.alertMinutes }; // Runner table not created yet
+  }
 }
 
 /** Paid delivery orders from the last 12 hours that no rider has accepted yet. */
@@ -112,6 +148,7 @@ export async function getDispatchStatus(
         })
       : Promise.resolve([]),
   ]);
+  const packing = withCollectors ? await getNotPacked(now) : { groups: [], alertMinutes: 10 };
   const minsSince = (d: Date | null) => (d ? Math.max(0, Math.floor((now.getTime() - d.getTime()) / 60000)) : 0);
 
   const thresholdMs = WAITING_ALERT_MINUTES * 60 * 1000;
@@ -148,6 +185,8 @@ export async function getDispatchStatus(
       pointName: o.collector?.pointName || '',
       minutes: minsSince(o.handedAt),
     })),
+    notPacked: packing.groups,
+    packAlertMinutes: packing.alertMinutes,
   };
 }
 

@@ -65,6 +65,8 @@ export default function ExecutiveDashboardPage() {
     stuckAfterHours: number;
     notReachable: { id: string; orderId: string; customerName: string; customerPhone: string | null; collectorName: string; pointName: string; minutes: number }[];
     unconfirmedHandovers: { id: string; orderId: string; customerName: string; riderName: string; collectorName: string; pointName: string; minutes: number }[];
+    notPacked: { cafeteria: string; runnerName: string; count: number; oldestMinutes: number }[];
+    packAlertMinutes: number;
   } | null>(null);
   // Rep alerts: flash the card and chime when a new "not reachable" appears
   const seenNotReachableRef = useRef<Set<string> | null>(null);
@@ -707,6 +709,31 @@ export default function ExecutiveDashboardPage() {
                 </div>
               )}
             </div>
+
+            {dispatch && dispatch.notPacked?.length > 0 && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-rose-800">
+                  <Package className="w-4 h-4" />
+                  Not packed yet
+                  <span className="ml-auto rounded-full bg-rose-600 px-2 py-0.5 text-xs font-semibold text-white tabular-nums">
+                    {dispatch.notPacked.reduce((n, g) => n + g.count, 0)}
+                  </span>
+                </div>
+                <ul className="mt-2 space-y-1.5">
+                  {dispatch.notPacked.map((g) => (
+                    <li key={g.cafeteria} className="text-xs text-rose-900">
+                      <span className="font-medium">{g.cafeteria}</span>
+                      <span className="block text-rose-700">
+                        {g.runnerName} · {g.count} order{g.count === 1 ? '' : 's'} · oldest {g.oldestMinutes} min
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <Link href="/runners" className="mt-2 inline-block text-xs font-medium text-rose-900 underline decoration-rose-300">
+                  Open Runners
+                </Link>
+              </div>
+            )}
 
             {dispatch && dispatch.notReachable.length > 0 && (
               <div

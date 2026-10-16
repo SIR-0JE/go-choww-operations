@@ -15,7 +15,10 @@ export type ActivityType =
   | 'collector_received'
   | 'collector_delivered'
   | 'collector_not_reachable'
-  | 'collector_returned';
+  | 'collector_returned'
+  // runners (the "rider" fields hold the runner)
+  | 'runner_ready'
+  | 'runner_undo';
 
 /**
  * Records a rider action so the admin sees it on the Notifications page,

@@ -69,7 +69,7 @@ model DeliveryOrder {
   receivedAt      DateTime?
   notReachableAt  DateTime?
   collectorDoneAt DateTime?
-  OrderEvent      OrderEvent[]
+  events          OrderEvent[]
 
   @@index([orderStatus, paymentStatus])
   @@index([createdAt])
@@ -163,4 +163,17 @@ model OrderEvent {
 
   @@index([orderDbId, at])
   @@index([kind, at])
+}
+
+// A runner is stationed at one cafeteria: they get an alert for each new order there,
+// get it packed early, and tap Ready. The tap is stored as an OrderEvent (kind runner_ready).
+// supabase/runners.sql also adds a partial unique index: one active runner per cafeteria.
+model Runner {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String   @unique
+  pin       String   @default("1234")
+  status    String   @default("Active") // "Active" | "Inactive"
+  cafeteria String // as it appears on orders, e.g. "Kemi bee"
+  createdAt DateTime @default(now())
 }

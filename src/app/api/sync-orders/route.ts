@@ -8,6 +8,7 @@ import { logActivity } from '@/lib/activity';
 import { attachCollectors } from '@/lib/collectors';
 import { randomUUID } from 'crypto';
 import { logGoChowSteps } from '@/lib/orderEvents';
+import { notifyRunners } from '@/lib/runnerAlerts';
 import { buildSteps, extractGoChowTimes, noteTimeKeys } from '@/lib/gochowTimes';
 import { ADMIN_COOKIE, verifySessionToken } from '@/lib/adminSession';
 import { getSyncSettings, isWithinOperatingWindow, getOperationalStatus, getCurrentTimeInZone } from '@/lib/settings';
@@ -383,9 +384,10 @@ async function performSync(force: boolean = false) {
           const saved = await prisma.deliveryOrder.findMany({ where: { id: { in: toCreate.map((o) => o.id) } }, select: { id: true } });
           const savedIds = new Set(saved.map((r) => r.id));
           const now = new Date();
-          await logGoChowSteps(
-            toCreate.filter((o) => savedIds.has(o.id)).flatMap((o) => buildSteps(o.id, o.gochowStatus, timeHints.get(o.id) || [], now))
-          );
+          const savedOrders = toCreate.filter((o) => savedIds.has(o.id));
+          await logGoChowSteps(savedOrders.flatMap((o) => buildSteps(o.id, o.gochowStatus, timeHints.get(o.id) || [], now)));
+          // Each cafeteria's runner gets a phone alert for their new orders
+          await notifyRunners(savedOrders.map((o) => ({ cafeteriaName: o.cafeteriaName, orderId: o.orderId, deliveryType: o.deliveryType })));
         } catch (evErr: any) {
           console.warn('[sync-orders] Timeline (new orders) skipped:', evErr?.message);
         }

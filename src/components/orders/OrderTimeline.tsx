@@ -12,7 +12,7 @@ import {
   type TimelineEvent,
 } from '@/lib/orderTimeline';
 
-const SIDE_DOT: Record<string, string> = { GoChow: 'bg-slate-400', Rider: 'bg-blue-500', Rep: 'bg-teal-500' };
+const SIDE_DOT: Record<string, string> = { GoChow: 'bg-slate-400', Rider: 'bg-blue-500', Rep: 'bg-teal-500', Runner: 'bg-emerald-500' };
 
 /** Every step of an order with its time and the gap since the step before. */
 export function OrderTimeline({

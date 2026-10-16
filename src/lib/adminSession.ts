@@ -15,7 +15,7 @@ function keyMaterial(): string {
   return process.env.ADMIN_SESSION_SECRET || process.env.DATABASE_URL || process.env.DIRECT_URL || '';
 }
 
-async function sign(data: string): Promise<string> {
+export async function signData(data: string): Promise<string> {
   const material = keyMaterial();
   if (!material) return '';
   const key = await crypto.subtle.importKey('raw', enc.encode(material), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
@@ -23,7 +23,7 @@ async function sign(data: string): Promise<string> {
   return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-function sameString(a: string, b: string): boolean {
+export function sameString(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
@@ -32,7 +32,7 @@ function sameString(a: string, b: string): boolean {
 
 export async function createSessionToken(): Promise<string> {
   const exp = String(Date.now() + ADMIN_SESSION_DAYS * 24 * 60 * 60 * 1000);
-  const sig = await sign('admin:' + exp);
+  const sig = await signData('admin:' + exp);
   return sig ? exp + '.' + sig : '';
 }
 
@@ -40,7 +40,7 @@ export async function verifySessionToken(token?: string | null): Promise<boolean
   if (!token) return false;
   const [exp, sig] = token.split('.');
   if (!exp || !sig || !/^\d+$/.test(exp) || Number(exp) < Date.now()) return false;
-  const expected = await sign('admin:' + exp);
+  const expected = await signData('admin:' + exp);
   return !!expected && sameString(sig, expected);
 }
 

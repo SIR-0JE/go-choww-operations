@@ -16,6 +16,8 @@ const PUBLIC_PREFIXES = [
   '/api/rider',
   '/collector',
   '/api/collector',
+  '/runner',
+  '/api/runner',
   '/rep',
   '/api/notifications',
   '/api/sync-orders',

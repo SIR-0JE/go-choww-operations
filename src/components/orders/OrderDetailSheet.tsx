@@ -192,6 +192,11 @@ export function OrderDetailSheet({
             <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
               <span className={`px-2 py-0.5 rounded-full font-medium ${CHIP[gochow.tone]}`}>GoChow: {gochow.label}</span>
               <span className={`px-2 py-0.5 rounded-full font-medium ${CHIP[riderStage.tone]}`}>Rider: {riderStage.label}</span>
+              {events.some((e) => e.kind === 'runner_ready') && (
+                <span className="px-2 py-0.5 rounded-full font-medium bg-emerald-50 text-emerald-700">
+                  Packed{(() => { const e = events.find((x) => x.kind === 'runner_ready'); return e?.actorName ? ` by ${e.actorName}` : ''; })()}
+                </span>
+              )}
               <span className={`px-2 py-0.5 rounded-full font-medium ${paid ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
                 {paid ? 'Paid' : order.paymentStatus || 'Unpaid'}
               </span>

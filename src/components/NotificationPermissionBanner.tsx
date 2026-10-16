@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BellRing, Smartphone, X, Loader2, CheckCircle2 } from 'lucide-react';
 
 interface NotificationPermissionBannerProps {
-  userType?: 'admin' | 'rider';
+  userType?: 'admin' | 'rider' | 'runner';
   riderId?: string;
   variant?: 'banner' | 'compact';
 }
@@ -132,7 +132,7 @@ export const NotificationPermissionBanner: React.FC<NotificationPermissionBanner
             body: JSON.stringify({
               userType,
               riderId,
-              title: userType === 'rider' ? '🛵 Rider Alerts Active!' : '🔔 GoChoww Phone Alerts Active!',
+              title: userType === 'rider' ? '🛵 Rider Alerts Active!' : userType === 'runner' ? '🥡 Runner Alerts Active!' : '🔔 GoChoww Phone Alerts Active!',
               message: 'Great! You will now receive instant pop-up alerts on your phone status bar.',
             }),
           });

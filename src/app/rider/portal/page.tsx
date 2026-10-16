@@ -53,6 +53,7 @@ interface RiderOrder {
   pickupCode?: string | null;
   riderId?: string | null;
   isAssignedStation?: boolean;
+  packedAt?: string | null; // the cafeteria's runner marked it packed and ready
   rider?: {
     id: string;
     name: string;
@@ -963,7 +964,8 @@ export default function RiderPortalPage() {
     // Prioritize:
     // 1. Orders matching rider's assigned cafeteria (isAssignedStation)
     // 2. Peer-claimed orders awaiting pickup
-    // 3. Newest orders
+    // 3. Orders the runner has packed
+    // 4. Newest orders
     return list.sort((a, b) => {
       const aAssigned = a.isAssignedStation ? 1 : 0;
       const bAssigned = b.isAssignedStation ? 1 : 0;
@@ -974,6 +976,9 @@ export default function RiderPortalPage() {
 
       if (aIsClaimed && !bIsClaimed) return -1;
       if (!aIsClaimed && bIsClaimed) return 1;
+
+      // Food the runner has already packed first, so riders go where it is waiting
+      if (Boolean(a.packedAt) !== Boolean(b.packedAt)) return a.packedAt ? -1 : 1;
 
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
@@ -1470,7 +1475,10 @@ export default function RiderPortalPage() {
                           ) : (
                             <div>
                               <p className="text-base font-semibold text-slate-900 truncate">{ord.cafeteriaName || 'Campus Cafeteria'}</p>
-                              <p className="text-xs text-slate-500">Pick up{kitchenNote(ord.gochowStatus)}</p>
+                              <p className="text-xs text-slate-500">
+                                Pick up{kitchenNote(ord.gochowStatus)}
+                                {ord.packedAt && <span className="font-semibold text-emerald-700"> · packed ✓</span>}
+                              </p>
                             </div>
                           )}
                           <div>
@@ -1666,7 +1674,10 @@ export default function RiderPortalPage() {
                               {returnedFromCollector(ord) ? `${ord.collector!.name} · ${ord.collector!.pointName}` : ord.cafeteriaName || 'Campus Cafeteria'}
                             </p>
                             <p className="text-xs text-slate-500">
-                              {returnedFromCollector(ord) ? 'Collect from the rep' : <>Pick up{kitchenNote(ord.gochowStatus)}</>}
+                              {returnedFromCollector(ord) ? 'Collect from the rep' : <>
+                                  Pick up{kitchenNote(ord.gochowStatus)}
+                                  {ord.packedAt && <span className="font-semibold text-emerald-700"> · packed ✓</span>}
+                                </>}
                             </p>
                           </div>
                           <div>

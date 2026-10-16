@@ -35,7 +35,7 @@ export interface PushPayload {
 }
 
 export interface PushFilter {
-  userType?: 'admin' | 'rider' | 'all';
+  userType?: 'admin' | 'rider' | 'runner' | 'all';
   riderId?: string;
 }
 
@@ -50,6 +50,9 @@ export async function sendPushNotification(
     const where: any = {};
     if (filter?.userType && filter.userType !== 'all') {
       where.userType = filter.userType;
+    } else {
+      // Broadcasts go to admins and riders; runners only get alerts for their own cafeteria
+      where.userType = { in: ['admin', 'rider'] };
     }
     if (filter?.riderId) {
       where.riderId = filter.riderId;

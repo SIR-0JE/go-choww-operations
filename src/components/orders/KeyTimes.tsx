@@ -5,6 +5,7 @@ import { STAGE_LABEL, clockTime, computeStages, formatDuration, slowStages, type
 
 const SHOWN: { kinds: string[]; label: string }[] = [
   { kinds: ['gochow_preparing'], label: 'Preparing' },
+  { kinds: ['runner_ready'], label: 'Packed' },
   { kinds: ['gochow_ready', 'gochow_dispatched'], label: 'Ready' },
   { kinds: ['rider_picked_up'], label: 'Picked up' },
   { kinds: ['rep_received'], label: 'Rep got it' },

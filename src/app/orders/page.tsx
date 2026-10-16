@@ -284,6 +284,15 @@ export default function RawDataOrdersPage() {
             <span className="text-slate-400 truncate max-w-[9rem]">· {ord.collector.pointName}</span>
           </span>
         )}
+        {(() => {
+          const packed = ord.events?.find((e) => e.kind === 'runner_ready');
+          return packed ? (
+            <span className="inline-flex items-center gap-1.5" title="Marked Ready by the cafeteria's runner">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="text-slate-400">Runner</span> Packed{packed.actorName ? ` · ${packed.actorName}` : ''}
+            </span>
+          ) : null;
+        })()}
         <KeyTimes order={ord} limits={slowLimits} />
       </span>
     );

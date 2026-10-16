@@ -4,7 +4,7 @@
  * Pure functions, safe to use on the server and in the browser.
  */
 
-export type EventSource = 'gochow' | 'rider' | 'rep' | 'admin';
+export type EventSource = 'gochow' | 'rider' | 'rep' | 'runner' | 'admin';
 
 export interface TimelineEvent {
   kind: string;
@@ -15,13 +15,14 @@ export interface TimelineEvent {
   detail?: string | null;
 }
 
-export const KIND_INFO: Record<string, { label: string; side: 'GoChow' | 'Rider' | 'Rep' }> = {
+export const KIND_INFO: Record<string, { label: string; side: 'GoChow' | 'Rider' | 'Rep' | 'Runner' }> = {
   gochow_confirmed: { label: 'Confirmed', side: 'GoChow' },
   gochow_preparing: { label: 'Preparing', side: 'GoChow' },
   gochow_ready: { label: 'Ready', side: 'GoChow' },
   gochow_dispatched: { label: 'Dispatched', side: 'GoChow' },
   gochow_delivered: { label: 'Delivered', side: 'GoChow' },
   gochow_cancelled: { label: 'Cancelled', side: 'GoChow' },
+  runner_ready: { label: 'Packed and ready', side: 'Runner' },
   rider_accepted: { label: 'Rider accepted', side: 'Rider' },
   rider_picked_up: { label: 'Picked up', side: 'Rider' },
   rider_delivered: { label: 'Delivered', side: 'Rider' },

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     // Open to the rider app for its own "test my phone" button; only a signed-in admin
     // may broadcast, or send their own wording.
     const isAdmin = await verifySessionToken(req.cookies.get(ADMIN_COOKIE)?.value);
-    if (!isAdmin && (body.userType !== 'rider' || !body.riderId)) {
+    if (!isAdmin && (!['rider', 'runner'].includes(body.userType) || !body.riderId)) {
       return NextResponse.json({ success: false, error: 'Please sign in.', unauthorized: true }, { status: 401 });
     }
     const { userType = 'all', riderId } = body;
