@@ -21,6 +21,7 @@ import {
   PackageCheck,
   LogOut,
   Timer,
+  BarChart3,
   Package,
   Users,
 } from 'lucide-react';
@@ -99,6 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
         { label: 'Reps', href: '/collectors', icon: PackageCheck, active: is('/collectors') },
         { label: 'Runners', href: '/runners', icon: Package, active: is('/runners') },
         { label: 'Vendor speed', href: '/vendors', icon: Timer, active: is('/vendors') },
+        { label: 'Performance', href: '/performance', icon: BarChart3, active: is('/performance') },
         { label: 'Reconciliation', href: '/dashboard/reconciliation', icon: ClipboardCheck, active: is('/dashboard/reconciliation') },
       ],
     },
