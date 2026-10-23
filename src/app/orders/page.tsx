@@ -263,37 +263,24 @@ export default function RawDataOrdersPage() {
     }
   };
 
-  // Two statuses: what GoChow says, and where the rider is
+  // One headline status (where the order is now), one quiet line of context, and a red line only when something is slow
   const getOrderStatusBadge = (ord: RawOrder) => {
     const g = gochowStatusView(ord.gochowStatus);
     const r = riderStatusView(ord);
+    const packed = ord.events?.find((e) => e.kind === 'runner_ready');
+    const context = [
+      `GoChow: ${g.label}`,
+      packed ? 'Packed' : null,
+      ord.collector ? `Rep ${ord.collector.name}` : null,
+    ].filter(Boolean);
     return (
-      <span className="inline-flex flex-col gap-0.5 text-xs text-slate-600 whitespace-nowrap">
-        <span className="inline-flex items-center gap-1.5" title="GoChow status">
-          <span className={`w-1.5 h-1.5 rounded-full ${TONE_DOT[g.tone]}`} />
-          <span className="text-slate-400">GoChow</span> {g.label}
+      <span className="inline-flex flex-col gap-1 text-xs whitespace-nowrap">
+        <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-900" title="Rider status">
+          <span className={`w-2 h-2 rounded-full ${TONE_DOT[r.tone]}`} />
+          {r.label}
         </span>
-        <span className="inline-flex items-center gap-1.5" title="Rider status">
-          <span className={`w-1.5 h-1.5 rounded-full ${TONE_DOT[r.tone]}`} />
-          <span className="text-slate-400">Rider</span> {r.label}
-        </span>
-        {ord.collector && (
-          <span className="inline-flex items-center gap-1.5" title={`Rep at ${ord.collector.pointName}`}>
-            <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-            <span className="text-slate-400">Rep</span> {ord.collector.name}
-            <span className="text-slate-400 truncate max-w-[9rem]">· {ord.collector.pointName}</span>
-          </span>
-        )}
-        {(() => {
-          const packed = ord.events?.find((e) => e.kind === 'runner_ready');
-          return packed ? (
-            <span className="inline-flex items-center gap-1.5" title="Marked Ready by the cafeteria's runner">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span className="text-slate-400">Runner</span> Packed{packed.actorName ? ` · ${packed.actorName}` : ''}
-            </span>
-          ) : null;
-        })()}
-        <KeyTimes order={ord} limits={slowLimits} />
+        <span className="text-slate-500 pl-4">{context.join(' · ')}</span>
+        <KeyTimes order={ord} limits={slowLimits} compact />
       </span>
     );
   };

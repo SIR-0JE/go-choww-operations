@@ -71,6 +71,15 @@ export default function ExecutiveDashboardPage() {
   // Rep alerts: flash the card and chime when a new "not reachable" appears
   const seenNotReachableRef = useRef<Set<string> | null>(null);
   const [flashNotReachable, setFlashNotReachable] = useState(false);
+
+  // Dispatch alerts: the most urgent one is open, the others are one-line rows until tapped
+  const [openAlerts, setOpenAlerts] = useState<string[]>([]);
+  const alertOrder = ['notReachable', 'notPacked', 'unconfirmed'].filter((k) =>
+    k === 'notReachable' ? (dispatch?.notReachable?.length || 0) > 0 : k === 'notPacked' ? (dispatch?.notPacked?.length || 0) > 0 : (dispatch?.unconfirmedHandovers?.length || 0) > 0
+  );
+  const alertOpen = (k: string) => alertOrder[0] === k || openAlerts.includes(k);
+  const toggleAlert = (k: string) => setOpenAlerts((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]));
+
   const [givingBackId, setGivingBackId] = useState<string | null>(null);
 
   const giveBackToRiders = async (o: { id: string; customerName: string; collectorName: string }) => {
@@ -712,13 +721,14 @@ export default function ExecutiveDashboardPage() {
 
             {dispatch && dispatch.notPacked?.length > 0 && (
               <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-rose-800">
+                <button onClick={() => toggleAlert('notPacked')} className="w-full text-left flex items-center gap-2 text-sm font-semibold text-rose-800">
                   <Package className="w-4 h-4" />
                   Not packed yet
                   <span className="ml-auto rounded-full bg-rose-600 px-2 py-0.5 text-xs font-semibold text-white tabular-nums">
                     {dispatch.notPacked.reduce((n, g) => n + g.count, 0)}
                   </span>
-                </div>
+                </button>
+                <div className={alertOpen('notPacked') ? '' : 'hidden'}>
                 <ul className="mt-2 space-y-1.5">
                   {dispatch.notPacked.map((g) => (
                     <li key={g.cafeteria} className="text-xs text-rose-900">
@@ -732,6 +742,7 @@ export default function ExecutiveDashboardPage() {
                 <Link href="/runners" className="mt-2 inline-block text-xs font-medium text-rose-900 underline decoration-rose-300">
                   Open Runners
                 </Link>
+                </div>
               </div>
             )}
 
@@ -741,13 +752,14 @@ export default function ExecutiveDashboardPage() {
                   flashNotReachable ? 'border-rose-400 bg-rose-100 animate-pulse' : 'border-rose-200 bg-rose-50'
                 }`}
               >
-                <div className="flex items-center gap-2 text-sm font-semibold text-rose-800">
+                <button onClick={() => toggleAlert('notReachable')} className="w-full text-left flex items-center gap-2 text-sm font-semibold text-rose-800">
                   <UserX className="w-4 h-4" />
                   Customer not reachable
                   <span className="ml-auto rounded-full bg-rose-600 px-2 py-0.5 text-xs font-semibold text-white tabular-nums">
                     {dispatch.notReachable.length}
                   </span>
-                </div>
+                </button>
+                <div className={alertOpen('notReachable') ? '' : 'hidden'}>
                 <ul className="mt-2 divide-y divide-rose-100">
                   {dispatch.notReachable.map((o) => (
                     <li key={o.id} className="py-2 first:pt-0 last:pb-0">
@@ -777,18 +789,20 @@ export default function ExecutiveDashboardPage() {
                     </li>
                   ))}
                 </ul>
+                </div>
               </div>
             )}
 
             {dispatch && dispatch.unconfirmedHandovers.length > 0 && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+                <button onClick={() => toggleAlert('unconfirmed')} className="w-full text-left flex items-center gap-2 text-sm font-semibold text-amber-900">
                   <AlertOctagon className="w-4 h-4" />
                   Rep hasn&apos;t confirmed
                   <span className="ml-auto rounded-full bg-amber-500 px-2 py-0.5 text-xs font-semibold text-white tabular-nums">
                     {dispatch.unconfirmedHandovers.length}
                   </span>
-                </div>
+                </button>
+                <div className={alertOpen('unconfirmed') ? '' : 'hidden'}>
                 <ul className="mt-2 space-y-1.5">
                   {dispatch.unconfirmedHandovers.map((o) => (
                     <li key={o.id} className="text-xs text-amber-900">
@@ -799,6 +813,7 @@ export default function ExecutiveDashboardPage() {
                 <Link href="/collectors" className="mt-2 inline-block text-xs font-medium text-amber-900 underline decoration-amber-300">
                   Open Reps
                 </Link>
+                </div>
               </div>
             )}
 

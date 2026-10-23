@@ -81,6 +81,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
     };
   }, []);
 
+  // Groups can be folded; the group holding the current page always stays open
+  const [folded, setFolded] = useState<string[]>(['Reports', 'Finance', 'Growth']);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('gochoww_nav_folded');
+      if (saved) setFolded(JSON.parse(saved));
+    } catch {
+      /* storage blocked */
+    }
+  }, []);
+  const toggleGroup = (title: string) =>
+    setFolded((cur) => {
+      const next = cur.includes(title) ? cur.filter((t) => t !== title) : [...cur, title];
+      try {
+        localStorage.setItem('gochoww_nav_folded', JSON.stringify(next));
+      } catch {
+        /* storage blocked */
+      }
+      return next;
+    });
+
   const is = (...paths: string[]) => paths.includes(pathname);
 
   const navGroups: { title: string; items: { label: string; href: string; icon: any; active: boolean; unreadCount?: number }[] }[] = [
@@ -99,8 +120,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
         { label: 'Live Fleet', href: '/dashboard/fleet', icon: Radio, active: is('/dashboard/fleet') },
         { label: 'Reps', href: '/collectors', icon: PackageCheck, active: is('/collectors') },
         { label: 'Runners', href: '/runners', icon: Package, active: is('/runners') },
-        { label: 'Vendor speed', href: '/vendors', icon: Timer, active: is('/vendors') },
+      ],
+    },
+    {
+      title: 'Reports',
+      items: [
         { label: 'Performance', href: '/performance', icon: BarChart3, active: is('/performance') },
+        { label: 'Vendor speed', href: '/vendors', icon: Timer, active: is('/vendors') },
         { label: 'Reconciliation', href: '/dashboard/reconciliation', icon: ClipboardCheck, active: is('/dashboard/reconciliation') },
       ],
     },
@@ -162,10 +188,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
-          {navGroups.map((group) => (
+          {navGroups.map((group) => {
+            const open = !folded.includes(group.title) || group.items.some((i) => i.active);
+            return (
             <div key={group.title}>
-              <div className="px-3 pb-1.5 text-[11px] font-medium text-slate-400">{group.title}</div>
-              <div className="space-y-0.5">
+              <button
+                onClick={() => toggleGroup(group.title)}
+                className="w-full px-3 pb-1.5 flex items-center justify-between text-[11px] font-medium text-slate-400 hover:text-slate-600"
+                aria-expanded={open}
+              >
+                {group.title}
+                <ChevronRight className={`w-3 h-3 transition-transform ${open ? 'rotate-90' : ''}`} />
+              </button>
+              <div className={`space-y-0.5 ${open ? '' : 'hidden'}`}>
                 {group.items.map((item) => {
                   const Icon = item.icon;
                   const unread = item.unreadCount || 0;
@@ -192,7 +227,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
                 })}
               </div>
             </div>
-          ))}
+            );
+          })}
         </nav>
 
         {/* Sprint shortcut */}

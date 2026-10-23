@@ -16,9 +16,11 @@ const SHOWN: { kinds: string[]; label: string }[] = [
 export function KeyTimes({
   order,
   limits,
+  compact,
 }: {
   order: { createdAt: string; orderStatus?: string | null; events?: TimelineEvent[] };
   limits?: SlowLimits | null;
+  compact?: boolean; // list view: only the first slow step, no row of times
 }) {
   const events = order.events || [];
   if (events.length === 0) return null;
@@ -34,9 +36,11 @@ export function KeyTimes({
   const slowAll = slowStages(computeStages(order as any, events, limits || undefined));
   const slow = slowAll.some((x) => x.key !== 'total') ? slowAll.filter((x) => x.key !== 'total') : slowAll;
 
+  const shown = compact ? slow.slice(0, 1) : slow;
+
   return (
-    <span className="flex flex-col gap-0.5 mt-1 text-xs">
-      {times.length > 0 && (
+    <span className="flex flex-col gap-0.5 text-xs pl-4">
+      {!compact && times.length > 0 && (
         <span className="text-slate-500 whitespace-nowrap">
           {times.map((t, i) => (
             <span key={t.label}>
@@ -46,11 +50,10 @@ export function KeyTimes({
           ))}
         </span>
       )}
-      {slow.map((s) => (
+      {shown.map((s) => (
         <span key={s.key} className="inline-flex items-center gap-1 text-rose-700 font-medium whitespace-nowrap">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-          Slow: {STAGE_LABEL[s.key]} {formatDuration(s.ms)}
-          {s.running ? ' so far' : ''}
+          Slow · {STAGE_LABEL[s.key]} {formatDuration(s.ms)}{s.running ? ' so far' : ''}
         </span>
       ))}
     </span>

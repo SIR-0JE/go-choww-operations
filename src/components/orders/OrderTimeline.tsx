@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   KIND_INFO,
   STAGE_LABEL,
@@ -11,6 +11,8 @@ import {
   type StageKey,
   type TimelineEvent,
 } from '@/lib/orderTimeline';
+
+const k_isTotal = (k: string) => k === 'total';
 
 const SIDE_DOT: Record<string, string> = { GoChow: 'bg-slate-400', Rider: 'bg-blue-500', Rep: 'bg-teal-500', Runner: 'bg-emerald-500' };
 
@@ -51,8 +53,10 @@ export function OrderTimeline({
     }),
   ];
 
+  const [showSteps, setShowSteps] = useState(false);
   const stageOrder: StageKey[] = ['ack', 'prep', 'wait', 'ride', 'total'];
-  const shownStages = stageOrder.map((k) => stages[k]).filter((s) => s.ms !== null);
+  // Summary: slow steps in red, plus the total; every step is a tap away
+  const shownStages = stageOrder.map((k) => stages[k]).filter((s) => s.ms !== null && (s.slow || k_isTotal(s.key)));
 
   return (
     <section>
@@ -75,7 +79,13 @@ export function OrderTimeline({
         </div>
       )}
 
-      <ol className="mt-3 space-y-0">
+      {rows.length > 1 && (
+        <button onClick={() => setShowSteps((v) => !v)} className="mt-3 text-xs font-medium text-brand-700 hover:underline">
+          {showSteps ? 'Hide steps' : `Show all ${rows.length} steps`}
+        </button>
+      )}
+
+      <ol className={`mt-3 space-y-0 ${showSteps ? '' : 'hidden'}`}>
         {rows.map((r, i) => {
           const prev = i > 0 ? rows[i - 1] : null;
           const gap = prev ? new Date(r.at).getTime() - new Date(prev.at).getTime() : null;
