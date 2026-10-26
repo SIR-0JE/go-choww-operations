@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCustomers, getCustomerOrders, getLocationLeaderboard, type LocationRange } from '@/lib/customers';
+import { getCustomers, getNewCustomersByDay, getCustomerOrders, getLocationLeaderboard, type LocationRange } from '@/lib/customers';
 import { getSprintConfig } from '@/lib/sprint';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +16,10 @@ export async function GET(request: NextRequest) {
       const sprint = await getSprintConfig();
       const data = await getLocationLeaderboard(range, sprint.startDate);
       return NextResponse.json({ success: true, ...data });
+    }
+    if (view === 'new') {
+      const n = Math.min(90, Math.max(1, Number(request.nextUrl.searchParams.get('days')) || 30));
+      return NextResponse.json({ success: true, days: await getNewCustomersByDay(n) });
     }
     const key = request.nextUrl.searchParams.get('key');
     if (key) {

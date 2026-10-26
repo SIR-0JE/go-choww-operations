@@ -301,3 +301,62 @@ export async function getLocationLeaderboard(range: LocationRange, sprintStartDa
 
   return { range, from: from ? from.toISOString() : null, total, locations };
 }
+
+export interface NewCustomer {
+  key: string;
+  name: string;
+  phone: string | null;
+  cafeteria: string;
+  address: string;
+  firstOrderAt: string;
+  ordersThatDay: number;
+}
+
+export interface NewCustomersDay {
+  date: string; // Lagos day, YYYY-MM-DD
+  ordered: number; // everyone who ordered that day
+  newCount: number;
+  returning: number;
+  customers: NewCustomer[]; // the new ones, earliest first
+}
+
+/** Per Lagos day: how many customers ordered, how many were ordering for the very first time, and who. Newest day first. */
+export async function getNewCustomersByDay(days = 30, now = new Date()): Promise<NewCustomersDay[]> {
+  const rows = await loadOrders();
+  const shared = sharedNames(rows);
+  const seen = new Set<string>();
+  const byDay = new Map<string, { ordered: Set<string>; fresh: Map<string, NewCustomer> }>();
+
+  for (const r of rows) {
+    const nameKey = normaliseName(r.customerName);
+    const phone = normalisePhone(r.customerPhone);
+    const key = keyFor(nameKey, phone, shared.has(nameKey));
+    const day = lagosDayKey(r.createdAt);
+    let d = byDay.get(day);
+    if (!d) byDay.set(day, (d = { ordered: new Set(), fresh: new Map() }));
+    d.ordered.add(key);
+    if (!seen.has(key)) {
+      seen.add(key);
+      d.fresh.set(key, {
+        key,
+        name: (r.customerName || '').trim().replace(/\s+/g, ' '),
+        phone,
+        cafeteria: r.cafeteriaName || '',
+        address: r.deliveryAddress || '',
+        firstOrderAt: r.createdAt.toISOString(),
+        ordersThatDay: 0,
+      });
+    }
+    const f = d.fresh.get(key);
+    if (f) f.ordersThatDay += 1;
+  }
+
+  const out: NewCustomersDay[] = [];
+  for (let i = 0; i < days; i++) {
+    const date = lagosDayKey(new Date(now.getTime() - i * 24 * 60 * 60 * 1000));
+    const d = byDay.get(date);
+    const customers = d ? Array.from(d.fresh.values()) : [];
+    out.push({ date, ordered: d?.ordered.size || 0, newCount: customers.length, returning: (d?.ordered.size || 0) - customers.length, customers });
+  }
+  return out;
+}

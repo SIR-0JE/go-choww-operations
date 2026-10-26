@@ -251,6 +251,103 @@ function LocationsBoard() {
   );
 }
 
+type NewDay = {
+  date: string;
+  ordered: number;
+  newCount: number;
+  returning: number;
+  customers: { key: string; name: string; phone: string | null; cafeteria: string; address: string; firstOrderAt: string; ordersThatDay: number }[];
+};
+
+const dayTitle = (date: string, i: number) =>
+  i === 0
+    ? 'Today'
+    : i === 1
+    ? 'Yesterday'
+    : new Date(`${date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+
+/** Every day: how many customers ordered, how many were brand new, and who they were. */
+function NewCustomersBoard() {
+  const [days, setDays] = useState<NewDay[] | null>(null);
+  const [error, setError] = useState(false);
+  const [open, setOpen] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/customers?view=new&days=30', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!alive) return;
+        if (d.success) {
+          setDays(d.days);
+          setOpen(d.days[0]?.date ?? null);
+        } else setError(true);
+      })
+      .catch(() => alive && setError(true));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (error) return <p className="py-12 text-center text-sm text-slate-500">Couldn&apos;t load new customers.</p>;
+  if (!days) return <div className="h-40 rounded-xl bg-white border border-slate-200 animate-pulse" />;
+
+  const total = days.reduce((n, d) => n + d.newCount, 0);
+  const avg = Math.round(total / days.length);
+
+  return (
+    <div className="rounded-xl bg-white border border-slate-200 overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-slate-100 text-xs text-slate-500">
+        Last 30 days: <span className="font-medium text-slate-900 tabular-nums">{total.toLocaleString()}</span> new customers · about {avg} a day · new means first order ever
+      </div>
+      <ul className="divide-y divide-slate-100">
+        {days.map((d, i) => {
+          const isOpen = open === d.date;
+          return (
+            <li key={d.date}>
+              <button
+                onClick={() => setOpen(isOpen ? null : d.date)}
+                className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left"
+                aria-expanded={isOpen}
+              >
+                <span className="text-sm font-medium text-slate-900">{dayTitle(d.date, i)}</span>
+                <span className="text-sm text-slate-500 tabular-nums">
+                  <span className="font-semibold text-slate-900">{d.newCount}</span> new · {d.returning} returning
+                </span>
+              </button>
+              {isOpen && (
+                <div className="px-4 pb-3">
+                  {d.customers.length === 0 ? (
+                    <p className="text-sm text-slate-500 py-2">No new customers this day.</p>
+                  ) : (
+                    <ul className="divide-y divide-slate-100 rounded-lg border border-slate-100">
+                      {d.customers.map((c) => (
+                        <li key={c.key} className="px-3 py-2.5 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-900 truncate">{c.name}</p>
+                            <p className="text-xs text-slate-500 truncate">
+                              {[c.cafeteria, c.address && `→ ${c.address}`].filter(Boolean).join(' ')} · {timeOfDay(c.firstOrderAt)}
+                            </p>
+                          </div>
+                          {c.phone && (
+                            <a href={telHref(c.phone)} className="text-xs text-slate-600 tabular-nums shrink-0 underline decoration-slate-300">
+                              {c.phone}
+                            </a>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<CustomerSummary[]>([]);
   const [todayKeys, setTodayKeys] = useState<string[]>([]);
@@ -258,7 +355,7 @@ export default function CustomersPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [view, setView] = useState<'people' | 'locations'>('people');
+  const [view, setView] = useState<'people' | 'new' | 'locations'>('people');
   const [tab, setTab] = useState<Tab>('today');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<CustomerSummary | null>(null);
@@ -343,8 +440,8 @@ export default function CustomersPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-lg" role="tablist" aria-label="View">
-          {(['people', 'locations'] as const).map((v) => (
+        <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-lg" role="tablist" aria-label="View">
+          {(['people', 'new', 'locations'] as const).map((v) => (
             <button
               key={v}
               role="tab"
@@ -352,12 +449,14 @@ export default function CustomersPage() {
               onClick={() => setView(v)}
               className={`h-9 rounded-md text-sm font-medium ${view === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
             >
-              {v === 'people' ? 'People' : 'Locations'}
+              {v === 'people' ? 'People' : v === 'new' ? 'New customers' : 'Locations'}
             </button>
           ))}
         </div>
 
-        {view === 'locations' ? (
+        {view === 'new' ? (
+          <NewCustomersBoard />
+        ) : view === 'locations' ? (
           <LocationsBoard />
         ) : (
           <>
