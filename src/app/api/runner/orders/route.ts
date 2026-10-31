@@ -14,13 +14,14 @@ const SELECT = {
   createdAt: true,
   time: true,
   customerName: true,
+  customerPhone: true,
   deliveryAddress: true,
   deliveryType: true,
   orderStatus: true,
   gochowStatus: true,
   pickupCode: true,
   items: true,
-  rider: { select: { name: true } },
+  rider: { select: { name: true, phone: true } },
 } as const;
 
 /**

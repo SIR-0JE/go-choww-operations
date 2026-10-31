@@ -2,8 +2,9 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, CheckCircle2, Clock, LogOut, Package, RefreshCw, Store, Undo2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, LogOut, MessageCircle, Package, Phone, RefreshCw, Store, Undo2 } from 'lucide-react';
 import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner';
+import { prettyPhone, telHref, whatsappNumber } from '@/lib/phone';
 import { playAlertChime, unlockAudioOnFirstInteraction } from '@/lib/voiceNotifications';
 
 interface Item {
@@ -16,13 +17,14 @@ interface Order {
   orderId: string;
   createdAt: string;
   customerName: string;
+  customerPhone?: string | null;
   deliveryAddress: string;
   deliveryType: string;
   orderStatus: string;
   gochowStatus?: string | null;
   pickupCode?: string | null;
   items?: Item[] | null;
-  rider?: { name: string } | null;
+  rider?: { name: string; phone?: string | null } | null;
   packedAt?: string | null;
   packedBy?: string | null;
 }
@@ -262,6 +264,40 @@ export default function RunnerPage() {
                   ) : (
                     <p className="text-sm text-slate-400">Items not available for this order yet.</p>
                   )}
+
+                  <div className="space-y-2.5 border-t border-slate-100 pt-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-900 truncate">{o.customerPhone ? prettyPhone(o.customerPhone) : o.customerName}</p>
+                        <p className="text-xs text-slate-500">Customer</p>
+                      </div>
+                      {o.customerPhone ? (
+                        <div className="flex gap-2 shrink-0">
+                          <a href={`https://wa.me/${whatsappNumber(o.customerPhone)}`} target="_blank" rel="noreferrer" className="h-10 w-10 inline-flex items-center justify-center rounded-lg border border-slate-200" aria-label="WhatsApp customer">
+                            <MessageCircle className="w-4 h-4 text-emerald-600" />
+                          </a>
+                          <a href={telHref(o.customerPhone)} className="h-10 px-3.5 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-800">
+                            <Phone className="w-4 h-4 text-emerald-600" /> Call
+                          </a>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">No phone</span>
+                      )}
+                    </div>
+                    {!isPickup(o.deliveryType) && (
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-900 truncate">{o.rider ? o.rider.name : 'No rider yet'}</p>
+                          <p className="text-xs text-slate-500">Rider</p>
+                        </div>
+                        {o.rider?.phone && (
+                          <a href={telHref(o.rider.phone)} className="h-10 px-3.5 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-800 shrink-0">
+                            <Phone className="w-4 h-4 text-slate-500" /> Call
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   {tab === 'topack' ? (
                     <>
