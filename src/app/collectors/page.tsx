@@ -225,9 +225,20 @@ export default function CollectorsPage() {
 
   const remove = async (c: Rep) => {
     if (!window.confirm(`Remove ${c.name}? Their past orders keep their name.`)) return;
-    const res = await fetch(`/api/collectors/${c.id}`, { method: 'DELETE' }).catch(() => null);
-    const json = res ? await res.json().catch(() => null) : null;
-    setNotice({ text: json?.success ? `${c.name} removed.` : json?.error || 'Could not remove.', ok: !!json?.success });
+    const call = (force: boolean) =>
+      fetch(`/api/collectors/${c.id}${force ? '?force=1' : ''}`, { method: 'DELETE' })
+        .then(async (r) => ({ status: r.status, json: await r.json().catch(() => null) }))
+        .catch(() => null);
+    let res = await call(false);
+    if (res?.status === 409 && res.json?.holding) {
+      const n = res.json.holding;
+      if (!window.confirm(`${c.name} still holds ${n} order${n === 1 ? '' : 's'}. Give ${n === 1 ? 'it' : 'them'} back to the riders and remove ${c.name}?`)) return;
+      res = await call(true);
+    }
+    const ok = !!res?.json?.success;
+    const text = ok ? `${c.name} removed.` : res?.json?.error || (res ? `Could not remove (error ${res.status}).` : 'No connection. Could not remove.');
+    setNotice({ text, ok });
+    if (!ok) window.alert(text); // the notice sits at the top of the page, so make a failure impossible to miss
     load();
   };
 
@@ -657,9 +668,9 @@ function CollectorForm({
   const [saving, setSaving] = useState(false);
   const isNew = !value.id;
   const hostels = value.hostels || [];
-  // Hostels another active collector already covers
-  const takenBy = new Map<string, string>();
-  for (const c of collectors) if (c.id !== value.id && c.status === 'Active') for (const h of c.hostels) takenBy.set(h, c.name);
+  // Other reps already covering a hostel: allowed, they share its orders
+  const sharedWith = new Map<string, string[]>();
+  for (const c of collectors) if (c.id !== value.id && c.status === 'Active') for (const h of c.hostels) sharedWith.set(h, [...(sharedWith.get(h) || []), c.name]);
   // Known addresses first, plus any preset hostel that hasn't had orders yet
   const all = [...addresses];
   for (const p of PRESETS) for (const h of p.hostels) if (!all.some((a) => a.address === h)) all.push({ address: h, orders: 0 });
@@ -710,7 +721,7 @@ function CollectorForm({
               {PRESETS.map((p) => (
                 <button
                   key={p.pointName}
-                  onClick={() => onChange({ ...value, pointName: p.pointName, hostels: p.hostels.filter((h) => !takenBy.has(h)) })}
+                  onClick={() => onChange({ ...value, pointName: p.pointName, hostels: p.hostels })}
                   className="h-8 px-2.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50"
                 >
                   {p.pointName}
@@ -726,18 +737,18 @@ function CollectorForm({
 
           <div>
             <p className="text-xs text-slate-500 mb-1.5">
-              Hostels they cover <span className="text-slate-400">· orders in the last 60 days</span>
+              Hostels they cover <span className="text-slate-400">· more than one rep can share a hostel; orders go to whoever holds the fewest</span>
             </p>
             <ul className="rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-64 overflow-y-auto">
               {all.map((a) => {
-                const taken = takenBy.get(a.address);
+                const shared = sharedWith.get(a.address);
                 const on = hostels.includes(a.address);
                 return (
                   <li key={a.address}>
-                    <label className={`flex items-center gap-3 px-3 py-2 text-sm ${taken ? 'opacity-50' : 'cursor-pointer hover:bg-slate-50'}`}>
-                      <input type="checkbox" checked={on} disabled={!!taken} onChange={() => toggle(a.address)} className="w-4 h-4 accent-slate-900" />
+                    <label className={`flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50`}>
+                      <input type="checkbox" checked={on} onChange={() => toggle(a.address)} className="w-4 h-4 accent-slate-900" />
                       <span className="flex-1 min-w-0 truncate text-slate-800">{a.address}</span>
-                      <span className="text-xs text-slate-400 shrink-0">{taken ? `${taken}` : a.orders}</span>
+                      <span className="text-xs text-slate-400 shrink-0">{shared ? `with ${shared.join(', ')}` : a.orders}</span>
                     </label>
                   </li>
                 );

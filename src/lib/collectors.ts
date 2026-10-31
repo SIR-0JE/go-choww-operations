@@ -1,6 +1,6 @@
 /**
  * Choww collector mode. During busy windows (Sunday bulk orders) each big hostel has a
- * collector: the rider brings the food to them, both confirm the handover, and the
+ * collector (or a few, sharing it): the rider brings the food to them, both confirm the handover, and the
  * collector gets it to the customer.
  *
  * Stages on an order (DeliveryOrder.collectorStage):
@@ -132,24 +132,58 @@ export async function attachCollectors(now: Date = new Date()) {
     return { active, attached: 0, detached: r.count };
   }
 
-  const collectors = await prisma.collector.findMany({ where: { status: 'Active' } });
+  // Several reps may cover the same hostel; they share the orders, fewest open orders first.
+  // Orders held by a rep who is switched off (and not yet picked up) are handed on, or released.
+  const all = await prisma.collector.findMany();
+  const activeReps = all.filter((c) => c.status === 'Active' && c.hostels.length);
+  const inactiveIds = all.filter((c) => c.status !== 'Active').map((c) => c.id);
+  const load = await openLoads();
+
+  const pick = (hostel: string) => {
+    const options = activeReps.filter((c) => c.hostels.includes(hostel));
+    options.sort((a, b) => (load.get(a.id) || 0) - (load.get(b.id) || 0));
+    return options[0] || null;
+  };
+
+  const orders = await prisma.deliveryOrder.findMany({
+    where: {
+      collectorStage: null,
+      createdAt: { gte: since },
+      orderStatus: { notIn: OPEN_NOT_PICKED },
+      NOT: { deliveryType: { contains: 'pick', mode: 'insensitive' } },
+      OR: [{ collectorId: null }, { collectorId: { in: inactiveIds } }],
+    },
+    select: { id: true, deliveryAddress: true, collectorId: true },
+    orderBy: { createdAt: 'asc' },
+  });
+
   let attached = 0;
-  for (const c of collectors) {
-    if (!c.hostels.length) continue;
-    const r = await prisma.deliveryOrder.updateMany({
-      where: {
-        collectorId: null,
-        collectorStage: null,
-        createdAt: { gte: since },
-        deliveryAddress: { in: c.hostels },
-        orderStatus: { notIn: OPEN_NOT_PICKED },
-        NOT: { deliveryType: { contains: 'pick', mode: 'insensitive' } },
-      },
-      data: { collectorId: c.id },
-    });
-    attached += r.count;
+  let detached = 0;
+  for (const o of orders) {
+    const rep = pick(o.deliveryAddress);
+    if (rep) {
+      await prisma.deliveryOrder.update({ where: { id: o.id }, data: { collectorId: rep.id } });
+      load.set(rep.id, (load.get(rep.id) || 0) + 1);
+      attached += 1;
+    } else if (o.collectorId) {
+      await prisma.deliveryOrder.update({ where: { id: o.id }, data: { collectorId: null } });
+      detached += 1;
+    }
   }
-  return { active, attached, detached: 0 };
+  return { active, attached, detached };
+}
+
+/** Orders each rep is holding right now (not delivered or cancelled). */
+async function openLoads(): Promise<Map<string, number>> {
+  const rows = await prisma.deliveryOrder.groupBy({
+    by: ['collectorId'],
+    where: {
+      collectorId: { not: null },
+      orderStatus: { notIn: ['Delivered', 'Completed', 'delivered', 'completed', 'Cancelled', 'cancelled'] },
+    },
+    _count: { _all: true },
+  });
+  return new Map(rows.map((r) => [r.collectorId as string, r._count._all]));
 }
 
 export function normalizePhone(p: string): string {
@@ -241,12 +275,6 @@ export async function validateCollector(
   }
   if (data.hostels !== undefined) {
     if (!data.hostels.length) return 'Pick at least one hostel.';
-    // One hostel, one rep
-    const others = await prisma.collector.findMany({ where: { status: 'Active', ...(selfId && { id: { not: selfId } }) } });
-    for (const h of data.hostels) {
-      const owner = others.find((c) => c.hostels.includes(h));
-      if (owner) return `${h} is already covered by ${owner.name} (${owner.pointName}).`;
-    }
   }
   return null;
 }
