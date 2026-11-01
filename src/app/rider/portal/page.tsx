@@ -1800,7 +1800,7 @@ export default function RiderPortalPage() {
                           </button>
                         </div>
                       ) : viaCollector(ord) ? (
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           <button
                             onClick={() => handleOrderAction(ord.id || ord.orderId, 'hand_to_collector')}
                             disabled={isLoadingAction}
@@ -1815,8 +1815,9 @@ export default function RiderPortalPage() {
                             type="button"
                             onClick={() => handleOrderAction(ord.id || ord.orderId, 'deliver')}
                             disabled={isLoadingAction}
-                            className="w-full h-9 text-xs text-slate-500 hover:text-slate-800 disabled:opacity-50"
+                            className="w-full h-12 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-800 font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
                           >
+                            <CheckCircle2 className="w-4 h-4 text-slate-500" />
                             Delivered to the customer myself instead
                           </button>
                         </div>
