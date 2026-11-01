@@ -1,5 +1,6 @@
 'use client';
 
+import { Toggle } from '@/components/ui/Toggle';
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, Copy, Package, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
@@ -191,9 +192,7 @@ export default function RunnersPage() {
                     <button onClick={() => setEditing({ ...r, pin: '' })} className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100" aria-label={`Edit ${r.name}`}>
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button onClick={() => setStatus(r, on ? 'Inactive' : 'Active')} className="h-8 px-2.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                      {on ? 'Switch off' : 'Switch on'}
-                    </button>
+                    <Toggle on={on} onChange={(v) => setStatus(r, v ? 'Active' : 'Inactive')} label={`${r.name} on duty`} />
                     <button onClick={() => remove(r)} className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50" aria-label={`Remove ${r.name}`}>
                       <Trash2 className="w-4 h-4" />
                     </button>
