@@ -272,21 +272,34 @@ export default function RunnersPage() {
                   />
                 </label>
               </div>
-              <label className="block text-xs text-slate-500">
-                Cafeteria
+              <div className="text-xs text-slate-500">
+                Cafeteria <span className="text-slate-400">· tap one</span>
+                <div className="mt-1.5 flex flex-wrap gap-2">
+                  {data.cafeterias.map((c) => {
+                    const on = (editing.cafeteria || '').toLowerCase() === c.toLowerCase();
+                    const taken = covered.has(c.toLowerCase()) && !on;
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setEditing({ ...editing, cafeteria: c })}
+                        className={`min-h-[44px] px-3.5 rounded-xl border text-sm font-medium ${
+                          on ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-800 active:bg-slate-100'
+                        }`}
+                      >
+                        {c}
+                        {taken && <span className={`block text-[10px] font-normal ${on ? 'text-slate-300' : 'text-slate-400'}`}>has a runner</span>}
+                      </button>
+                    );
+                  })}
+                </div>
                 <input
-                  list="runner-cafeterias"
                   value={editing.cafeteria || ''}
                   onChange={(e) => setEditing({ ...editing, cafeteria: e.target.value })}
-                  placeholder="Pick or type the cafeteria"
-                  className={`${inputCls} mt-1`}
+                  placeholder="Not listed? Type the cafeteria name"
+                  className={`${inputCls} mt-2`}
                 />
-                <datalist id="runner-cafeterias">
-                  {data.cafeterias.map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
-              </label>
+              </div>
               <p className="text-xs text-slate-400">One runner on duty per cafeteria. Switch the old one off before adding a replacement.</p>
             </div>
             <div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2">
