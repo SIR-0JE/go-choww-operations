@@ -1,0 +1,32 @@
+# Free-tier host for the app (Render). Secret values are NOT stored here:
+# Render asks for each one when the service is created. Copy them from Vercel's Environment Variables page.
+services:
+  - type: web
+    name: go-choww-operations
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /login
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=460
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: ADMIN_SESSION_SECRET
+        sync: false
+      - key: GOCHOW_ADMIN_EMAIL
+        sync: false
+      - key: GOCHOW_ADMIN_PASSWORD
+        sync: false
+      - key: NEXT_PUBLIC_VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
