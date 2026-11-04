@@ -1,5 +1,6 @@
 # Free-tier host for the app (Render). Secret values are NOT stored here:
-# Render asks for each one when the service is created. Copy them from Vercel's Environment Variables page.
+# Render asks for each one when the service is created.
+# The phone-alert (VAPID) keys are optional: the app has built-in fallbacks.
 services:
   - type: web
     name: go-choww-operations
@@ -23,10 +24,4 @@ services:
       - key: GOCHOW_ADMIN_EMAIL
         sync: false
       - key: GOCHOW_ADMIN_PASSWORD
-        sync: false
-      - key: NEXT_PUBLIC_VAPID_PUBLIC_KEY
-        sync: false
-      - key: VAPID_PRIVATE_KEY
-        sync: false
-      - key: VAPID_SUBJECT
         sync: false
