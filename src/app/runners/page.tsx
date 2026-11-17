@@ -1,5 +1,6 @@
 'use client';
 
+import { whenVisible } from '@/lib/poll';
 import { Toggle } from '@/components/ui/Toggle';
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, Copy, Package, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
@@ -55,7 +56,7 @@ export default function RunnersPage() {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 15000);
+    const t = setInterval(whenVisible(load), 30000);
     return () => clearInterval(t);
   }, [load]);
 

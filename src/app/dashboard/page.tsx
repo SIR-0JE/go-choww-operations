@@ -1,5 +1,6 @@
 'use client';
 
+import { whenVisible } from '@/lib/poll';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { AppLayout } from '@/components/AppLayout';
@@ -128,7 +129,7 @@ export default function ExecutiveDashboardPage() {
       }
     };
     load();
-    const interval = setInterval(load, 20000);
+    const interval = setInterval(whenVisible(load), 60000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -460,9 +461,9 @@ export default function ExecutiveDashboardPage() {
     return () => window.removeEventListener('rider-activity', handleRiderActivity);
   }, [fetchData]);
 
-  // ── Periodic background poll every 30s so dashboard stays fresh ─────────────
+  // ── Periodic background poll every 60s (visible screen only) ─────────────
   useEffect(() => {
-    const interval = setInterval(() => fetchData(false), 30000);
+    const interval = setInterval(whenVisible(() => fetchData(false)), 60000);
     return () => clearInterval(interval);
   }, [fetchData]);
 

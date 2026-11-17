@@ -1,5 +1,6 @@
 'use client';
 
+import { whenVisible } from '@/lib/poll';
 import { telHref, whatsappNumber } from '@/lib/phone';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
@@ -173,10 +174,10 @@ export default function FleetRadarPage() {
     }
   }, []);
 
-  // Refresh every 10s while the page is open
+  // Refresh every 15s while the page is open and showing
   useEffect(() => {
     fetchFleetData(false);
-    const interval = setInterval(() => fetchFleetData(true), 10000);
+    const interval = setInterval(whenVisible(() => fetchFleetData(true)), 15000);
     return () => clearInterval(interval);
   }, [fetchFleetData]);
 

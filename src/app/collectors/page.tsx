@@ -1,5 +1,6 @@
 'use client';
 
+import { whenVisible } from '@/lib/poll';
 import { Toggle } from '@/components/ui/Toggle';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -143,7 +144,7 @@ export default function CollectorsPage() {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 15000);
+    const t = setInterval(whenVisible(load), 30000);
     return () => clearInterval(t);
   }, [load]);
 

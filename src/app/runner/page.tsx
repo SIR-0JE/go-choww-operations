@@ -1,5 +1,6 @@
 'use client';
 
+import { whenVisible } from '@/lib/poll';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, CheckCircle2, Clock, LogOut, MessageCircle, Package, Phone, RefreshCw, Store, Undo2 } from 'lucide-react';
@@ -94,7 +95,7 @@ export default function RunnerPage() {
     }
     unlockAudioOnFirstInteraction();
     load();
-    const poll = setInterval(load, 6000);
+    const poll = setInterval(whenVisible(load), 15000);
     const tick = setInterval(() => setNow(Date.now()), 20000);
     const onVisible = () => document.visibilityState === 'visible' && load();
     document.addEventListener('visibilitychange', onVisible);

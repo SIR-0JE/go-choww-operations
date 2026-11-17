@@ -559,7 +559,7 @@ export default function RiderPortalPage() {
 
     // Fast local portal data fetch (Direct database, sub-30ms)
     const fetchFast = async () => {
-      if (inFlightFetch) return;
+      if (inFlightFetch || document.visibilityState !== 'visible') return;
       inFlightFetch = true;
       try {
         await fetchPortalData(true);
@@ -571,8 +571,8 @@ export default function RiderPortalPage() {
     // Initial load
     fetchPortalData(false);
 
-    // Fast 3.5s poll for instant state transitions across riders
-    const fastInterval = setInterval(fetchFast, 3500);
+    // 15s poll (visible screen only); opening the app or unlocking the phone refreshes at once
+    const fastInterval = setInterval(fetchFast, 15000);
 
     // Instant sync on screen unlock / tab focus
     const handleVisibilityOrFocus = () => {
@@ -626,7 +626,7 @@ export default function RiderPortalPage() {
       }
     };
     triggerSync();
-    const syncInterval = setInterval(triggerSync, 15000);
+    const syncInterval = setInterval(triggerSync, 60000);
     return () => clearInterval(syncInterval);
   }, [isOnline, fetchPortalData]);
 

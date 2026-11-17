@@ -243,6 +243,7 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
     }
 
     const poll = async () => {
+      if (document.visibilityState !== 'visible') return;
       setIsPolling(true);
       await runSync({ silent: true, force: false });
       setIsPolling(false);
@@ -251,7 +252,8 @@ export const Header: React.FC<HeaderProps> = ({ onSyncComplete }) => {
     // Run immediately when operating window is active
     poll();
 
-    const intervalMs = (syncScheduleStatus?.intervalSeconds || 15) * 1000;
+    // The database timer already syncs every minute, so admin tabs only need an occasional nudge
+    const intervalMs = Math.max(60, syncScheduleStatus?.intervalSeconds || 15) * 1000;
     pollIntervalRef.current = setInterval(poll, intervalMs);
 
     // Instant sync on tab focus or phone screen unlock

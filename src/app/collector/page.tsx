@@ -1,5 +1,6 @@
 'use client';
 
+import { whenVisible } from '@/lib/poll';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -150,7 +151,7 @@ export default function CollectorPage() {
       return;
     }
     load();
-    const poll = setInterval(load, 8000);
+    const poll = setInterval(whenVisible(load), 15000);
     const tick = setInterval(() => setNow(Date.now()), 30000);
     const onVisible = () => document.visibilityState === 'visible' && load();
     document.addEventListener('visibilitychange', onVisible);

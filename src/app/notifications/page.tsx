@@ -1,5 +1,6 @@
 'use client';
 
+import { whenVisible } from '@/lib/poll';
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { Header } from '@/components/Header';
@@ -157,7 +158,7 @@ export default function NotificationsPage() {
     setSeenAt(readTime(SEEN_KEY));
     setClearedAt(readTime(CLEARED_KEY));
     load();
-    const id = setInterval(load, 10000);
+    const id = setInterval(whenVisible(load), 30000);
     return () => clearInterval(id);
   }, [load]);
 

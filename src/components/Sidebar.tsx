@@ -1,5 +1,6 @@
 'use client';
 
+import { whenVisible } from '@/lib/poll';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -72,7 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
         .catch(() => {});
     };
     refresh();
-    const id = setInterval(refresh, 30000);
+    const id = setInterval(whenVisible(refresh), 60000);
     window.addEventListener('notifications-updated', refresh);
     return () => {
       alive = false;

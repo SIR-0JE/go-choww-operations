@@ -1,5 +1,6 @@
 'use client';
 
+import { whenVisible } from '@/lib/poll';
 import { telHref } from '@/lib/phone';
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
@@ -113,7 +114,7 @@ export default function RidersPage() {
         .then((d) => alive && d.success && setLive(d.live))
         .catch(() => {});
     load();
-    const id = setInterval(load, 15000);
+    const id = setInterval(whenVisible(load), 30000);
     return () => {
       alive = false;
       clearInterval(id);
