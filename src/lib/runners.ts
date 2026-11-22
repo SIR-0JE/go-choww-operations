@@ -4,7 +4,7 @@ import { normalizePhone } from './collectors';
 import { sameString, signData } from './adminSession';
 
 /**
- * Runners: stationed at one cafeteria, they pack new orders early and tap Ready.
+ * Runners: stationed at a cafeteria (several can share one), they pack new orders early and tap Ready.
  * The tap is stored as an order timeline step (OrderEvent kind "runner_ready"), so it
  * shows up everywhere the timeline does, with no new columns on the orders table.
  */
@@ -96,10 +96,6 @@ export async function validateRunner(
     const p = normalizePhone(data.phone);
     if (p.length < 10) return 'Enter a full phone number.';
     if (others.some((r) => normalizePhone(r.phone) === p)) return 'Another runner already uses this phone number.';
-  }
-  if (data.cafeteria !== undefined) {
-    const owner = others.find((r) => r.status === 'Active' && sameCafeteria(r.cafeteria, data.cafeteria));
-    if (owner && (data.status ?? 'Active') === 'Active') return `${data.cafeteria} already has ${owner.name} on duty. Switch them off first.`;
   }
   return null;
 }

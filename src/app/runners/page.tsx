@@ -104,6 +104,8 @@ export default function RunnersPage() {
   };
 
   const covered = new Set((data?.runners || []).filter((r) => r.status === 'Active').map((r) => r.cafeteria.toLowerCase()));
+  const runnerCount = new Map<string, number>();
+  for (const r of data?.runners || []) if (r.status === 'Active') runnerCount.set(r.cafeteria.toLowerCase(), (runnerCount.get(r.cafeteria.toLowerCase()) || 0) + 1);
   const uncovered = (data?.cafeterias || []).filter((c) => !covered.has(c.toLowerCase()));
   const inputCls = 'h-10 w-full bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10';
 
@@ -114,7 +116,7 @@ export default function RunnersPage() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Runners</h1>
-            <p className="text-sm text-slate-500 mt-1">One runner at each cafeteria packs new orders early and taps Ready.</p>
+            <p className="text-sm text-slate-500 mt-1">Runners at each cafeteria pack new orders early and tap Ready. More than one can work at the same cafeteria.</p>
           </div>
           <button
             onClick={() => setEditing({ name: '', phone: '', pin: '', cafeteria: uncovered[0] || '' })}
@@ -288,7 +290,7 @@ export default function RunnersPage() {
                         }`}
                       >
                         {c}
-                        {taken && <span className={`block text-[10px] font-normal ${on ? 'text-slate-300' : 'text-slate-400'}`}>has a runner</span>}
+                        {taken && <span className={`block text-[10px] font-normal ${on ? 'text-slate-300' : 'text-slate-400'}`}>has {runnerCount.get(c.toLowerCase())} on duty</span>}
                       </button>
                     );
                   })}
@@ -300,7 +302,7 @@ export default function RunnersPage() {
                   className={`${inputCls} mt-2`}
                 />
               </div>
-              <p className="text-xs text-slate-400">One runner on duty per cafeteria. Switch the old one off before adding a replacement.</p>
+              <p className="text-xs text-slate-400">Several runners can share a cafeteria. They all see the same orders, and whoever taps Ready first gets the credit.</p>
             </div>
             <div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2">
               <button onClick={() => setEditing(null)} className="h-10 px-4 rounded-lg border border-slate-200 text-sm text-slate-700">

@@ -76,12 +76,18 @@ async function getNotPacked(now: Date): Promise<{ groups: NotPackedGroup[]; aler
       where: { ...toPackWhere(null, since), createdAt: { gte: since, lt: cutoff } },
       select: { cafeteriaName: true, createdAt: true },
     });
+    // One row per cafeteria, naming every runner on duty there
     const groups: NotPackedGroup[] = [];
+    const seen = new Set<string>();
     for (const r of runners) {
+      const key = r.cafeteria.trim().toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
       const mine = late.filter((o) => sameCafeteria(o.cafeteriaName, r.cafeteria));
       if (!mine.length) continue;
+      const names = runners.filter((x) => sameCafeteria(x.cafeteria, r.cafeteria)).map((x) => x.name);
       const oldest = Math.max(...mine.map((o) => Math.floor((now.getTime() - o.createdAt.getTime()) / 60000)));
-      groups.push({ cafeteria: r.cafeteria, runnerName: r.name, count: mine.length, oldestMinutes: oldest });
+      groups.push({ cafeteria: r.cafeteria, runnerName: names.join(', '), count: mine.length, oldestMinutes: oldest });
     }
     return { groups: groups.sort((a, b) => b.oldestMinutes - a.oldestMinutes), alertMinutes: settings.alertMinutes };
   } catch {

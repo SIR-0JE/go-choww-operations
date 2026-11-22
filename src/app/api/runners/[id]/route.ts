@@ -18,7 +18,6 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (body.cafeteria !== undefined) data.cafeteria = String(body.cafeteria).trim();
     if (body.status !== undefined) data.status = body.status === 'Active' ? 'Active' : 'Inactive';
 
-    // Switching someone on, or moving them, must not clash with whoever is on duty at that cafeteria
     const finalStatus = data.status ?? current.status;
     const error = await validateRunner(
       { ...data, cafeteria: finalStatus === 'Active' ? data.cafeteria ?? current.cafeteria : undefined, status: finalStatus },
