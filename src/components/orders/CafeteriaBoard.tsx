@@ -4,10 +4,13 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Store } from 'lucide-react';
 import { gochowStatusView, TONE_DOT } from '@/lib/orderStatus';
 
+const naira = (n: number) => `₦${Math.round(n || 0).toLocaleString('en-NG')}`;
+
 interface Row {
   cafeteria: string;
   total: number;
   noRider: number;
+  foodSales: number;
   byStatus: Record<string, number>;
 }
 
@@ -146,7 +149,7 @@ export function CafeteriaBoard({
           <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
             <Store className="w-4 h-4 text-slate-400" /> By cafeteria
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">GoChow status of each order · tap a number to see those orders</p>
+          <p className="text-xs text-slate-500 mt-0.5">GoChow status of each order and food sales (food only, cancelled orders not counted) · tap a number to see those orders</p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button
@@ -205,6 +208,7 @@ export function CafeteriaBoard({
                     </th>
                   ))}
                   <th className="text-center font-medium px-2 py-2 whitespace-nowrap">No rider</th>
+                  <th className="text-right font-medium px-4 py-2 whitespace-nowrap">Food sales</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -229,6 +233,7 @@ export function CafeteriaBoard({
                     <td className="text-center px-2 py-1.5">
                       <Num n={r.noRider} cafeteria={r.cafeteria} status="open" noRider warn />
                     </td>
+                    <td className="text-right px-4 py-1.5 tabular-nums font-semibold text-slate-900">{naira(r.foodSales)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -247,6 +252,7 @@ export function CafeteriaBoard({
                     <td className="text-center px-2 py-2">
                       <Num n={data.totals.noRider} cafeteria="" status="open" noRider warn />
                     </td>
+                    <td className="text-right px-4 py-2 tabular-nums font-semibold text-slate-900">{naira(data.totals.foodSales)}</td>
                   </tr>
                 </tfoot>
               )}
@@ -317,7 +323,7 @@ function StatusChips({
           {label}
         </button>
         <span className="text-sm text-slate-500 shrink-0">
-          <span className="font-semibold text-slate-900 tabular-nums">{row.total}</span> orders
+          <span className="font-semibold text-slate-900 tabular-nums">{row.total}</span> orders · <span className="font-semibold text-slate-900 tabular-nums">{naira(row.foodSales)}</span>
         </span>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">

@@ -12,8 +12,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Go Choww Operations & Debt Recovery SaaS",
-  description: "Centralized logistics dashboard, real-time revenue tracking, rider payout calculation, and ₦3,500,000 debt recovery sprint monitoring.",
+  title: "Go Choww Operations",
+  description: "Go Choww delivery operations: orders, riders, cafeterias and daily performance.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

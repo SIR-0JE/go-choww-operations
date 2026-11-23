@@ -11,6 +11,7 @@ type Row = {
   cafeteria: string;
   total: number;
   noRider: number;
+  foodSales: number; // food total of orders that are not cancelled
   byStatus: Record<string, number>;
 };
 
@@ -30,17 +31,17 @@ export async function GET(request: NextRequest) {
 
     const orders = await prisma.deliveryOrder.findMany({
       where: { createdAt: { gte: start, lt: end } },
-      select: { cafeteriaName: true, gochowStatus: true, orderStatus: true, riderId: true, deliveryType: true },
+      select: { cafeteriaName: true, gochowStatus: true, orderStatus: true, riderId: true, deliveryType: true, foodTotal: true },
     });
 
     const emptyCounts = () => Object.fromEntries(GOCHOW_STATUSES.map((s) => [s, 0])) as Record<string, number>;
     const rows = new Map<string, Row>();
-    const totals: Row = { cafeteria: 'All cafeterias', total: 0, noRider: 0, byStatus: emptyCounts() };
+    const totals: Row = { cafeteria: 'All cafeterias', total: 0, noRider: 0, foodSales: 0, byStatus: emptyCounts() };
 
     for (const o of orders) {
       const name = (o.cafeteriaName || 'Unknown').trim();
       const key = name.toLowerCase();
-      if (!rows.has(key)) rows.set(key, { cafeteria: name, total: 0, noRider: 0, byStatus: emptyCounts() });
+      if (!rows.has(key)) rows.set(key, { cafeteria: name, total: 0, noRider: 0, foodSales: 0, byStatus: emptyCounts() });
       const row = rows.get(key)!;
       const own = (o.orderStatus || '').toLowerCase();
       const status = effectiveGochowStatus(o);
@@ -48,6 +49,7 @@ export async function GET(request: NextRequest) {
       for (const r of [row, totals]) {
         r.total++;
         r.byStatus[status] = (r.byStatus[status] || 0) + 1;
+        if (!cancelled) r.foodSales += Number(o.foodTotal) || 0;
         if (!o.riderId && !cancelled && !isPickup(o.deliveryType)) r.noRider++;
       }
     }
